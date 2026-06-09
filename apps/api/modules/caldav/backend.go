@@ -103,6 +103,9 @@ func (b *Backend) ListCalendars(ctx context.Context) ([]caldav.Calendar, error) 
 }
 
 func (b *Backend) GetCalendar(ctx context.Context, reqPath string) (*caldav.Calendar, error) {
+	if err := b.validatePathUser(ctx, reqPath); err != nil {
+		return nil, err
+	}
 	cal, err := b.loadCalendarByPath(ctx, reqPath)
 	if err != nil {
 		return nil, err
@@ -113,6 +116,9 @@ func (b *Backend) GetCalendar(ctx context.Context, reqPath string) (*caldav.Cale
 }
 
 func (b *Backend) GetCalendarObject(ctx context.Context, objPath string, req *caldav.CalendarCompRequest) (*caldav.CalendarObject, error) {
+	if err := b.validatePathUser(ctx, objPath); err != nil {
+		return nil, err
+	}
 	_, calID, uid, err := parsePath(objPath)
 	if err != nil || uid == "" {
 		return nil, webdav.NewHTTPError(http.StatusNotFound, fmt.Errorf("invalid path"))
@@ -135,6 +141,9 @@ func (b *Backend) GetCalendarObject(ctx context.Context, objPath string, req *ca
 }
 
 func (b *Backend) ListCalendarObjects(ctx context.Context, calPath string, req *caldav.CalendarCompRequest) ([]caldav.CalendarObject, error) {
+	if err := b.validatePathUser(ctx, calPath); err != nil {
+		return nil, err
+	}
 	_, calID, _, err := parsePath(calPath)
 	if err != nil {
 		return nil, webdav.NewHTTPError(http.StatusNotFound, fmt.Errorf("invalid path"))
@@ -207,6 +216,9 @@ func (b *Backend) QueryCalendarObjects(ctx context.Context, _ string, query *cal
 }
 
 func (b *Backend) PutCalendarObject(ctx context.Context, objPath string, calendar *ical.Calendar, opts *caldav.PutCalendarObjectOptions) (*caldav.CalendarObject, error) {
+	if err := b.validatePathUser(ctx, objPath); err != nil {
+		return nil, err
+	}
 	_, calID, _, err := parsePath(objPath)
 	if err != nil {
 		return nil, webdav.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid path"))
@@ -299,6 +311,9 @@ func (b *Backend) PutCalendarObject(ctx context.Context, objPath string, calenda
 }
 
 func (b *Backend) DeleteCalendarObject(ctx context.Context, objPath string) error {
+	if err := b.validatePathUser(ctx, objPath); err != nil {
+		return err
+	}
 	_, calID, uid, err := parsePath(objPath)
 	if err != nil || uid == "" {
 		return webdav.NewHTTPError(http.StatusNotFound, fmt.Errorf("invalid path"))
@@ -455,4 +470,18 @@ func newETag() string {
 
 func newSyncToken() string {
 	return strconv.FormatInt(time.Now().UnixNano(), 36)
+}
+
+// validatePathUser rejects requests where the email segment in the CalDAV path
+// does not match the authenticated user, preventing cross-namespace access.
+func (b *Backend) validatePathUser(ctx context.Context, p string) error {
+	user := userFromContext(ctx)
+	if user == nil {
+		return webdav.NewHTTPError(http.StatusUnauthorized, fmt.Errorf("not authenticated"))
+	}
+	email, _, _, _ := parsePath(p)
+	if email != "" && email != user.Email {
+		return webdav.NewHTTPError(http.StatusForbidden, fmt.Errorf("access denied"))
+	}
+	return nil
 }

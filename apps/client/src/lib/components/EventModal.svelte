@@ -78,9 +78,17 @@
 			error = 'Le titre est requis.';
 			return;
 		}
-		if (!calendarId) {
-			error = 'Sélectionnez un calendrier.';
+		if (!calendarId || !calendars.find((c) => c.id === calendarId)) {
+			error = 'Sélectionnez un calendrier valide.';
 			return;
+		}
+		if (!isAllDay) {
+			const s = new Date(startAt);
+			const e = new Date(endAt);
+			if (!isNaN(s.getTime()) && !isNaN(e.getTime()) && e <= s) {
+				error = 'La fin doit être après le début.';
+				return;
+			}
 		}
 		saving = true;
 		error = '';

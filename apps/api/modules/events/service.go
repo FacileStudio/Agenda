@@ -49,7 +49,23 @@ func (s *Service) ListEvents(ctx context.Context, userID int64, calendarID int64
 	return out, nil
 }
 
+func validateEventFields(title string, startAt, endAt time.Time) error {
+	if strings.TrimSpace(title) == "" {
+		return errors.Invalid("title is required")
+	}
+	if len(title) > 500 {
+		return errors.Invalid("title must be 500 characters or fewer")
+	}
+	if !endAt.IsZero() && !startAt.IsZero() && !endAt.After(startAt) {
+		return errors.Invalid("end time must be after start time")
+	}
+	return nil
+}
+
 func (s *Service) CreateEvent(ctx context.Context, userID int64, calendarID int64, req *CreateEventRequest) (*EventResponse, error) {
+	if err := validateEventFields(req.Title, req.StartAt, req.EndAt); err != nil {
+		return nil, err
+	}
 	if err := s.checkCalendarWriteAccess(ctx, userID, calendarID); err != nil {
 		return nil, err
 	}
@@ -89,6 +105,9 @@ func (s *Service) GetEvent(ctx context.Context, userID int64, eventID int64) (*E
 }
 
 func (s *Service) UpdateEvent(ctx context.Context, userID int64, eventID int64, req *UpdateEventRequest) (*EventResponse, error) {
+	if err := validateEventFields(req.Title, req.StartAt, req.EndAt); err != nil {
+		return nil, err
+	}
 	evt, err := s.loadWithAccess(ctx, userID, eventID)
 	if err != nil {
 		return nil, err

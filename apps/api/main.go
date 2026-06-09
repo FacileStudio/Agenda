@@ -85,6 +85,7 @@ func main() {
 	router.Use(middleware.RequestLogger(appLogger))
 	router.Use(chimiddleware.Recoverer)
 	router.Use(middleware.SecurityHeaders)
+	router.Use(middleware.MaxBodySize(4 << 20)) // 4 MB
 
 	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		httpjson.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})

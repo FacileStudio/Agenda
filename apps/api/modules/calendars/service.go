@@ -81,7 +81,20 @@ func (s *Service) ListCalendars(ctx context.Context, userID int64) ([]CalendarRe
 	return out, nil
 }
 
+func validateCalendarFields(name string) error {
+	if strings.TrimSpace(name) == "" {
+		return errors.Invalid("name is required")
+	}
+	if len(name) > 255 {
+		return errors.Invalid("name must be 255 characters or fewer")
+	}
+	return nil
+}
+
 func (s *Service) CreateCalendar(ctx context.Context, userID int64, req *CreateCalendarRequest) (*CalendarResponse, error) {
+	if err := validateCalendarFields(req.Name); err != nil {
+		return nil, err
+	}
 	slug := slugify(req.Name) + "-" + strconv.FormatInt(userID, 10) + "-" + strconv.FormatInt(time.Now().UnixMilli(), 36)
 	cal := &schemas.Calendar{
 		OwnerID:     userID,
@@ -122,6 +135,9 @@ func (s *Service) GetCalendar(ctx context.Context, userID int64, calendarID int6
 }
 
 func (s *Service) UpdateCalendar(ctx context.Context, userID int64, calendarID int64, req *UpdateCalendarRequest) (*CalendarResponse, error) {
+	if err := validateCalendarFields(req.Name); err != nil {
+		return nil, err
+	}
 	cal, role, err := s.loadWithAccess(ctx, userID, calendarID)
 	if err != nil {
 		return nil, err

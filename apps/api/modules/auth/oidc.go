@@ -65,6 +65,7 @@ func (h *oidcHandler) login(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   int(oidcStateTTL.Seconds()),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
+		Secure:   isSecure(r),
 	})
 	http.Redirect(w, r, h.oauth2Cfg.AuthCodeURL(state), http.StatusFound)
 }
