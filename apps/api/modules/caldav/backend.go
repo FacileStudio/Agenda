@@ -170,41 +170,55 @@ func (b *Backend) ListCalendarObjects(ctx context.Context, calPath string, req *
 	return out, nil
 }
 
-func (b *Backend) QueryCalendarObjects(ctx context.Context, _ string, query *caldav.CalendarQuery) ([]caldav.CalendarObject, error) {
+func (b *Backend) QueryCalendarObjects(ctx context.Context, calPath string, query *caldav.CalendarQuery) ([]caldav.CalendarObject, error) {
 	user := userFromContext(ctx)
 	if user == nil {
 		return nil, webdav.NewHTTPError(http.StatusUnauthorized, fmt.Errorf("not authenticated"))
 	}
-
-	var cals []schemas.Calendar
-	b.db.WithContext(ctx).Raw(`
-		SELECT c.* FROM calendars c WHERE c.owner_id = ?
-		UNION
-		SELECT c.* FROM calendars c
-		JOIN calendar_members cm ON cm.calendar_id = c.id
-		WHERE cm.user_id = ? AND c.owner_id != ?
-	`, user.ID, user.ID, user.ID).Scan(&cals)
+	if err := b.validatePathUser(ctx, calPath); err != nil {
+		return nil, err
+	}
 
 	homeSet, _ := b.CalendarHomeSetPath(ctx)
+
+	// Scope to a specific calendar when the path contains one, otherwise search all.
+	_, calID, _, _ := parsePath(calPath)
+	var cals []schemas.Calendar
+	if calID != 0 {
+		if err := b.checkCalendarAccess(ctx, calID); err != nil {
+			return nil, err
+		}
+		var cal schemas.Calendar
+		if err := b.db.WithContext(ctx).First(&cal, calID).Error; err != nil {
+			return nil, webdav.NewHTTPError(http.StatusNotFound, fmt.Errorf("calendar not found"))
+		}
+		cals = []schemas.Calendar{cal}
+	} else {
+		b.db.WithContext(ctx).Raw(`
+			SELECT c.* FROM calendars c WHERE c.owner_id = ?
+			UNION
+			SELECT c.* FROM calendars c
+			JOIN calendar_members cm ON cm.calendar_id = c.id
+			WHERE cm.user_id = ? AND c.owner_id != ?
+		`, user.ID, user.ID, user.ID).Scan(&cals)
+	}
 
 	var all []caldav.CalendarObject
 	for _, cal := range cals {
 		q := b.db.WithContext(ctx).Where("calendar_id = ?", cal.ID)
-
 		if !query.CompFilter.Start.IsZero() {
 			q = q.Where("end_at >= ?", query.CompFilter.Start)
 		}
 		if !query.CompFilter.End.IsZero() {
 			q = q.Where("start_at <= ?", query.CompFilter.End)
 		}
-
 		var evts []schemas.Event
 		if err := q.Find(&evts).Error; err != nil {
 			continue
 		}
-		calPath := homeSet + "/" + strconv.FormatInt(cal.ID, 10)
+		cp := homeSet + "/" + strconv.FormatInt(cal.ID, 10)
 		for i := range evts {
-			objPath := calPath + "/" + evts[i].UID + ".ics"
+			objPath := cp + "/" + evts[i].UID + ".ics"
 			co, err := toCalendarObject(&evts[i], objPath)
 			if err != nil {
 				continue
@@ -219,18 +233,23 @@ func (b *Backend) PutCalendarObject(ctx context.Context, objPath string, calenda
 	if err := b.validatePathUser(ctx, objPath); err != nil {
 		return nil, err
 	}
-	_, calID, _, err := parsePath(objPath)
+	_, calID, rawPathSeg, err := parsePath(objPath)
 	if err != nil {
 		return nil, webdav.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid path"))
 	}
+	pathUID := strings.TrimSuffix(rawPathSeg, ".ics")
 
 	if err := b.checkCalendarWriteAccess(ctx, calID); err != nil {
 		return nil, err
 	}
 
-	_, uid, err := caldav.ValidateCalendarObject(calendar)
+	// ValidateCalendarObject also returns the component type so we can reject VTODO/VJOURNAL.
+	eventType, uid, err := caldav.ValidateCalendarObject(calendar)
 	if err != nil {
 		return nil, caldav.NewPreconditionError(caldav.PreconditionValidCalendarData)
+	}
+	if eventType != ical.CompEvent {
+		return nil, caldav.NewPreconditionError(caldav.PreconditionSupportedCalendarComponent)
 	}
 
 	var buf bytes.Buffer
@@ -240,10 +259,23 @@ func (b *Backend) PutCalendarObject(ctx context.Context, objPath string, calenda
 	rawICS := buf.String()
 
 	var evt schemas.Event
-	notFound := stderrors.Is(b.db.WithContext(ctx).Where("uid = ? AND calendar_id = ?", uid, calID).First(&evt).Error, gorm.ErrRecordNotFound)
+	lookupErr := b.db.WithContext(ctx).Where("uid = ? AND calendar_id = ?", uid, calID).First(&evt).Error
+	notFound := stderrors.Is(lookupErr, gorm.ErrRecordNotFound)
+	if lookupErr != nil && !notFound {
+		return nil, webdav.NewHTTPError(http.StatusInternalServerError, lookupErr)
+	}
+
+	// RFC 4791 §5.3.2.1: reject if another resource already owns this UID in the calendar.
+	if !notFound && uid != pathUID {
+		return nil, caldav.NewPreconditionError(caldav.PreconditionNoUIDConflict)
+	}
 
 	if opts.IfNoneMatch.IsWildcard() && !notFound {
 		return nil, webdav.NewHTTPError(http.StatusPreconditionFailed, fmt.Errorf("resource already exists"))
+	}
+	// RFC 2616 §14.24: If-Match: * requires the resource to exist.
+	if opts.IfMatch.IsWildcard() && notFound {
+		return nil, webdav.NewHTTPError(http.StatusPreconditionFailed, fmt.Errorf("resource does not exist"))
 	}
 	if s := string(opts.IfMatch); s != "" && !opts.IfMatch.IsWildcard() {
 		if notFound || evt.ETag != strings.Trim(s, `"`) {
@@ -269,6 +301,12 @@ func (b *Backend) PutCalendarObject(ctx context.Context, objPath string, calenda
 	evt.Location = propText(comp, ical.PropLocation)
 	evt.RecurrenceRule = propText(comp, ical.PropRecurrenceRule)
 	evt.RawICS = rawICS
+
+	if seqStr := propText(comp, ical.PropSequence); seqStr != "" {
+		if seq, err := strconv.Atoi(seqStr); err == nil {
+			evt.Sequence = seq
+		}
+	}
 
 	if status := strings.ToLower(propText(comp, ical.PropStatus)); status != "" {
 		evt.Status = status
@@ -437,12 +475,13 @@ func toCalendarObject(e *schemas.Event, objPath string) (*caldav.CalendarObject,
 	if err != nil {
 		return nil, webdav.NewHTTPError(http.StatusInternalServerError, fmt.Errorf("failed to parse stored ICS: %w", err))
 	}
+	// ETag must be the raw unquoted value — go-webdav wraps it in %q when writing headers.
+	// ContentLength is 0 because go-webdav re-encodes cal.Data and the byte count may differ.
 	return &caldav.CalendarObject{
-		Path:          objPath,
-		ModTime:       e.UpdatedAt,
-		ContentLength: int64(len(e.RawICS)),
-		ETag:          `"` + e.ETag + `"`,
-		Data:          cal,
+		Path:    objPath,
+		ModTime: e.UpdatedAt,
+		ETag:    e.ETag,
+		Data:    cal,
 	}, nil
 }
 

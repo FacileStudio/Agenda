@@ -4,9 +4,10 @@ import "time"
 
 type Event struct {
 	ID             int64     `gorm:"column:id;primaryKey"`
-	CalendarID     int64     `gorm:"column:calendar_id;index"`
-	UID            string    `gorm:"column:uid;uniqueIndex"`
+	CalendarID     int64     `gorm:"column:calendar_id;index;uniqueIndex:idx_uid_calendar"`
+	UID            string    `gorm:"column:uid;uniqueIndex:idx_uid_calendar"`
 	ETag           string    `gorm:"column:etag"`
+	Sequence       int       `gorm:"column:sequence;default:0"`
 	Title          string    `gorm:"column:title"`
 	Description    string    `gorm:"column:description;type:text"`
 	Location       string    `gorm:"column:location"`

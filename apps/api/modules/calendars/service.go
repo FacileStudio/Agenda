@@ -41,6 +41,8 @@ func (s *Service) EnsurePersonalCalendar(ctx context.Context, userID int64) erro
 }
 
 func (s *Service) ListCalendars(ctx context.Context, userID int64) ([]CalendarResponse, error) {
+	// Ensure the personal calendar exists — idempotent, creates it on first call.
+	_ = s.EnsurePersonalCalendar(ctx, userID)
 	type row struct {
 		ID          int64
 		OwnerID     int64

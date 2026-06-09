@@ -117,6 +117,7 @@ func (s *Service) UpdateEvent(ctx context.Context, userID int64, eventID int64, 
 	}
 
 	evt.ETag = newETag()
+	evt.Sequence++
 	evt.Title = req.Title
 	evt.Description = req.Description
 	evt.Location = req.Location
@@ -255,10 +256,22 @@ func statusOrDefault(s string) string {
 }
 
 func buildRawICS(e *schemas.Event) string {
+	const dtFmt = "20060102T150405Z"
+	createdAt := e.CreatedAt
+	if createdAt.IsZero() {
+		createdAt = time.Now().UTC()
+	}
+	updatedAt := e.UpdatedAt
+	if updatedAt.IsZero() {
+		updatedAt = createdAt
+	}
 	ics := "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//FacileStudio//Agenda//EN\r\n"
 	ics += "BEGIN:VEVENT\r\n"
 	ics += fmt.Sprintf("UID:%s\r\n", e.UID)
-	ics += fmt.Sprintf("DTSTAMP:%s\r\n", time.Now().UTC().Format("20060102T150405Z"))
+	ics += fmt.Sprintf("DTSTAMP:%s\r\n", createdAt.UTC().Format(dtFmt))
+	ics += fmt.Sprintf("CREATED:%s\r\n", createdAt.UTC().Format(dtFmt))
+	ics += fmt.Sprintf("LAST-MODIFIED:%s\r\n", updatedAt.UTC().Format(dtFmt))
+	ics += fmt.Sprintf("SEQUENCE:%d\r\n", e.Sequence)
 	ics += fmt.Sprintf("SUMMARY:%s\r\n", escapeICS(e.Title))
 	if e.IsAllDay {
 		ics += fmt.Sprintf("DTSTART;VALUE=DATE:%s\r\n", e.StartAt.UTC().Format("20060102"))

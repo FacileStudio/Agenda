@@ -12,6 +12,13 @@ import (
 )
 
 func RegisterRoutes(router chi.Router, db *gorm.DB) {
+	// chi only knows standard HTTP methods by default.
+	// WebDAV/CalDAV uses PROPFIND, PROPPATCH, MKCALENDAR, REPORT — register them
+	// so chi includes them in its mALL bitmask and HandleFunc matches them.
+	for _, m := range []string{"PROPFIND", "PROPPATCH", "MKCALENDAR", "REPORT", "COPY", "MOVE", "LOCK", "UNLOCK"} {
+		chi.RegisterMethod(m)
+	}
+
 	backend := NewBackend(db)
 	handler := &gocaldav.Handler{
 		Backend: backend,
@@ -20,7 +27,11 @@ func RegisterRoutes(router chi.Router, db *gorm.DB) {
 
 	auth := davAuthMiddleware(db)
 
-	router.With(auth).HandleFunc("/.well-known/caldav", handler.ServeHTTP)
+	// RFC 6764: /.well-known/caldav must be reachable without auth so clients
+	// can bootstrap discovery before they have a session.
+	router.HandleFunc("/.well-known/caldav", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, davPrefix+"/", http.StatusPermanentRedirect)
+	})
 	router.With(auth).HandleFunc(davPrefix, handler.ServeHTTP)
 	router.With(auth).HandleFunc(davPrefix+"/*", handler.ServeHTTP)
 }
