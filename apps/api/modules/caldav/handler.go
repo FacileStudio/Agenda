@@ -40,13 +40,15 @@ func davAuthMiddleware(db *gorm.DB) func(http.Handler) http.Handler {
 }
 
 func resolveUser(r *http.Request, db *gorm.DB) *schemas.User {
+	ctx := r.Context()
+
 	// Session cookie (web UI / browser testing)
 	if cookie, err := r.Cookie("session"); err == nil && cookie.Value != "" {
 		hashed := authcrypto.HashToken(cookie.Value)
 		var sess schemas.Session
-		if db.Where("token = ? AND expires_at > NOW()", hashed).First(&sess).Error == nil {
+		if db.WithContext(ctx).Where("token = ? AND expires_at > NOW()", hashed).First(&sess).Error == nil {
 			var u schemas.User
-			if db.First(&u, sess.UserID).Error == nil {
+			if db.WithContext(ctx).First(&u, sess.UserID).Error == nil {
 				return &u
 			}
 		}
@@ -55,7 +57,7 @@ func resolveUser(r *http.Request, db *gorm.DB) *schemas.User {
 	// HTTP Basic Auth (native CalDAV clients: Apple Calendar, Thunderbird, DAVx⁵)
 	if email, password, ok := r.BasicAuth(); ok && email != "" {
 		var u schemas.User
-		if db.Where("email = ?", email).First(&u).Error == nil {
+		if db.WithContext(ctx).Where("email = ?", email).First(&u).Error == nil {
 			if authcrypto.VerifyPassword(password, u.PasswordHash) {
 				return &u
 			}

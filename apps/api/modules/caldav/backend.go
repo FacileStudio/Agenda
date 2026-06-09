@@ -85,11 +85,11 @@ func (b *Backend) ListCalendars(ctx context.Context) ([]caldav.Calendar, error) 
 	var cals []schemas.Calendar
 	err := b.db.WithContext(ctx).Raw(`
 		SELECT c.* FROM calendars c WHERE c.owner_id = ?
-		UNION ALL
+		UNION
 		SELECT c.* FROM calendars c
 		JOIN calendar_members cm ON cm.calendar_id = c.id
-		WHERE cm.user_id = ?
-	`, user.ID, user.ID).Scan(&cals).Error
+		WHERE cm.user_id = ? AND c.owner_id != ?
+	`, user.ID, user.ID, user.ID).Scan(&cals).Error
 	if err != nil {
 		return nil, webdav.NewHTTPError(http.StatusInternalServerError, err)
 	}
@@ -170,11 +170,11 @@ func (b *Backend) QueryCalendarObjects(ctx context.Context, _ string, query *cal
 	var cals []schemas.Calendar
 	b.db.WithContext(ctx).Raw(`
 		SELECT c.* FROM calendars c WHERE c.owner_id = ?
-		UNION ALL
+		UNION
 		SELECT c.* FROM calendars c
 		JOIN calendar_members cm ON cm.calendar_id = c.id
-		WHERE cm.user_id = ?
-	`, user.ID, user.ID).Scan(&cals)
+		WHERE cm.user_id = ? AND c.owner_id != ?
+	`, user.ID, user.ID, user.ID).Scan(&cals)
 
 	homeSet, _ := b.CalendarHomeSetPath(ctx)
 
@@ -369,8 +369,11 @@ func (b *Backend) checkCalendarAccess(ctx context.Context, calID int64) error {
 	}
 	var member schemas.CalendarMember
 	err := b.db.WithContext(ctx).Where("calendar_id = ? AND user_id = ?", calID, user.ID).First(&member).Error
-	if stderrors.Is(err, gorm.ErrRecordNotFound) {
-		return webdav.NewHTTPError(http.StatusForbidden, fmt.Errorf("access denied"))
+	if err != nil {
+		if stderrors.Is(err, gorm.ErrRecordNotFound) {
+			return webdav.NewHTTPError(http.StatusForbidden, fmt.Errorf("access denied"))
+		}
+		return webdav.NewHTTPError(http.StatusInternalServerError, err)
 	}
 	return nil
 }

@@ -19,8 +19,8 @@ func (Calendar) TableName() string { return "calendars" }
 
 type CalendarMember struct {
 	ID         int64     `gorm:"column:id;primaryKey"`
-	CalendarID int64     `gorm:"column:calendar_id;index"`
-	UserID     int64     `gorm:"column:user_id;index"`
+	CalendarID int64     `gorm:"column:calendar_id;uniqueIndex:idx_calendar_member"`
+	UserID     int64     `gorm:"column:user_id;uniqueIndex:idx_calendar_member"`
 	Role       string    `gorm:"column:role"` // reader, writer, admin
 	CreatedAt  time.Time `gorm:"column:created_at;autoCreateTime"`
 }

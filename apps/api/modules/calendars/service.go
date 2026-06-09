@@ -60,8 +60,8 @@ func (s *Service) ListCalendars(ctx context.Context, userID int64) ([]CalendarRe
 		SELECT c.id, c.owner_id, c.name, c.color, c.description, c.is_personal, cm.role
 		FROM calendars c
 		JOIN calendar_members cm ON cm.calendar_id = c.id
-		WHERE cm.user_id = ?
-	`, userID, userID).Scan(&rows).Error
+		WHERE cm.user_id = ? AND c.owner_id != ?
+	`, userID, userID, userID).Scan(&rows).Error
 	if err != nil {
 		return nil, errors.Internal("failed to list calendars", err)
 	}

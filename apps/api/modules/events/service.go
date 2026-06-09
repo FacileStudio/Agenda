@@ -236,16 +236,18 @@ func statusOrDefault(s string) string {
 }
 
 func buildRawICS(e *schemas.Event) string {
-	dtFormat := "20060102T150405Z"
-	if e.IsAllDay {
-		dtFormat = "20060102"
-	}
 	ics := "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//FacileStudio//Agenda//EN\r\n"
 	ics += "BEGIN:VEVENT\r\n"
 	ics += fmt.Sprintf("UID:%s\r\n", e.UID)
+	ics += fmt.Sprintf("DTSTAMP:%s\r\n", time.Now().UTC().Format("20060102T150405Z"))
 	ics += fmt.Sprintf("SUMMARY:%s\r\n", escapeICS(e.Title))
-	ics += fmt.Sprintf("DTSTART:%s\r\n", e.StartAt.UTC().Format(dtFormat))
-	ics += fmt.Sprintf("DTEND:%s\r\n", e.EndAt.UTC().Format(dtFormat))
+	if e.IsAllDay {
+		ics += fmt.Sprintf("DTSTART;VALUE=DATE:%s\r\n", e.StartAt.UTC().Format("20060102"))
+		ics += fmt.Sprintf("DTEND;VALUE=DATE:%s\r\n", e.EndAt.UTC().Format("20060102"))
+	} else {
+		ics += fmt.Sprintf("DTSTART:%s\r\n", e.StartAt.UTC().Format("20060102T150405Z"))
+		ics += fmt.Sprintf("DTEND:%s\r\n", e.EndAt.UTC().Format("20060102T150405Z"))
+	}
 	if e.Description != "" {
 		ics += fmt.Sprintf("DESCRIPTION:%s\r\n", escapeICS(e.Description))
 	}
