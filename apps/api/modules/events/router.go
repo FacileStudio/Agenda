@@ -1,0 +1,23 @@
+package events
+
+import (
+	"api/internal/middleware"
+	"api/modules/auth"
+
+	"github.com/go-chi/chi/v5"
+)
+
+func RegisterRoutes(router chi.Router, service *Service, authService *auth.Service) {
+	c := newController(service)
+	router.Route("/calendars/{calendarID}/events", func(r chi.Router) {
+		r.Use(middleware.RequireAuth(authService))
+		r.Get("/", c.list)
+		r.Post("/", c.create)
+	})
+	router.Route("/events/{eventID}", func(r chi.Router) {
+		r.Use(middleware.RequireAuth(authService))
+		r.Get("/", c.get)
+		r.Put("/", c.update)
+		r.Delete("/", c.delete)
+	})
+}

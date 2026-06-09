@@ -1,0 +1,42 @@
+package events
+
+import "time"
+
+type CreateEventRequest struct {
+	Title          string    `json:"title"`
+	Description    string    `json:"description"`
+	Location       string    `json:"location"`
+	StartAt        time.Time `json:"start_at"`
+	EndAt          time.Time `json:"end_at"`
+	IsAllDay       bool      `json:"is_all_day"`
+	RecurrenceRule string    `json:"recurrence_rule"`
+	Status         string    `json:"status"`
+}
+
+type UpdateEventRequest struct {
+	Title          string    `json:"title"`
+	Description    string    `json:"description"`
+	Location       string    `json:"location"`
+	StartAt        time.Time `json:"start_at"`
+	EndAt          time.Time `json:"end_at"`
+	IsAllDay       bool      `json:"is_all_day"`
+	RecurrenceRule string    `json:"recurrence_rule"`
+	Status         string    `json:"status"`
+}
+
+type EventResponse struct {
+	ID             int64     `json:"id"`
+	CalendarID     int64     `json:"calendar_id"`
+	UID            string    `json:"uid"`
+	ETag           string    `json:"etag"`
+	Title          string    `json:"title"`
+	Description    string    `json:"description"`
+	Location       string    `json:"location"`
+	StartAt        time.Time `json:"start_at"`
+	EndAt          time.Time `json:"end_at"`
+	IsAllDay       bool      `json:"is_all_day"`
+	RecurrenceRule string    `json:"recurrence_rule"`
+	Status         string    `json:"status"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}

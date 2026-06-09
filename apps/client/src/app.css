@@ -1,0 +1,266 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn-svelte/tailwind.css";
+
+@font-face {
+	font-family: 'Inter';
+	src: url('/fonts/Inter-Thin.ttf') format('truetype');
+	font-weight: 100;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Inter';
+	src: url('/fonts/Inter-ExtraLight.ttf') format('truetype');
+	font-weight: 200;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Inter';
+	src: url('/fonts/Inter-Light.ttf') format('truetype');
+	font-weight: 300;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Inter';
+	src: url('/fonts/Inter-Regular.ttf') format('truetype');
+	font-weight: 400;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Inter';
+	src: url('/fonts/Inter-Medium.ttf') format('truetype');
+	font-weight: 500;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Inter';
+	src: url('/fonts/Inter-SemiBold.ttf') format('truetype');
+	font-weight: 600;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Inter';
+	src: url('/fonts/Inter-Bold.ttf') format('truetype');
+	font-weight: 700;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Inter';
+	src: url('/fonts/Inter-ExtraBold.ttf') format('truetype');
+	font-weight: 800;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Inter';
+	src: url('/fonts/Inter-Black.ttf') format('truetype');
+	font-weight: 900;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Goga';
+	src: url('/fonts/GogaTest-Hairline-BF6646d5d845dae.otf') format('opentype');
+	font-weight: 100;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Goga';
+	src: url('/fonts/GogaTest-Thin-BF6646d5d8040a9.otf') format('opentype');
+	font-weight: 200;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Goga';
+	src: url('/fonts/GogaTest-Extralight-BF6646d5d82fb83.otf') format('opentype');
+	font-weight: 300;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Goga';
+	src: url('/fonts/GogaTest-Light-BF6646d5d84c8a2.otf') format('opentype');
+	font-weight: 350;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Goga';
+	src: url('/fonts/GogaTest-Regular-BF6646d5d84f69b.otf') format('opentype');
+	font-weight: 400;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Goga';
+	src: url('/fonts/GogaTest-Medium-BF6646d5d84754e.otf') format('opentype');
+	font-weight: 500;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Goga';
+	src: url('/fonts/GogaTest-Semibold-BF6646d5d8544cf.otf') format('opentype');
+	font-weight: 600;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Goga';
+	src: url('/fonts/GogaTest-Bold-BF6646d5d83c978.otf') format('opentype');
+	font-weight: 700;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Goga';
+	src: url('/fonts/GogaTest-Extrabold-BF6646d5d7d0a2b.otf') format('opentype');
+	font-weight: 800;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Goga';
+	src: url('/fonts/GogaTest-Black-BF6646d5d78e551.otf') format('opentype');
+	font-weight: 900;
+	font-style: normal;
+}
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+	--background: oklch(1 0 0);
+	--foreground: oklch(0.145 0 0);
+	--card: oklch(1 0 0);
+	--card-foreground: oklch(0.145 0 0);
+	--primary: oklch(0.145 0 0);
+	--primary-foreground: oklch(1 0 0);
+	--secondary: oklch(0.97 0 0);
+	--secondary-foreground: oklch(0.205 0 0);
+	--muted: oklch(0.97 0 0);
+	--muted-foreground: oklch(0.556 0 0);
+	--border: oklch(0.9 0 0);
+	--input: oklch(0.9 0 0);
+	--ring: oklch(0.4 0 0);
+	--destructive: oklch(0.4 0 0);
+	--destructive-foreground: oklch(1 0 0);
+	--radius: 0.5rem;
+	--popover: oklch(1 0 0);
+	--popover-foreground: oklch(0.145 0 0);
+	--accent: oklch(0.97 0 0);
+	--accent-foreground: oklch(0.205 0 0);
+	--sidebar: oklch(0.985 0 0);
+	--sidebar-foreground: oklch(0.145 0 0);
+	--sidebar-primary: oklch(0.145 0 0);
+	--sidebar-primary-foreground: oklch(1 0 0);
+	--sidebar-accent: oklch(0.97 0 0);
+	--sidebar-accent-foreground: oklch(0.205 0 0);
+	--sidebar-border: oklch(0.9 0 0);
+	--sidebar-ring: oklch(0.4 0 0);
+}
+
+:global(body) {
+	margin: 0;
+	min-height: 100vh;
+	background-color: var(--background);
+	color: var(--foreground);
+}
+
+:global(*) {
+	box-sizing: border-box;
+	border-color: var(--border);
+}
+
+:global(button),
+:global(input),
+:global(textarea) {
+	font: inherit;
+}
+
+.dark {
+	--background: oklch(0.09 0 0);
+	--foreground: oklch(0.985 0 0);
+	--card: oklch(0.13 0 0);
+	--card-foreground: oklch(0.985 0 0);
+	--popover: oklch(0.13 0 0);
+	--popover-foreground: oklch(0.985 0 0);
+	--primary: oklch(0.985 0 0);
+	--primary-foreground: oklch(0.09 0 0);
+	--secondary: oklch(0.18 0 0);
+	--secondary-foreground: oklch(0.985 0 0);
+	--muted: oklch(0.18 0 0);
+	--muted-foreground: oklch(0.6 0 0);
+	--accent: oklch(0.18 0 0);
+	--accent-foreground: oklch(0.985 0 0);
+	--destructive: oklch(0.7 0 0);
+	--border: oklch(1 0 0 / 10%);
+	--input: oklch(1 0 0 / 12%);
+	--ring: oklch(0.6 0 0);
+	--sidebar: oklch(0.13 0 0);
+	--sidebar-foreground: oklch(0.985 0 0);
+	--sidebar-primary: oklch(0.985 0 0);
+	--sidebar-primary-foreground: oklch(0.09 0 0);
+	--sidebar-accent: oklch(0.18 0 0);
+	--sidebar-accent-foreground: oklch(0.985 0 0);
+	--sidebar-border: oklch(1 0 0 / 10%);
+	--sidebar-ring: oklch(0.6 0 0);
+}
+
+@theme inline {
+	--font-sans: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+	--font-heading: 'Goga', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+	--color-sidebar-ring: var(--sidebar-ring);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar: var(--sidebar);
+	--color-ring: var(--ring);
+	--color-input: var(--input);
+	--color-border: var(--border);
+	--color-destructive: var(--destructive);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-accent: var(--accent);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-muted: var(--muted);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-secondary: var(--secondary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-primary: var(--primary);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-popover: var(--popover);
+	--color-card-foreground: var(--card-foreground);
+	--color-card: var(--card);
+	--color-foreground: var(--foreground);
+	--color-background: var(--background);
+	--radius-sm: calc(var(--radius) * 0.75);
+	--radius-md: var(--radius);
+	--radius-lg: calc(var(--radius) * 1.5);
+	--radius-xl: calc(var(--radius) * 2);
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+	body {
+		@apply bg-background text-foreground;
+	}
+	html {
+		@apply font-sans;
+	}
+	h1, h2, h3, h4, h5, h6 {
+		font-family: var(--font-heading);
+	}
+}
