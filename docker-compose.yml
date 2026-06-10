@@ -1,7 +1,6 @@
 services:
   db:
     image: postgres:16-alpine
-    network_mode: host
     environment:
       POSTGRES_DB: ${DB_NAME:-agenda}
       POSTGRES_USER: ${DB_USER}
@@ -16,7 +15,6 @@ services:
 
   agenda:
     build: .
-    network_mode: host
     env_file: .env
     depends_on:
       db:
@@ -29,6 +27,13 @@ services:
       - traefik.http.routers.agenda.entrypoints=websecure
       - traefik.http.routers.agenda.tls.certresolver=letsencrypt
       - traefik.http.services.agenda.loadbalancer.server.port=4000
+    networks:
+      - default
+      - dokploy-network
+
+networks:
+  dokploy-network:
+    external: true
 
 volumes:
   postgres_data:
