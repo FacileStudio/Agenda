@@ -2,6 +2,7 @@ package env
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -29,8 +30,12 @@ type Config struct {
 }
 
 func Load() (Config, error) {
+	dbURL, err := resolveDBURL()
+	if err != nil {
+		return Config{}, err
+	}
 	env := Config{
-		DatabaseURL:        valueOrDefault("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/agenda?sslmode=disable"),
+		DatabaseURL:        dbURL,
 		Port:               valueOrDefault("PORT", "4000"),
 		LogLevel:           valueOrDefault("LOG_LEVEL", "info"),
 		StorageDir:         valueOrDefault("STORAGE_DIR", "./data"),
@@ -75,6 +80,25 @@ func Load() (Config, error) {
 	}
 
 	return env, nil
+}
+
+func resolveDBURL() (string, error) {
+	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
+		return dsn, nil
+	}
+	dbUser := os.Getenv("DB_USER")
+	dbPassword := os.Getenv("DB_PASSWORD")
+	if dbUser == "" || dbPassword == "" {
+		return "", fmt.Errorf("set DB_USER and DB_PASSWORD (or DATABASE_URL) to connect to PostgreSQL")
+	}
+	u := &url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(dbUser, dbPassword),
+		Host:     valueOrDefault("DB_HOST", "db") + ":" + valueOrDefault("DB_PORT", "5432"),
+		Path:     "/" + valueOrDefault("DB_NAME", "agenda"),
+		RawQuery: "sslmode=" + valueOrDefault("DB_SSLMODE", "disable"),
+	}
+	return u.String(), nil
 }
 
 func valueOrDefault(key string, fallback string) string {
