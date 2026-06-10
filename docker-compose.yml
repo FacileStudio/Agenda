@@ -25,7 +25,8 @@ services:
       - agenda_data:/app/data
     labels:
       - traefik.enable=true
-      - traefik.http.routers.agenda.rule=Host(`agenda.facile.studio`)
+      - traefik.http.routers.agenda.rule=Host(`${DOMAIN}`)
+
       - traefik.http.routers.agenda.entrypoints=websecure
       - traefik.http.routers.agenda.tls.certresolver=letsencrypt
       - traefik.http.services.agenda.loadbalancer.server.port=4000
