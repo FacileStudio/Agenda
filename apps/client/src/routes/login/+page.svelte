@@ -20,7 +20,7 @@
 	onMount(async () => {
 		try {
 			await backend.me();
-			goto('/mail');
+			goto('/calendar');
 			return;
 		} catch {}
 
@@ -45,7 +45,7 @@
 			} else {
 				await backend.login(email, password);
 			}
-			goto('/mail');
+			goto('/calendar');
 		} catch (err) {
 			message = err instanceof Error ? err.message : 'Something went wrong';
 		} finally {
@@ -55,27 +55,27 @@
 </script>
 
 <svelte:head>
-	<title>{!ssoOnly && tab === 'register' ? 'Create account' : 'Log in'} — Courrier</title>
+	<title>{!ssoOnly && tab === 'register' ? 'Create account' : 'Log in'} — Agenda</title>
 </svelte:head>
 
 <div class="flex min-h-screen">
 	<div class="hidden lg:flex lg:w-1/2 flex-col bg-black px-12 py-10">
 		<a href="/" class="flex items-center gap-3 mb-auto">
-			<iconify-icon icon="solar:letter-bold-duotone" width="28" class="text-white"></iconify-icon>
-			<span class="text-xl font-bold font-heading tracking-tight text-white">Courrier</span>
+			<iconify-icon icon="solar:calendar-bold-duotone" width="28" class="text-white"></iconify-icon>
+			<span class="text-xl font-bold font-heading tracking-tight text-white">Agenda</span>
 		</a>
 
 		<div class="mb-auto">
 			<h2 class="text-4xl font-bold font-heading text-white leading-tight tracking-tight">
-				Your mail.<br />Your server.
+				Your calendar.<br />Your server.
 			</h2>
 			<p class="mt-4 text-sm text-white/50 max-w-xs leading-relaxed">
-				A clean, self-hosted email client for creative studios.
+				A clean, self-hosted calendar for creative studios.
 			</p>
 		</div>
 
 		<p class="text-xs text-white/30">
-			© {new Date().getFullYear()} Courrier by Facile.
+			© {new Date().getFullYear()} Agenda by Facile.
 		</p>
 	</div>
 
@@ -89,8 +89,8 @@
 					{!ssoOnly && tab === 'register'
 						? 'Create an account to get started.'
 						: ssoOnly
-							? 'Sign in with your organization account to access Courrier.'
-							: 'Log in to your Courrier account.'}
+							? 'Sign in with your organization account to access Agenda.'
+							: 'Log in to your Agenda account.'}
 				</p>
 			</div>
 
