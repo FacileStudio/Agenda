@@ -103,13 +103,13 @@ func (h *oidcHandler) callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var claims struct {
-		Email            string `json:"email"`
-		EmailVerified    bool   `json:"email_verified"`
-		Name             string `json:"name"`
+		Email             string `json:"email"`
+		EmailVerified     bool   `json:"email_verified"`
+		Name              string `json:"name"`
 		PreferredUsername string `json:"preferred_username"`
-		GivenName        string `json:"given_name"`
-		FamilyName       string `json:"family_name"`
-		Picture          string `json:"picture"`
+		GivenName         string `json:"given_name"`
+		FamilyName        string `json:"family_name"`
+		Picture           string `json:"picture"`
 	}
 	if err := idToken.Claims(&claims); err != nil {
 		httpjson.WriteError(w, errors.Internal("failed to parse claims", err))
@@ -118,6 +118,21 @@ func (h *oidcHandler) callback(w http.ResponseWriter, r *http.Request) {
 	if claims.Email == "" {
 		httpjson.WriteError(w, errors.Invalid("OIDC provider did not return an email"))
 		return
+	}
+
+	// Authentik (and other providers) often omit picture from the ID token but
+	// include it in the UserInfo endpoint. Supplement here so the avatar is
+	// fetched immediately on first login instead of waiting for the sync cooldown.
+	if claims.Picture == "" {
+		tokenSrc := h.oauth2Cfg.TokenSource(r.Context(), oauth2Token)
+		if userInfo, uiErr := h.provider.UserInfo(r.Context(), tokenSrc); uiErr == nil {
+			var uiClaims struct {
+				Picture string `json:"picture"`
+			}
+			if uiErr = userInfo.Claims(&uiClaims); uiErr == nil {
+				claims.Picture = uiClaims.Picture
+			}
+		}
 	}
 
 	profile := oidcavatar.Profile{

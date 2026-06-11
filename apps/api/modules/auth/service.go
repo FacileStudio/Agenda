@@ -277,7 +277,10 @@ func (service *Service) SyncOIDCProfile(ctx context.Context, userID string, prov
 		return false, nil
 	}
 
-	if time.Since(record.ProfileSyncedAt) < 5*time.Minute {
+	// Skip the cooldown for users who have no avatar yet so the first
+	// post-login sync can fetch it immediately.
+	hasAvatar := record.AvatarURL != ""
+	if hasAvatar && time.Since(record.ProfileSyncedAt) < 5*time.Minute {
 		return false, nil
 	}
 
