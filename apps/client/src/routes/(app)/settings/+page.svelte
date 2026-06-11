@@ -401,7 +401,7 @@
 							<ol class="list-decimal px-4 pb-4 pt-2 pl-10 space-y-1 text-muted-foreground">
 								<li>Réglages → Calendrier → Comptes → Ajouter un compte → Autre</li>
 								<li>Ajouter un compte CalDAV</li>
-								<li>Serveur : <code class="text-foreground">{serverOrigin}</code></li>
+								<li>Serveur : <code class="text-foreground">{serverOrigin.replace(/^https?:\/\//, '')}</code></li>
 								<li>Nom d'utilisateur : votre email</li>
 								<li>Mot de passe : {isSSOUser ? 'le token API ci-dessus' : 'votre mot de passe'}</li>
 							</ol>

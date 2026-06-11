@@ -82,6 +82,8 @@ func (b *Backend) ListCalendars(ctx context.Context) ([]caldav.Calendar, error) 
 		return nil, webdav.NewHTTPError(http.StatusUnauthorized, fmt.Errorf("not authenticated"))
 	}
 
+	b.ensurePersonalCalendar(ctx, user.ID)
+
 	var cals []schemas.Calendar
 	err := b.db.WithContext(ctx).Raw(`
 		SELECT c.* FROM calendars c WHERE c.owner_id = ?
@@ -509,6 +511,23 @@ func newETag() string {
 
 func newSyncToken() string {
 	return strconv.FormatInt(time.Now().UnixNano(), 36)
+}
+
+func (b *Backend) ensurePersonalCalendar(ctx context.Context, userID int64) {
+	var count int64
+	b.db.WithContext(ctx).Model(&schemas.Calendar{}).Where("owner_id = ? AND is_personal = true", userID).Count(&count)
+	if count > 0 {
+		return
+	}
+	cal := &schemas.Calendar{
+		OwnerID:    userID,
+		Slug:       fmt.Sprintf("personal-%d", userID),
+		Name:       "Personal",
+		Color:      "#3b82f6",
+		IsPersonal: true,
+		SyncToken:  newSyncToken(),
+	}
+	b.db.WithContext(ctx).Create(cal)
 }
 
 // validatePathUser rejects requests where the email segment in the CalDAV path
