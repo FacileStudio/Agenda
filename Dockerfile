@@ -11,6 +11,7 @@ COPY apps/api/ .
 RUN go build -mod=vendor -o /agenda .
 
 FROM gcr.io/distroless/static-debian12
+WORKDIR /app
 COPY --from=api-build /agenda /agenda
 COPY --from=client-build /app/build /client
 ENV CLIENT_DIR=/client
