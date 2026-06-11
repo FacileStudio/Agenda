@@ -255,19 +255,24 @@ func statusOrDefault(s string) string {
 	}
 }
 
-// foldICSLine folds a single ICS property line at 75 octets per RFC 5545 §3.1.
+// foldICSLine folds a single ICS property line per RFC 5545 §3.1.
+// First line: up to 75 octets. Continuation lines: 1 LWSP + up to 74 octets = 75 octets.
 // The trailing CRLF is included in the output.
 func foldICSLine(line string) string {
-	const maxOctets = 75
+	const firstMax = 75
+	const contMax = 74 // 1-byte LWSP prefix + 74 = 75 octets per continuation line
 	b := []byte(line)
-	if len(b) <= maxOctets {
+	if len(b) <= firstMax {
 		return line + "\r\n"
 	}
 	var sb strings.Builder
-	for len(b) > maxOctets {
-		sb.Write(b[:maxOctets])
+	sb.Write(b[:firstMax])
+	sb.WriteString("\r\n ")
+	b = b[firstMax:]
+	for len(b) > contMax {
+		sb.Write(b[:contMax])
 		sb.WriteString("\r\n ")
-		b = b[maxOctets:]
+		b = b[contMax:]
 	}
 	sb.Write(b)
 	sb.WriteString("\r\n")
