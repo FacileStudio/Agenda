@@ -255,6 +255,25 @@ func statusOrDefault(s string) string {
 	}
 }
 
+// foldICSLine folds a single ICS property line at 75 octets per RFC 5545 §3.1.
+// The trailing CRLF is included in the output.
+func foldICSLine(line string) string {
+	const maxOctets = 75
+	b := []byte(line)
+	if len(b) <= maxOctets {
+		return line + "\r\n"
+	}
+	var sb strings.Builder
+	for len(b) > maxOctets {
+		sb.Write(b[:maxOctets])
+		sb.WriteString("\r\n ")
+		b = b[maxOctets:]
+	}
+	sb.Write(b)
+	sb.WriteString("\r\n")
+	return sb.String()
+}
+
 func buildRawICS(e *schemas.Event) string {
 	const dtFmt = "20060102T150405Z"
 	createdAt := e.CreatedAt
@@ -265,31 +284,34 @@ func buildRawICS(e *schemas.Event) string {
 	if updatedAt.IsZero() {
 		updatedAt = createdAt
 	}
-	ics := "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//FacileStudio//Agenda//EN\r\n"
+
+	fold := foldICSLine
+	ics := "BEGIN:VCALENDAR\r\nVERSION:2.0\r\n"
+	ics += fold("PRODID:-//FacileStudio//Agenda//EN")
 	ics += "BEGIN:VEVENT\r\n"
-	ics += fmt.Sprintf("UID:%s\r\n", e.UID)
-	ics += fmt.Sprintf("DTSTAMP:%s\r\n", createdAt.UTC().Format(dtFmt))
-	ics += fmt.Sprintf("CREATED:%s\r\n", createdAt.UTC().Format(dtFmt))
-	ics += fmt.Sprintf("LAST-MODIFIED:%s\r\n", updatedAt.UTC().Format(dtFmt))
-	ics += fmt.Sprintf("SEQUENCE:%d\r\n", e.Sequence)
-	ics += fmt.Sprintf("SUMMARY:%s\r\n", escapeICS(e.Title))
+	ics += fold(fmt.Sprintf("UID:%s", e.UID))
+	ics += fold(fmt.Sprintf("DTSTAMP:%s", createdAt.UTC().Format(dtFmt)))
+	ics += fold(fmt.Sprintf("CREATED:%s", createdAt.UTC().Format(dtFmt)))
+	ics += fold(fmt.Sprintf("LAST-MODIFIED:%s", updatedAt.UTC().Format(dtFmt)))
+	ics += fold(fmt.Sprintf("SEQUENCE:%d", e.Sequence))
+	ics += fold(fmt.Sprintf("SUMMARY:%s", escapeICS(e.Title)))
 	if e.IsAllDay {
-		ics += fmt.Sprintf("DTSTART;VALUE=DATE:%s\r\n", e.StartAt.UTC().Format("20060102"))
-		ics += fmt.Sprintf("DTEND;VALUE=DATE:%s\r\n", e.EndAt.UTC().Format("20060102"))
+		ics += fold(fmt.Sprintf("DTSTART;VALUE=DATE:%s", e.StartAt.UTC().Format("20060102")))
+		ics += fold(fmt.Sprintf("DTEND;VALUE=DATE:%s", e.EndAt.UTC().Format("20060102")))
 	} else {
-		ics += fmt.Sprintf("DTSTART:%s\r\n", e.StartAt.UTC().Format("20060102T150405Z"))
-		ics += fmt.Sprintf("DTEND:%s\r\n", e.EndAt.UTC().Format("20060102T150405Z"))
+		ics += fold(fmt.Sprintf("DTSTART:%s", e.StartAt.UTC().Format(dtFmt)))
+		ics += fold(fmt.Sprintf("DTEND:%s", e.EndAt.UTC().Format(dtFmt)))
 	}
 	if e.Description != "" {
-		ics += fmt.Sprintf("DESCRIPTION:%s\r\n", escapeICS(e.Description))
+		ics += fold(fmt.Sprintf("DESCRIPTION:%s", escapeICS(e.Description)))
 	}
 	if e.Location != "" {
-		ics += fmt.Sprintf("LOCATION:%s\r\n", escapeICS(e.Location))
+		ics += fold(fmt.Sprintf("LOCATION:%s", escapeICS(e.Location)))
 	}
 	if e.RecurrenceRule != "" {
-		ics += fmt.Sprintf("RRULE:%s\r\n", e.RecurrenceRule)
+		ics += fold(fmt.Sprintf("RRULE:%s", e.RecurrenceRule))
 	}
-	ics += fmt.Sprintf("STATUS:%s\r\n", strings.ToUpper(e.Status))
+	ics += fold(fmt.Sprintf("STATUS:%s", strings.ToUpper(e.Status)))
 	ics += "END:VEVENT\r\nEND:VCALENDAR\r\n"
 	return ics
 }

@@ -10,6 +10,9 @@ import (
 
 const namespace = "urn:ietf:params:xml:ns:caldav"
 
+// Apple CalDAV Server (CalendarServer) extension namespace.
+const calendarServerNS = "http://calendarserver.org/ns/"
+
 var (
 	calendarHomeSetName = xml.Name{namespace, "calendar-home-set"}
 
@@ -23,7 +26,15 @@ var (
 
 	calendarName     = xml.Name{namespace, "calendar"}
 	calendarDataName = xml.Name{namespace, "calendar-data"}
+
+	// cs:getctag — Apple extension, signals calendar change to iOS/macOS Calendar.
+	getCTagName = xml.Name{calendarServerNS, "getctag"}
 )
+
+type getCTag struct {
+	XMLName xml.Name `xml:"http://calendarserver.org/ns/ getctag"`
+	Value   string   `xml:",chardata"`
+}
 
 // https://tools.ietf.org/html/rfc4791#section-6.2.1
 type calendarHomeSet struct {

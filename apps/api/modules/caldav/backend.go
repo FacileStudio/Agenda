@@ -469,6 +469,7 @@ func toCaldavCalendar(c *schemas.Calendar, homeSet string) caldav.Calendar {
 		Name:                  c.Name,
 		Description:           c.Description,
 		SupportedComponentSet: []string{ical.CompEvent},
+		SyncToken:             c.SyncToken,
 	}
 }
 

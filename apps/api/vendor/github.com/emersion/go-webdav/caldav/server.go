@@ -576,7 +576,13 @@ func (b *backend) propFindCalendar(ctx context.Context, propfind *internal.PropF
 		})
 	}
 
-	// TODO: CALDAV:calendar-timezone, CALDAV:supported-calendar-component-set, CALDAV:min-date-time, CALDAV:max-date-time, CALDAV:max-instances, CALDAV:max-attendees-per-instance
+	// cs:getctag — Apple Calendar extension. Returns the calendar's sync token so
+	// iOS/macOS can detect changes without fetching all events.
+	if cal.SyncToken != "" {
+		props[getCTagName] = internal.PropFindValue(&getCTag{Value: cal.SyncToken})
+	}
+
+	// TODO: CALDAV:calendar-timezone, CALDAV:min-date-time, CALDAV:max-date-time, CALDAV:max-instances, CALDAV:max-attendees-per-instance
 
 	return internal.NewPropFindResponse(cal.Path, propfind, props)
 }

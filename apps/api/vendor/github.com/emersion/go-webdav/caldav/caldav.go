@@ -69,6 +69,7 @@ type Calendar struct {
 	Description           string
 	MaxResourceSize       int64
 	SupportedComponentSet []string
+	SyncToken             string // exposed as cs:getctag for Apple Calendar
 }
 
 type CalendarCompRequest struct {
