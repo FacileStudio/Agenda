@@ -65,11 +65,20 @@ func resolveUser(r *http.Request, db *gorm.DB) *schemas.User {
 		}
 	}
 
-	// HTTP Basic Auth (native CalDAV clients: Apple Calendar, Thunderbird, DAVx⁵)
-	if email, password, ok := r.BasicAuth(); ok && email != "" {
+	// HTTP Basic Auth — two accepted credential forms:
+	//   1. email + account password  (password-based accounts)
+	//   2. email + API token         (SSO users who have no password)
+	if email, password, ok := r.BasicAuth(); ok && email != "" && password != "" {
 		var u schemas.User
 		if db.WithContext(ctx).Where("email = ?", email).First(&u).Error == nil {
-			if authcrypto.VerifyPassword(password, u.PasswordHash) {
+			// Try password first
+			if u.PasswordHash != "" && authcrypto.VerifyPassword(password, u.PasswordHash) {
+				return &u
+			}
+			// Try API token (for SSO users)
+			hashed := authcrypto.HashToken(password)
+			var tok schemas.ApiToken
+			if db.WithContext(ctx).Where("token = ? AND user_id = ?", hashed, u.ID).First(&tok).Error == nil {
 				return &u
 			}
 		}

@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
+	import { getContext, onMount } from 'svelte';
+	import { browser } from '$app/environment';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { Separator } from '$lib/components/ui/separator';
 	import { toast } from 'svelte-sonner';
-	import { backend, type UserProfile, type CalendarItem } from '$lib/backend';
+	import { backend, type UserProfile, type CalendarItem, type ApiTokenStatus } from '$lib/backend';
 	import CreateCalendarModal from '$lib/components/CreateCalendarModal.svelte';
 	import ManageCalendarModal from '$lib/components/ManageCalendarModal.svelte';
 
@@ -24,6 +25,57 @@
 	let createOpen = $state(false);
 	let managedCalendar = $state<CalendarItem | null>(null);
 	let manageOpen = $state(false);
+
+	// CalDAV / API token state
+	let apiToken = $state<ApiTokenStatus | null>(null);
+	let newToken = $state<string | null>(null);
+	let tokenCopied = $state(false);
+	let tokenBusy = $state(false);
+	let tokenName = $state('CalDAV');
+
+	const isSSOUser = $derived(app.user?.avatar_source === 'oidc');
+	const caldavUrl = $derived(() => {
+		const base = backend.baseUrl || (browser ? window.location.origin : '');
+		return `${base}/dav/${app.user?.email ?? ''}`;
+	});
+
+	onMount(async () => {
+		try { apiToken = await backend.getApiToken(); } catch {}
+	});
+
+	async function generateToken() {
+		tokenBusy = true;
+		newToken = null;
+		try {
+			const res = await backend.createApiToken(tokenName || 'CalDAV');
+			newToken = res.token;
+			apiToken = { has_token: true, name: res.name, created_at: res.created_at };
+		} catch (e: unknown) {
+			toast.error(e instanceof Error ? e.message : 'Erreur.');
+		} finally {
+			tokenBusy = false;
+		}
+	}
+
+	async function revokeToken() {
+		if (!confirm('Révoquer le token ? Les clients CalDAV utilisant ce token seront déconnectés.')) return;
+		tokenBusy = true;
+		try {
+			await backend.deleteApiToken();
+			apiToken = { has_token: false };
+			newToken = null;
+		} catch (e: unknown) {
+			toast.error(e instanceof Error ? e.message : 'Erreur.');
+		} finally {
+			tokenBusy = false;
+		}
+	}
+
+	async function copyToken(value: string) {
+		await navigator.clipboard.writeText(value);
+		tokenCopied = true;
+		setTimeout(() => (tokenCopied = false), 2000);
+	}
 
 	const tabs: { id: Tab; label: string; icon: string }[] = [
 		{ id: 'profile', label: 'Profil', icon: 'solar:user-linear' },
@@ -213,50 +265,125 @@
 				<div>
 					<h2 class="text-base font-medium">Connexion CalDAV</h2>
 					<p class="mt-1 text-sm text-muted-foreground">
-						Connectez vos clients CalDAV (Apple Calendar, Thunderbird, DAVx⁵…) à vos calendriers.
+						Connectez Apple Calendar, Thunderbird, DAVx⁵ ou tout client CalDAV à vos calendriers.
 					</p>
 				</div>
 
-				<div class="space-y-4">
+				<!-- Connection info -->
+				<div class="space-y-3">
 					<div class="space-y-1.5">
 						<Label>URL du serveur</Label>
 						<div class="flex items-center gap-2">
-							<Input value="{caldavBase}/{app.user?.email ?? ''}" readonly class="font-mono text-xs" />
-							<Button
-								variant="outline"
-								size="sm"
-								class="cursor-pointer shrink-0"
-								onclick={() => {
-									navigator.clipboard.writeText(`${caldavBase}/${app.user?.email ?? ''}`);
-									toast.success('Copié !');
-								}}
-							>
+							<Input value={caldavUrl()} readonly class="font-mono text-xs" />
+							<Button variant="outline" size="sm" class="cursor-pointer shrink-0"
+								onclick={() => { copyToken(caldavUrl()); toast.success('URL copiée !'); }}>
 								<iconify-icon icon="solar:copy-linear" width="16"></iconify-icon>
 							</Button>
 						</div>
 					</div>
-
 					<div class="space-y-1.5">
 						<Label>Identifiant</Label>
-						<Input value={app.user?.email ?? ''} readonly />
+						<div class="flex items-center gap-2">
+							<Input value={app.user?.email ?? ''} readonly />
+							<Button variant="outline" size="sm" class="cursor-pointer shrink-0"
+								onclick={() => { copyToken(app.user?.email ?? ''); toast.success('Copié !'); }}>
+								<iconify-icon icon="solar:copy-linear" width="16"></iconify-icon>
+							</Button>
+						</div>
 					</div>
-
 					<div class="space-y-1.5">
 						<Label>Mot de passe</Label>
-						<Input value="Votre mot de passe Agenda" disabled class="text-muted-foreground" />
+						{#if isSSOUser}
+							<p class="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-400 flex items-start gap-2">
+								<iconify-icon icon="solar:info-circle-linear" width="14" class="mt-0.5 shrink-0"></iconify-icon>
+								Vous êtes connecté via SSO — vous n'avez pas de mot de passe. Utilisez un <strong>token API</strong> ci-dessous comme mot de passe.
+							</p>
+						{:else}
+							<Input value="Votre mot de passe Agenda" disabled class="text-muted-foreground text-sm" />
+						{/if}
 					</div>
 				</div>
 
+				<!-- API token section (always shown, critical for SSO users) -->
+				<Separator />
+				<div class="space-y-4">
+					<div>
+						<h3 class="text-sm font-medium flex items-center gap-2">
+							<iconify-icon icon="solar:key-linear" width="16" class="text-muted-foreground"></iconify-icon>
+							Token API
+							{#if isSSOUser}
+								<span class="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">Requis pour CalDAV</span>
+							{/if}
+						</h3>
+						<p class="mt-1 text-xs text-muted-foreground">
+							{isSSOUser
+								? 'Utilisez ce token comme mot de passe dans votre client CalDAV à la place de votre mot de passe SSO.'
+								: 'Vous pouvez aussi utiliser un token API à la place de votre mot de passe pour les clients CalDAV.'}
+						</p>
+					</div>
+
+					{#if newToken}
+						<!-- Newly created token — show once -->
+						<div class="rounded-lg border border-green-500/30 bg-green-500/5 p-4 space-y-2">
+							<p class="text-xs font-medium text-green-700 dark:text-green-400 flex items-center gap-1.5">
+								<iconify-icon icon="solar:check-circle-linear" width="14"></iconify-icon>
+								Token créé — copiez-le maintenant, il ne sera plus affiché.
+							</p>
+							<div class="flex items-center gap-2">
+								<Input value={newToken} readonly class="font-mono text-xs" />
+								<Button variant="outline" size="sm" class="cursor-pointer shrink-0 gap-1.5"
+									onclick={() => copyToken(newToken!)}>
+									<iconify-icon icon={tokenCopied ? 'solar:check-circle-linear' : 'solar:copy-linear'} width="14"></iconify-icon>
+									{tokenCopied ? 'Copié' : 'Copier'}
+								</Button>
+							</div>
+						</div>
+					{/if}
+
+					{#if apiToken?.has_token}
+						<div class="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+							<div class="flex items-center gap-3">
+								<iconify-icon icon="solar:key-linear" width="16" class="text-muted-foreground"></iconify-icon>
+								<div>
+									<p class="text-sm font-medium">{apiToken.name ?? 'Token'}</p>
+									{#if apiToken.created_at}
+										<p class="text-xs text-muted-foreground">Créé le {new Date(apiToken.created_at).toLocaleDateString('fr-FR')}</p>
+									{/if}
+								</div>
+							</div>
+							<Button variant="ghost" size="sm" onclick={revokeToken} disabled={tokenBusy}
+								class="cursor-pointer text-muted-foreground hover:text-destructive hover:bg-destructive/10 gap-1.5">
+								<iconify-icon icon="solar:trash-bin-2-linear" width="14"></iconify-icon>
+								Révoquer
+							</Button>
+						</div>
+					{:else}
+						<div class="flex items-center gap-2">
+							<Input bind:value={tokenName} placeholder="Nom du token (ex : MacBook)" class="flex-1" />
+							<Button onclick={generateToken} disabled={tokenBusy} class="cursor-pointer gap-2 shrink-0">
+								<iconify-icon icon="mdi:plus" width="16"></iconify-icon>
+								{tokenBusy ? 'Génération…' : 'Générer'}
+							</Button>
+						</div>
+					{/if}
+				</div>
+
+				<!-- Instructions -->
+				<Separator />
 				<div class="rounded-xl border border-dashed border-border p-4 space-y-2">
 					<p class="text-sm font-medium flex items-center gap-2">
 						<iconify-icon icon="solar:info-circle-linear" width="16" class="text-muted-foreground"></iconify-icon>
 						Instructions
 					</p>
-					<ol class="list-decimal pl-4 space-y-1 text-sm text-muted-foreground">
+					<ol class="list-decimal pl-4 space-y-1.5 text-sm text-muted-foreground">
 						<li>Dans votre client CalDAV, ajoutez un nouveau compte.</li>
 						<li>Entrez l'URL du serveur ci-dessus.</li>
-						<li>Utilisez votre email comme identifiant.</li>
-						<li>Entrez votre mot de passe Agenda.</li>
+						<li>Identifiant : votre adresse email.</li>
+						{#if isSSOUser}
+							<li>Mot de passe : le <strong class="text-foreground">token API</strong> généré ci-dessus.</li>
+						{:else}
+							<li>Mot de passe : votre mot de passe Agenda <em>(ou un token API)</em>.</li>
+						{/if}
 					</ol>
 				</div>
 			</div>

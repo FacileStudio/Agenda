@@ -63,6 +63,18 @@ export type CreateEventRequest = {
 	status?: string;
 };
 
+export type ApiTokenStatus = {
+	has_token: boolean;
+	name?: string;
+	created_at?: string;
+};
+
+export type ApiTokenCreated = {
+	token: string;
+	name: string;
+	created_at: string;
+};
+
 type ApiErrorPayload = {
 	error?: { message?: string };
 };
@@ -182,5 +194,18 @@ export const backend = {
 	},
 	deleteEvent(eventId: number) {
 		return apiFetch<{ ok: boolean }>(`/events/${eventId}/`, { method: 'DELETE' });
+	},
+
+	getApiToken() {
+		return apiFetch<ApiTokenStatus>('/users/me/api-token');
+	},
+	createApiToken(name: string) {
+		return apiFetch<ApiTokenCreated>('/users/me/api-token', {
+			method: 'POST',
+			body: JSON.stringify({ name })
+		});
+	},
+	deleteApiToken() {
+		return apiFetch<{ deleted: boolean }>('/users/me/api-token', { method: 'DELETE' });
 	}
 };
