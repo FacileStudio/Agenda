@@ -366,6 +366,10 @@ func (b *backend) HeadGet(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func normPath(p string) string {
+	return strings.TrimSuffix(p, "/")
+}
+
 func (b *backend) PropFind(r *http.Request, propfind *internal.PropFind, depth internal.Depth) (*internal.MultiStatus, error) {
 	resType := b.resourceTypeAtPath(r.URL.Path)
 
@@ -374,7 +378,7 @@ func (b *backend) PropFind(r *http.Request, propfind *internal.PropFind, depth i
 
 	switch resType {
 	case resourceTypeRoot:
-		resp, err := b.propFindRoot(r.Context(), propfind)
+		resp, err := b.propFindRoot(r.Context(), r.URL.Path, propfind)
 		if err != nil {
 			return nil, err
 		}
@@ -384,7 +388,7 @@ func (b *backend) PropFind(r *http.Request, propfind *internal.PropFind, depth i
 		if err != nil {
 			return nil, err
 		}
-		if r.URL.Path == principalPath {
+		if normPath(r.URL.Path) == normPath(principalPath) {
 			resp, err := b.propFindUserPrincipal(r.Context(), propfind)
 			if err != nil {
 				return nil, err
@@ -410,7 +414,7 @@ func (b *backend) PropFind(r *http.Request, propfind *internal.PropFind, depth i
 		if err != nil {
 			return nil, err
 		}
-		if r.URL.Path == homeSetPath {
+		if normPath(r.URL.Path) == normPath(homeSetPath) {
 			resp, err := b.propFindHomeSet(r.Context(), propfind)
 			if err != nil {
 				return nil, err
@@ -458,7 +462,7 @@ func (b *backend) PropFind(r *http.Request, propfind *internal.PropFind, depth i
 	return internal.NewMultiStatus(resps...), nil
 }
 
-func (b *backend) propFindRoot(ctx context.Context, propfind *internal.PropFind) (*internal.Response, error) {
+func (b *backend) propFindRoot(ctx context.Context, reqPath string, propfind *internal.PropFind) (*internal.Response, error) {
 	principalPath, err := b.Backend.CurrentUserPrincipal(ctx)
 	if err != nil {
 		return nil, err
@@ -470,7 +474,8 @@ func (b *backend) propFindRoot(ctx context.Context, propfind *internal.PropFind)
 		}),
 		internal.ResourceTypeName: internal.PropFindValue(internal.NewResourceType(internal.CollectionName)),
 	}
-	return internal.NewPropFindResponse(principalPath, propfind, props)
+	// Use the actual request path as the response href so clients can match it.
+	return internal.NewPropFindResponse(reqPath, propfind, props)
 }
 
 func (b *backend) propFindUserPrincipal(ctx context.Context, propfind *internal.PropFind) (*internal.Response, error) {
