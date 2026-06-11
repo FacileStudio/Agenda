@@ -673,7 +673,29 @@ func (b *backend) propFindAllCalendarObjects(ctx context.Context, propfind *inte
 }
 
 func (b *backend) PropPatch(r *http.Request, update *internal.PropertyUpdate) (*internal.Response, error) {
-	return nil, internal.HTTPErrorf(http.StatusNotImplemented, "caldav: PropPatch not implemented")
+	// Return a proper 207 Multi-Status with 403 for each property rather than a
+	// bare 501 — iOS treats a non-2xx/207 response as a fatal server error and
+	// may mark the account inactive. 403 in a propstat means "read-only property"
+	// which clients handle gracefully.
+	resp := &internal.Response{
+		Hrefs: []internal.Href{{Path: r.URL.Path}},
+	}
+	rejectProps := func(prop internal.Prop) {
+		for _, raw := range prop.Raw {
+			name, ok := raw.XMLName()
+			if !ok {
+				continue
+			}
+			resp.EncodeProp(http.StatusForbidden, internal.NewRawXMLElement(name, nil, nil))
+		}
+	}
+	for _, set := range update.Set {
+		rejectProps(set.Prop)
+	}
+	for _, remove := range update.Remove {
+		rejectProps(remove.Prop)
+	}
+	return resp, nil
 }
 
 func (b *backend) Put(w http.ResponseWriter, r *http.Request) error {
