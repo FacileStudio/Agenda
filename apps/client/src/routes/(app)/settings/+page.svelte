@@ -294,10 +294,10 @@
 					<div class="space-y-1.5">
 						<Label>Mot de passe</Label>
 						{#if isSSOUser}
-							<p class="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-400 flex items-start gap-2">
+							<div class="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-400 flex items-start gap-2">
 								<iconify-icon icon="solar:info-circle-linear" width="14" class="mt-0.5 shrink-0"></iconify-icon>
-								Vous êtes connecté via SSO — vous n'avez pas de mot de passe. Utilisez un <strong>token API</strong> ci-dessous comme mot de passe.
-							</p>
+								<span>Vous êtes connecté via SSO — vous n'avez pas de mot de passe. Utilisez un <strong>token API</strong> ci-dessous comme mot de passe.</span>
+							</div>
 						{:else}
 							<Input value="Votre mot de passe Agenda" disabled class="text-muted-foreground text-sm" />
 						{/if}
