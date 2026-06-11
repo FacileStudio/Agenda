@@ -39,7 +39,6 @@
 
 	const navItems = [
 		{ href: '/calendar', label: 'Calendrier', icon: 'solar:calendar-linear' },
-		{ href: '/settings', label: 'Paramètres', icon: 'solar:settings-linear' },
 	];
 
 	const ownedCalendars = $derived(calendars.filter(c => c.role === 'owner'));
@@ -68,8 +67,6 @@
 			</a>
 		{/each}
 	</nav>
-
-	<Separator class="mx-3 mb-3" />
 
 	<!-- Calendars -->
 	<div class="flex flex-1 flex-col overflow-hidden px-3">
@@ -117,7 +114,7 @@
 	<!-- Profile section -->
 	<div class="flex flex-col gap-2 p-4">
 		<a
-			href="/profile"
+			href="/settings"
 			class="flex cursor-pointer items-center gap-3 rounded-xl border border-border/70 bg-muted/40 p-2.5 transition-colors hover:bg-muted"
 		>
 			{#if user?.avatar_url}
