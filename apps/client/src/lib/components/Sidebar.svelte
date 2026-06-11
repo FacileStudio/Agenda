@@ -69,7 +69,7 @@
 	</nav>
 
 	<!-- Calendars -->
-	<div class="flex flex-1 flex-col overflow-hidden px-3">
+	<div class="flex flex-1 flex-col overflow-hidden px-3 pt-3">
 		<div class="mb-2 flex items-center justify-between px-1">
 			<p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Mes calendriers</p>
 			<button
