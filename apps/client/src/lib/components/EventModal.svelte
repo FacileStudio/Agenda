@@ -5,6 +5,9 @@
 	import { Label } from '$lib/components/ui/label';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as Select from '$lib/components/ui/select';
+	import * as Popover from '$lib/components/ui/popover';
+	import { Calendar } from '$lib/components/ui/calendar';
+	import { parseDate, type DateValue } from '@internationalized/date';
 	import { cn } from '$lib/utils';
 	import type { AgendaEvent, CalendarItem, CreateEventRequest } from '$lib/backend';
 
@@ -26,7 +29,10 @@
 		onClose: () => void;
 	} = $props();
 
-	// Derive default values from event or initialDate
+	function splitDT(iso: string) {
+		return { date: iso.slice(0, 10), time: iso.slice(11, 16) || '09:00' };
+	}
+
 	function defaultStart(): string {
 		if (event) return new Date(event.start_at).toISOString().slice(0, 16);
 		if (initialDate) return new Date(initialDate + 'T09:00').toISOString().slice(0, 16);
@@ -47,44 +53,67 @@
 	let title = $state(event?.title ?? '');
 	let description = $state(event?.description ?? '');
 	let location = $state(event?.location ?? '');
-	let startAt = $state(defaultStart());
-	let endAt = $state(defaultEnd());
 	let isAllDay = $state(event?.is_all_day ?? false);
 	let status = $state(event?.status ?? 'confirmed');
-	let calendarId = $state<number>(
-		event?.calendar_id ?? (calendars[0]?.id ?? 0)
-	);
+	let calendarId = $state<number>(event?.calendar_id ?? (calendars[0]?.id ?? 0));
 	let saving = $state(false);
 	let deleting = $state(false);
 	let error = $state('');
 
-	// Reset form when event/initialDate changes
+	let startDateStr = $state('');
+	let startTimeStr = $state('');
+	let endDateStr = $state('');
+	let endTimeStr = $state('');
+	let startPickerOpen = $state(false);
+	let endPickerOpen = $state(false);
+
 	$effect(() => {
 		if (open) {
 			title = event?.title ?? '';
 			description = event?.description ?? '';
 			location = event?.location ?? '';
-			startAt = defaultStart();
-			endAt = defaultEnd();
 			isAllDay = event?.is_all_day ?? false;
 			status = event?.status ?? 'confirmed';
 			calendarId = event?.calendar_id ?? (calendars[0]?.id ?? 0);
 			error = '';
+			const s = splitDT(defaultStart());
+			const e = splitDT(defaultEnd());
+			startDateStr = s.date;
+			startTimeStr = s.time;
+			endDateStr = e.date;
+			endTimeStr = e.time;
 		}
 	});
 
+	function safeParseDate(dateStr: string): DateValue | undefined {
+		try { return parseDate(dateStr); } catch { return undefined; }
+	}
+
+	const startDateVal = $derived(safeParseDate(startDateStr));
+	const endDateVal = $derived(safeParseDate(endDateStr));
+
+	function formatDisplayDate(dateStr: string): string {
+		if (!dateStr) return 'Choisir une date';
+		const d = new Date(dateStr + 'T12:00');
+		return d.toLocaleDateString('fr-FR', {
+			weekday: 'short',
+			day: 'numeric',
+			month: 'long',
+			year: 'numeric'
+		});
+	}
+
 	async function handleSave() {
-		if (!title.trim()) {
-			error = 'Le titre est requis.';
-			return;
-		}
+		if (!title.trim()) { error = 'Le titre est requis.'; return; }
 		if (!calendarId || !calendars.find((c) => c.id === calendarId)) {
 			error = 'Sélectionnez un calendrier valide.';
 			return;
 		}
+		const startISO = `${startDateStr}T${isAllDay ? '00:00' : (startTimeStr || '00:00')}`;
+		const endISO = `${endDateStr}T${isAllDay ? '23:59' : (endTimeStr || '00:00')}`;
 		if (!isAllDay) {
-			const s = new Date(startAt);
-			const e = new Date(endAt);
+			const s = new Date(startISO);
+			const e = new Date(endISO);
 			if (!isNaN(s.getTime()) && !isNaN(e.getTime()) && e <= s) {
 				error = 'La fin doit être après le début.';
 				return;
@@ -97,8 +126,8 @@
 				title: title.trim(),
 				description: description || undefined,
 				location: location || undefined,
-				start_at: new Date(startAt).toISOString(),
-				end_at: new Date(endAt).toISOString(),
+				start_at: new Date(startISO).toISOString(),
+				end_at: new Date(endISO).toISOString(),
 				is_all_day: isAllDay,
 				status: status || undefined
 			};
@@ -143,24 +172,12 @@
 			<!-- Header -->
 			<div class="mb-4 flex items-center justify-between">
 				<h2 class="text-lg font-semibold">
-					{event ? 'Modifier l\'événement' : 'Nouvel événement'}
+					{event ? "Modifier l'événement" : 'Nouvel événement'}
 				</h2>
 				<DialogPrimitive.Close
-					class="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+					class="cursor-pointer rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
 				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="size-4"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					>
-						<line x1="18" y1="6" x2="6" y2="18" />
-						<line x1="6" y1="6" x2="18" y2="18" />
-					</svg>
+					<iconify-icon icon="solar:close-circle-linear" width="18"></iconify-icon>
 				</DialogPrimitive.Close>
 			</div>
 
@@ -187,7 +204,15 @@
 						onValueChange={(v: string) => { calendarId = Number(v); }}
 					>
 						<Select.Trigger class="w-full">
-							{calendars.find((c) => c.id === calendarId)?.name ?? 'Choisir un calendrier'}
+							<span class="flex items-center gap-2">
+								{#if calendars.find(c => c.id === calendarId)}
+									<span
+										class="inline-block size-2.5 rounded-full"
+										style="background-color: {calendars.find(c => c.id === calendarId)?.color}"
+									></span>
+								{/if}
+								{calendars.find((c) => c.id === calendarId)?.name ?? 'Choisir un calendrier'}
+							</span>
 						</Select.Trigger>
 						<Select.Content>
 							{#each calendars as cal (cal.id)}
@@ -209,37 +234,86 @@
 					<Label for="all-day">Toute la journée</Label>
 				</div>
 
-				<!-- Start / End dates -->
-				<div class="grid grid-cols-2 gap-3">
-					<div class="flex flex-col gap-1.5">
-						<Label for="start-at">Début</Label>
-						<Input
-							id="start-at"
-							type={isAllDay ? 'date' : 'datetime-local'}
-							value={isAllDay ? startAt.slice(0, 10) : startAt}
-							oninput={(e) => {
-								const v = (e.target as HTMLInputElement).value;
-								startAt = isAllDay ? v + 'T00:00' : v;
-							}}
-						/>
+				<!-- Start date/time -->
+				<div class="flex flex-col gap-1.5">
+					<Label>Début</Label>
+					<div class="flex gap-2">
+						<Popover.Root bind:open={startPickerOpen}>
+							<Popover.Trigger class="flex-1">
+								<Button
+									variant="outline"
+									class="w-full cursor-pointer justify-start gap-2 text-left font-normal"
+								>
+									<iconify-icon icon="solar:calendar-linear" width="16" class="text-muted-foreground shrink-0"></iconify-icon>
+									<span class="truncate">{formatDisplayDate(startDateStr)}</span>
+								</Button>
+							</Popover.Trigger>
+							<Popover.Content class="w-auto p-0" align="start">
+								<Calendar
+									type="single"
+									value={startDateVal}
+									locale="fr-FR"
+									captionLayout="dropdown"
+									onValueChange={(v: import('@internationalized/date').DateValue | undefined) => {
+										if (v) { startDateStr = v.toString(); startPickerOpen = false; }
+									}}
+								/>
+							</Popover.Content>
+						</Popover.Root>
+						{#if !isAllDay}
+							<Input
+								type="time"
+								bind:value={startTimeStr}
+								class="w-28 cursor-pointer"
+							/>
+						{/if}
 					</div>
-					<div class="flex flex-col gap-1.5">
-						<Label for="end-at">Fin</Label>
-						<Input
-							id="end-at"
-							type={isAllDay ? 'date' : 'datetime-local'}
-							value={isAllDay ? endAt.slice(0, 10) : endAt}
-							oninput={(e) => {
-								const v = (e.target as HTMLInputElement).value;
-								endAt = isAllDay ? v + 'T23:59' : v;
-							}}
-						/>
+				</div>
+
+				<!-- End date/time -->
+				<div class="flex flex-col gap-1.5">
+					<Label>Fin</Label>
+					<div class="flex gap-2">
+						<Popover.Root bind:open={endPickerOpen}>
+							<Popover.Trigger class="flex-1">
+								<Button
+									variant="outline"
+									class="w-full cursor-pointer justify-start gap-2 text-left font-normal"
+								>
+									<iconify-icon icon="solar:calendar-linear" width="16" class="text-muted-foreground shrink-0"></iconify-icon>
+									<span class="truncate">{formatDisplayDate(endDateStr)}</span>
+								</Button>
+							</Popover.Trigger>
+							<Popover.Content class="w-auto p-0" align="start">
+								<Calendar
+									type="single"
+									value={endDateVal}
+									locale="fr-FR"
+									captionLayout="dropdown"
+									onValueChange={(v: import('@internationalized/date').DateValue | undefined) => {
+										if (v) { endDateStr = v.toString(); endPickerOpen = false; }
+									}}
+								/>
+							</Popover.Content>
+						</Popover.Root>
+						{#if !isAllDay}
+							<Input
+								type="time"
+								bind:value={endTimeStr}
+								class="w-28 cursor-pointer"
+							/>
+						{/if}
 					</div>
 				</div>
 
 				<!-- Location -->
 				<div class="flex flex-col gap-1.5">
-					<Label for="location">Lieu</Label>
+					<Label for="location">
+						<span class="flex items-center gap-1.5">
+							<iconify-icon icon="solar:map-point-linear" width="14" class="text-muted-foreground"></iconify-icon>
+							Lieu
+						</span>
+					</Label>
 					<Input
 						id="location"
 						type="text"
@@ -293,16 +367,19 @@
 							variant="destructive"
 							onclick={handleDelete}
 							disabled={deleting || saving}
+							class="gap-2"
 						>
+							<iconify-icon icon="solar:trash-bin-2-linear" width="16"></iconify-icon>
 							{deleting ? 'Suppression…' : 'Supprimer'}
 						</Button>
 					{/if}
 				</div>
 				<div class="flex gap-2">
-					<Button variant="outline" onclick={onClose} disabled={saving || deleting}>
+					<Button variant="outline" onclick={onClose} disabled={saving || deleting} class="cursor-pointer gap-2">
 						Annuler
 					</Button>
-					<Button onclick={handleSave} disabled={saving || deleting}>
+					<Button onclick={handleSave} disabled={saving || deleting} class="cursor-pointer gap-2">
+						<iconify-icon icon="solar:check-circle-linear" width="16"></iconify-icon>
 						{saving ? 'Enregistrement…' : 'Enregistrer'}
 					</Button>
 				</div>

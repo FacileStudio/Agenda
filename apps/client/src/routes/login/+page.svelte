@@ -6,7 +6,6 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { LogIn, UserPlus, ExternalLink } from 'lucide-svelte';
 
 	let tab = $state<'login' | 'register'>('login');
 	let email = $state('');
@@ -135,12 +134,12 @@
 							<p class="text-sm text-destructive">{message}</p>
 						{/if}
 
-						<Button type="submit" class="w-full gap-2" disabled={busy}>
+						<Button type="submit" class="w-full gap-2 cursor-pointer" disabled={busy}>
 							{#if tab === 'register'}
-								<UserPlus class="h-4 w-4" />
+								<iconify-icon icon="solar:user-plus-rounded-linear" width="16"></iconify-icon>
 								Create account
 							{:else}
-								<LogIn class="h-4 w-4" />
+								<iconify-icon icon="solar:login-2-linear" width="16"></iconify-icon>
 								Log in
 							{/if}
 						</Button>
@@ -157,8 +156,8 @@
 					{/if}
 
 					<a href="{backend.baseUrl}/auth/oidc" class="block">
-						<Button variant="outline" class="w-full gap-2" type="button">
-							<ExternalLink class="h-4 w-4" />
+						<Button variant="outline" class="w-full gap-2 cursor-pointer" type="button">
+							<iconify-icon icon="solar:external-link-linear" width="16"></iconify-icon>
 							Continue with SSO
 						</Button>
 					</a>

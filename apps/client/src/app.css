@@ -186,6 +186,12 @@
 	font: inherit;
 }
 
+:global(button),
+:global(a),
+:global([role='button']) {
+	cursor: pointer;
+}
+
 .dark {
 	--background: oklch(0.09 0 0);
 	--foreground: oklch(0.985 0 0);

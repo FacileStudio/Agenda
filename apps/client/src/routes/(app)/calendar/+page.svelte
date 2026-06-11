@@ -34,7 +34,6 @@
 	let selectedEvent = $state<AgendaEvent | null>(null);
 	let modalInitialDate = $state<string | null>(null);
 
-	// Compute the date range to load based on view
 	function getDateRange(): { from: string; to: string } {
 		switch (view) {
 			case 'month': {
@@ -71,9 +70,7 @@
 		loading = true;
 		try {
 			const { from, to } = getDateRange();
-			const results = await Promise.all(
-				cals.map((cal) => backend.listEvents(cal.id, from, to))
-			);
+			const results = await Promise.all(cals.map((cal) => backend.listEvents(cal.id, from, to)));
 			events = results.flat();
 		} catch {
 			events = [];
@@ -83,21 +80,16 @@
 	}
 
 	$effect(() => {
-		// Reactive dependencies: re-load when currentDate, view, or calendars change
 		const _date = currentDate;
 		const _view = view;
 		const _cals = app.calendars;
 		loadEvents();
 	});
 
-	// Period title
 	const periodTitle = $derived(() => {
 		switch (view) {
 			case 'month':
-				return currentDate.toDate(tz).toLocaleDateString('fr-FR', {
-					month: 'long',
-					year: 'numeric'
-				});
+				return currentDate.toDate(tz).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
 			case 'week': {
 				const ws = startOfWeek(currentDate, 'fr-FR').toDate(tz);
 				const we = endOfWeek(currentDate, 'fr-FR').toDate(tz);
@@ -118,33 +110,20 @@
 
 	function navigate(direction: -1 | 1) {
 		switch (view) {
-			case 'month':
-				currentDate = currentDate.add({ months: direction });
-				break;
-			case 'week':
-				currentDate = currentDate.add({ weeks: direction });
-				break;
-			case 'day':
-				currentDate = currentDate.add({ days: direction });
-				break;
-			case 'agenda':
-				currentDate = currentDate.add({ months: direction });
-				break;
+			case 'month': currentDate = currentDate.add({ months: direction }); break;
+			case 'week': currentDate = currentDate.add({ weeks: direction }); break;
+			case 'day': currentDate = currentDate.add({ days: direction }); break;
+			case 'agenda': currentDate = currentDate.add({ months: direction }); break;
 		}
 	}
 
-	function goToday() {
-		currentDate = today(tz);
-	}
+	function goToday() { currentDate = today(tz); }
 
-	// Modal handlers
 	function openCreateModal(date?: CalendarDate, hour?: number) {
 		selectedEvent = null;
 		if (date) {
 			const d = date.toDate(tz);
-			if (hour !== undefined) {
-				d.setHours(hour, 0, 0, 0);
-			}
+			if (hour !== undefined) d.setHours(hour, 0, 0, 0);
 			modalInitialDate = d.toISOString().slice(0, 10);
 		} else {
 			modalInitialDate = null;
@@ -183,57 +162,66 @@
 	function viewVariant(v: ViewType): 'secondary' | 'ghost' {
 		return view === v ? 'secondary' : 'ghost';
 	}
+
+	const viewItems: { id: ViewType; label: string; icon: string }[] = [
+		{ id: 'month', label: 'Mois', icon: 'solar:calendar-minimalistic-linear' },
+		{ id: 'week', label: 'Semaine', icon: 'solar:calendar-linear' },
+		{ id: 'day', label: 'Jour', icon: 'solar:calendar-date-linear' },
+		{ id: 'agenda', label: 'Agenda', icon: 'solar:list-linear' }
+	];
 </script>
 
 <div class="flex h-full flex-col">
 	<!-- Top bar -->
 	<div class="flex flex-shrink-0 items-center gap-2 border-b px-4 py-2">
-		<!-- New event -->
-		<Button onclick={() => openCreateModal()}>Nouveau</Button>
-
-		<div class="mx-1 h-5 w-px bg-border"></div>
-
-		<!-- View selector -->
-		<div class="flex items-center rounded-lg border">
-			<Button variant={viewVariant('month')} size="sm" class="rounded-r-none border-r" onclick={() => (view = 'month')}>
-				Mois
-			</Button>
-			<Button variant={viewVariant('week')} size="sm" class="rounded-none border-r" onclick={() => (view = 'week')}>
-				Semaine
-			</Button>
-			<Button variant={viewVariant('day')} size="sm" class="rounded-none border-r" onclick={() => (view = 'day')}>
-				Jour
-			</Button>
-			<Button variant={viewVariant('agenda')} size="sm" class="rounded-l-none" onclick={() => (view = 'agenda')}>
-				Agenda
-			</Button>
-		</div>
-
-		<div class="mx-1 h-5 w-px bg-border"></div>
-
 		<!-- Navigation -->
 		<div class="flex items-center gap-1">
-			<Button variant="ghost" size="icon-sm" onclick={() => navigate(-1)} aria-label="Précédent">
-				<svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<polyline points="15 18 9 12 15 6"/>
-				</svg>
+			<Button variant="ghost" size="icon-sm" class="cursor-pointer" onclick={() => navigate(-1)} aria-label="Précédent">
+				<iconify-icon icon="solar:alt-arrow-left-linear" width="16"></iconify-icon>
 			</Button>
-			<Button variant="ghost" size="sm" onclick={goToday}>Aujourd'hui</Button>
-			<Button variant="ghost" size="icon-sm" onclick={() => navigate(1)} aria-label="Suivant">
-				<svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<polyline points="9 18 15 12 9 6"/>
-				</svg>
+			<Button variant="ghost" size="sm" class="cursor-pointer gap-1.5" onclick={goToday}>
+				<iconify-icon icon="solar:calendar-minimalistic-linear" width="14"></iconify-icon>
+				Aujourd'hui
+			</Button>
+			<Button variant="ghost" size="icon-sm" class="cursor-pointer" onclick={() => navigate(1)} aria-label="Suivant">
+				<iconify-icon icon="solar:alt-arrow-right-linear" width="16"></iconify-icon>
 			</Button>
 		</div>
 
 		<!-- Period title -->
-		<span class="ml-2 text-sm font-medium capitalize text-foreground">
+		<span class="ml-1 text-sm font-medium capitalize text-foreground">
 			{periodTitle()}
 		</span>
 
 		{#if loading}
-			<span class="ml-auto text-xs text-muted-foreground">Chargement…</span>
+			<span class="ml-2 text-xs text-muted-foreground">Chargement…</span>
 		{/if}
+
+		<!-- Spacer -->
+		<div class="flex-1"></div>
+
+		<!-- View selector -->
+		<div class="flex items-center rounded-lg border">
+			{#each viewItems as item, i}
+				<Button
+					variant={viewVariant(item.id)}
+					size="sm"
+					class={`cursor-pointer gap-1.5 ${i === 0 ? 'rounded-r-none border-r' : i === viewItems.length - 1 ? 'rounded-l-none' : 'rounded-none border-r'}`}
+					onclick={() => (view = item.id)}
+				>
+					<iconify-icon icon={item.icon} width="14"></iconify-icon>
+					{item.label}
+				</Button>
+			{/each}
+		</div>
+
+		<div class="mx-1 h-5 w-px bg-border"></div>
+
+		<!-- New event — top right -->
+		<Button onclick={() => openCreateModal()} class="cursor-pointer gap-2">
+			<iconify-icon icon="mdi:plus" width="18"></iconify-icon>
+			Nouveau
+		</Button>
 	</div>
 
 	<!-- View area -->
