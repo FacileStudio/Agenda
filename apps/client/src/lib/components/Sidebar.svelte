@@ -52,7 +52,7 @@
 	const sharedCalendars = $derived(calendars.filter(c => c.role !== 'owner'));
 </script>
 
-<aside class="sticky top-0 flex h-screen w-60 flex-col border-r bg-background">
+<aside class="sticky top-0 hidden h-screen w-60 flex-col border-r bg-background md:flex">
 	<!-- Logo -->
 	<div class="flex items-center gap-3 px-5 pt-8 pb-4">
 		<iconify-icon icon="solar:calendar-bold-duotone" width="28" class="text-foreground"></iconify-icon>

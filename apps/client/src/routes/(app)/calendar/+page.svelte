@@ -173,7 +173,7 @@
 
 <div class="flex h-full flex-col">
 	<!-- Top bar -->
-	<div class="flex flex-shrink-0 items-center gap-2 border-b px-4 py-2">
+	<div class="flex flex-shrink-0 flex-wrap items-center gap-2 border-b px-2 py-2 sm:px-4">
 		<!-- Navigation -->
 		<div class="flex items-center gap-1">
 			<Button variant="ghost" size="icon-sm" class="cursor-pointer" onclick={() => navigate(-1)} aria-label="Précédent">
@@ -181,7 +181,7 @@
 			</Button>
 			<Button variant="ghost" size="sm" class="cursor-pointer gap-1.5" onclick={goToday}>
 				<iconify-icon icon="solar:calendar-minimalistic-linear" width="14"></iconify-icon>
-				Aujourd'hui
+				<span class="hidden sm:inline">Aujourd'hui</span>
 			</Button>
 			<Button variant="ghost" size="icon-sm" class="cursor-pointer" onclick={() => navigate(1)} aria-label="Suivant">
 				<iconify-icon icon="solar:alt-arrow-right-linear" width="16"></iconify-icon>
@@ -189,7 +189,7 @@
 		</div>
 
 		<!-- Period title -->
-		<span class="ml-1 text-sm font-medium capitalize text-foreground">
+		<span class="ml-1 truncate text-sm font-medium capitalize text-foreground">
 			{periodTitle()}
 		</span>
 
@@ -210,7 +210,7 @@
 					onclick={() => (view = item.id)}
 				>
 					<iconify-icon icon={item.icon} width="14"></iconify-icon>
-					{item.label}
+					<span class="hidden lg:inline">{item.label}</span>
 				</Button>
 			{/each}
 		</div>
@@ -220,7 +220,7 @@
 		<!-- New event — top right -->
 		<Button onclick={() => openCreateModal()} class="cursor-pointer gap-2">
 			<iconify-icon icon="mdi:plus" width="18"></iconify-icon>
-			Nouveau
+			<span class="hidden sm:inline">Nouveau</span>
 		</Button>
 	</div>
 
