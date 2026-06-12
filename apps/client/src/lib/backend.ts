@@ -79,6 +79,16 @@ type ApiErrorPayload = {
 	error?: { message?: string };
 };
 
+export class ApiError extends Error {
+	status: number;
+
+	constructor(status: number, message: string) {
+		super(message);
+		this.name = 'ApiError';
+		this.status = status;
+	}
+}
+
 async function apiFetch<T>(path: string, options: RequestInit = {}) {
 	const headers = new Headers(options.headers);
 	if (!headers.has('Content-Type') && options.body) {
@@ -92,7 +102,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}) {
 		} catch {
 			payload = undefined;
 		}
-		throw new Error(payload?.error?.message || `Request failed with status ${response.status}`);
+		throw new ApiError(response.status, payload?.error?.message || `Request failed with status ${response.status}`);
 	}
 	return (await response.json()) as T;
 }

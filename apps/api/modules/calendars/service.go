@@ -178,6 +178,20 @@ func (s *Service) DeleteCalendar(ctx context.Context, userID int64, calendarID i
 	return s.orm.WithContext(ctx).Delete(cal).Error
 }
 
+// normalizeRole maps legacy client aliases onto canonical roles.
+func normalizeRole(role string) string {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "viewer", "reader":
+		return "reader"
+	case "editor", "writer":
+		return "writer"
+	case "admin":
+		return "admin"
+	default:
+		return ""
+	}
+}
+
 func (s *Service) ShareCalendar(ctx context.Context, ownerID int64, calendarID int64, req *ShareCalendarRequest) error {
 	_, role, err := s.loadWithAccess(ctx, ownerID, calendarID)
 	if err != nil {
@@ -186,11 +200,16 @@ func (s *Service) ShareCalendar(ctx context.Context, ownerID int64, calendarID i
 	if role != "owner" && role != "admin" {
 		return errors.Forbidden("insufficient permissions")
 	}
-	if req.Role != "reader" && req.Role != "writer" && req.Role != "admin" {
+	req.Role = normalizeRole(req.Role)
+	if req.Role == "" {
 		return errors.Invalid("role must be reader, writer, or admin")
 	}
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	if req.Email == "" {
+		return errors.Invalid("email is required")
+	}
 	var target schemas.User
-	if err := s.orm.WithContext(ctx).Where("email = ?", req.Email).First(&target).Error; err != nil {
+	if err := s.orm.WithContext(ctx).Where("LOWER(email) = ?", req.Email).First(&target).Error; err != nil {
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.NotFound("user not found")
 		}
@@ -220,7 +239,8 @@ func (s *Service) RemoveMember(ctx context.Context, ownerID int64, calendarID in
 	if err != nil {
 		return err
 	}
-	if role != "owner" && role != "admin" {
+	// Owners/admins manage members; a member may always remove themselves (leave).
+	if role != "owner" && role != "admin" && ownerID != memberID {
 		return errors.Forbidden("insufficient permissions")
 	}
 	return s.orm.WithContext(ctx).

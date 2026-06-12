@@ -5,7 +5,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import * as Select from '$lib/components/ui/select';
 	import { Separator } from '$lib/components/ui/separator';
-	import { backend, type CalendarItem, type CalendarMember } from '$lib/backend';
+	import { backend, ApiError, type CalendarItem, type CalendarMember } from '$lib/backend';
 	import { cn } from '$lib/utils';
 
 	let {
@@ -30,7 +30,7 @@
 	let members = $state<CalendarMember[]>([]);
 	let loadingMembers = $state(false);
 	let inviteEmail = $state('');
-	let inviteRole = $state('viewer');
+	let inviteRole = $state('reader');
 	let inviting = $state(false);
 	let inviteError = $state('');
 	let removingId = $state<number | null>(null);
@@ -49,7 +49,7 @@
 			editDescription = calendar.description || '';
 			error = '';
 			inviteEmail = '';
-			inviteRole = 'viewer';
+			inviteRole = 'reader';
 			inviteError = '';
 			members = [];
 			loadMembers();
@@ -98,17 +98,29 @@
 	}
 
 	async function handleInvite() {
-		if (!calendar || !inviteEmail.trim()) { inviteError = 'Email requis.'; return; }
+		const email = inviteEmail.trim().toLowerCase();
+		if (!calendar || !email) { inviteError = 'Email requis.'; return; }
+		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { inviteError = 'Adresse email invalide.'; return; }
 		inviting = true; inviteError = '';
 		try {
-			await backend.shareCalendar(calendar.id, inviteEmail.trim(), inviteRole);
+			await backend.shareCalendar(calendar.id, email, inviteRole);
 			inviteEmail = '';
 			await loadMembers();
 		} catch (e: unknown) {
-			inviteError = e instanceof Error ? e.message : 'Erreur.';
+			inviteError = inviteErrorMessage(e);
 		} finally {
 			inviting = false;
 		}
+	}
+
+	function inviteErrorMessage(e: unknown): string {
+		if (e instanceof ApiError) {
+			if (e.status === 404) return 'Aucun compte trouvé avec cet email. La personne doit d\'abord se connecter à Agenda.';
+			if (e.status === 403) return 'Vous n\'avez pas la permission de partager ce calendrier.';
+			if (e.message.includes('yourself')) return 'Vous ne pouvez pas vous inviter vous-même.';
+			if (e.status === 400) return 'Invitation invalide. Vérifiez l\'email et le rôle.';
+		}
+		return 'L\'invitation a échoué. Réessayez.';
 	}
 
 	async function handleRemoveMember(userId: number) {
@@ -128,7 +140,12 @@
 	}
 
 	function roleLabel(role: string) {
-		return role === 'owner' ? 'Propriétaire' : role === 'editor' ? 'Éditeur' : 'Lecteur';
+		switch (role) {
+			case 'owner': return 'Propriétaire';
+			case 'admin': return 'Admin';
+			case 'writer': return 'Éditeur';
+			default: return 'Lecteur';
+		}
 	}
 </script>
 
@@ -233,7 +250,8 @@
 									<button
 										onclick={() => handleRemoveMember(member.user_id)}
 										disabled={removingId === member.user_id}
-										class="cursor-pointer shrink-0 rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+										class="cursor-pointer shrink-0 rounded-md bg-destructive p-1 text-white hover:bg-destructive/90 disabled:opacity-50"
+										title="Retirer ce membre"
 									>
 										<iconify-icon icon="solar:trash-bin-2-linear" width="14"></iconify-icon>
 									</button>
@@ -253,14 +271,15 @@
 								placeholder="email@exemple.com"
 								type="email"
 								class="flex-1"
+								onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter') handleInvite(); }}
 							/>
 							<Select.Root type="single" value={inviteRole} onValueChange={(v) => { if (v) inviteRole = v; }}>
 								<Select.Trigger class="w-28">
-									{inviteRole === 'editor' ? 'Éditeur' : 'Lecteur'}
+									{roleLabel(inviteRole)}
 								</Select.Trigger>
 								<Select.Content>
-									<Select.Item value="viewer">Lecteur</Select.Item>
-									<Select.Item value="editor">Éditeur</Select.Item>
+									<Select.Item value="reader">Lecteur</Select.Item>
+									<Select.Item value="writer">Éditeur</Select.Item>
 								</Select.Content>
 							</Select.Root>
 							<Button onclick={handleInvite} disabled={inviting} class="gap-1.5 shrink-0">

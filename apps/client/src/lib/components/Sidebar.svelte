@@ -15,6 +15,13 @@
 	let createOpen = $state(false);
 	let managedCalendar = $state<CalendarItem | null>(null);
 	let manageOpen = $state(false);
+	let avatarFailed = $state(false);
+
+	// Reset the fallback when the avatar URL changes (e.g. after profile sync).
+	$effect(() => {
+		void user?.avatar_url;
+		avatarFailed = false;
+	});
 
 	function openManage(cal: CalendarItem) {
 		managedCalendar = cal;
@@ -102,7 +109,7 @@
 					<div class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm">
 						<span class="size-2.5 shrink-0 rounded-full" style="background-color: {cal.color}"></span>
 						<span class="flex-1 truncate">{cal.name}</span>
-						<span class="text-xs text-muted-foreground">{cal.role === 'editor' ? 'Édit.' : 'Lect.'}</span>
+						<span class="text-xs text-muted-foreground">{cal.role === 'writer' || cal.role === 'admin' ? 'Édit.' : 'Lect.'}</span>
 					</div>
 				{/each}
 			{/if}
@@ -117,11 +124,12 @@
 			href="/settings"
 			class="flex cursor-pointer items-center gap-3 rounded-xl border border-border/70 bg-muted/40 p-2.5 transition-colors hover:bg-muted"
 		>
-			{#if user?.avatar_url}
+			{#if user?.avatar_url && !avatarFailed}
 				<img
 					src={user.avatar_url}
 					alt={userLabel(user)}
 					class="h-10 w-10 shrink-0 rounded-full border border-border object-cover"
+					onerror={() => (avatarFailed = true)}
 				/>
 			{:else}
 				<div

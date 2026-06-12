@@ -21,6 +21,13 @@
 
 	let activeTab = $state<Tab>('profile');
 	let syncing = $state(false);
+	let avatarFailed = $state(false);
+
+	// Reset the fallback when the avatar URL changes (e.g. after a profile sync).
+	$effect(() => {
+		void app.user?.avatar_url;
+		avatarFailed = false;
+	});
 
 	let createOpen = $state(false);
 	let managedCalendar = $state<CalendarItem | null>(null);
@@ -148,11 +155,12 @@
 			<div class="max-w-md space-y-6">
 				<!-- Avatar -->
 				<div class="flex items-center gap-4">
-					{#if app.user?.avatar_url}
+					{#if app.user?.avatar_url && !avatarFailed}
 						<img
 							src={app.user.avatar_url}
 							alt={displayName}
 							class="h-20 w-20 rounded-full border border-border object-cover"
+							onerror={() => (avatarFailed = true)}
 						/>
 					{:else}
 						<div
@@ -238,7 +246,7 @@
 								{/if}
 								{#if cal.role !== 'owner'}
 									<span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-										{cal.role === 'editor' ? 'Éditeur' : 'Lecteur'}
+										{cal.role === 'writer' || cal.role === 'admin' ? 'Éditeur' : 'Lecteur'}
 									</span>
 								{/if}
 								{#if cal.role === 'owner'}
@@ -366,8 +374,8 @@
 									{/if}
 								</div>
 							</div>
-							<Button variant="ghost" size="sm" onclick={revokeToken} disabled={tokenBusy}
-								class="cursor-pointer text-muted-foreground hover:text-destructive hover:bg-destructive/10 gap-1.5">
+							<Button variant="destructive" size="sm" onclick={revokeToken} disabled={tokenBusy}
+								class="cursor-pointer gap-1.5">
 								<iconify-icon icon="solar:trash-bin-2-linear" width="14"></iconify-icon>
 								Révoquer
 							</Button>
