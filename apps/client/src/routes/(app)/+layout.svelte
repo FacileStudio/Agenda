@@ -54,6 +54,6 @@
 		<main class="flex-1 overflow-auto pb-24 md:pb-0">
 			{@render children()}
 		</main>
-		<MobileNav />
+		<MobileNav {user} />
 	</div>
 {/if}
