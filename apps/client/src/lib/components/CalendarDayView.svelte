@@ -96,7 +96,10 @@
 					style="top: {hour * SLOT_HEIGHT}px; height: {SLOT_HEIGHT}px;"
 					onclick={() => onSlotClick(hour)}
 				>
-					<span class="absolute left-0 top-0 w-12 pr-2 text-right text-xs text-muted-foreground">
+					<span
+						class="absolute left-0 top-0 w-12 pr-2 text-right text-xs text-muted-foreground"
+						style={hour === 0 ? '' : 'transform: translateY(-50%);'}
+					>
 						{formatHour(hour)}
 					</span>
 				</button>
