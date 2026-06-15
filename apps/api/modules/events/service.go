@@ -116,6 +116,18 @@ func (s *Service) UpdateEvent(ctx context.Context, userID int64, eventID int64, 
 		return nil, err
 	}
 
+	// Moving the event to another calendar: require write access to the
+	// destination too, and remember the source so we can bump both sync
+	// tokens (CalDAV clients see a delete from one collection + add to the other).
+	sourceCalendarID := evt.CalendarID
+	moved := req.CalendarID != 0 && req.CalendarID != evt.CalendarID
+	if moved {
+		if err := s.checkCalendarWriteAccess(ctx, userID, req.CalendarID); err != nil {
+			return nil, err
+		}
+		evt.CalendarID = req.CalendarID
+	}
+
 	evt.ETag = newETag()
 	evt.Sequence++
 	evt.Title = req.Title
@@ -132,6 +144,9 @@ func (s *Service) UpdateEvent(ctx context.Context, userID int64, eventID int64, 
 		return nil, errors.Internal("failed to update event", err)
 	}
 	s.bumpSyncToken(ctx, evt.CalendarID)
+	if moved {
+		s.bumpSyncToken(ctx, sourceCalendarID)
+	}
 
 	resp := toResponse(evt)
 	return &resp, nil

@@ -196,10 +196,11 @@ export const backend = {
 	getEvent(eventId: number) {
 		return apiFetch<AgendaEvent>(`/events/${eventId}/`);
 	},
-	updateEvent(eventId: number, data: Partial<CreateEventRequest>) {
+	updateEvent(eventId: number, calendarId: number, data: Partial<CreateEventRequest>) {
+		// calendar_id lets the API move the event to another calendar.
 		return apiFetch<AgendaEvent>(`/events/${eventId}/`, {
 			method: 'PUT',
-			body: JSON.stringify(data)
+			body: JSON.stringify({ ...data, calendar_id: calendarId })
 		});
 	},
 	deleteEvent(eventId: number) {

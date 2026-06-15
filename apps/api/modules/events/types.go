@@ -14,6 +14,9 @@ type CreateEventRequest struct {
 }
 
 type UpdateEventRequest struct {
+	// CalendarID, when set and different from the event's current calendar,
+	// moves the event to that calendar (requires write access to it).
+	CalendarID     int64     `json:"calendar_id"`
 	Title          string    `json:"title"`
 	Description    string    `json:"description"`
 	Location       string    `json:"location"`

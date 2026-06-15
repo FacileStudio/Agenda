@@ -114,6 +114,23 @@ func FetchAvatar(pictureURL, storageDir string, userID int64, logger *slog.Logge
 	return strings.ReplaceAll(relativePath, string(filepath.Separator), "/"), nil
 }
 
+// LocalAvatarExists reports whether the avatar referenced by avatarURL
+// (e.g. "/files/avatars/oidc-1-….png") actually exists on disk. Used to
+// self-heal when the DB references a file that was deleted or never written.
+func LocalAvatarExists(storageDir, avatarURL string) bool {
+	rel := strings.TrimPrefix(avatarURL, "/files/")
+	if rel == "" || rel == avatarURL {
+		return false
+	}
+	abs := filepath.Join(storageDir, filepath.Clean(rel))
+	avatarsDir := filepath.Clean(filepath.Join(storageDir, "avatars"))
+	if !strings.HasPrefix(abs, avatarsDir) {
+		return false
+	}
+	info, err := os.Stat(abs)
+	return err == nil && !info.IsDir()
+}
+
 func RemoveFile(storageDir, relativePath string) {
 	if relativePath == "" {
 		return

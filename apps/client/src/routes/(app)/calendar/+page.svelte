@@ -139,7 +139,7 @@
 
 	async function handleSave(calendarId: number, data: CreateEventRequest) {
 		if (selectedEvent) {
-			await backend.updateEvent(selectedEvent.id, data);
+			await backend.updateEvent(selectedEvent.id, calendarId, data);
 		} else {
 			await backend.createEvent(calendarId, data);
 		}
