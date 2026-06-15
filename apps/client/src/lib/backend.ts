@@ -35,6 +35,13 @@ export type CalendarMember = {
 	role: string;
 };
 
+export type EventCreator = {
+	id: number;
+	name: string;
+	email: string;
+	avatar_url: string;
+};
+
 export type AgendaEvent = {
 	id: number;
 	calendar_id: number;
@@ -48,6 +55,7 @@ export type AgendaEvent = {
 	is_all_day: boolean;
 	recurrence_rule: string;
 	status: string;
+	created_by: EventCreator | null;
 	created_at: string;
 	updated_at: string;
 };

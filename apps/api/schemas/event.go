@@ -17,6 +17,8 @@ type Event struct {
 	RecurrenceRule string    `gorm:"column:recurrence_rule"`
 	Status         string    `gorm:"column:status;default:'confirmed'"` // confirmed, tentative, cancelled
 	RawICS         string    `gorm:"column:raw_ics;type:text"`
+	CreatedByID    *int64    `gorm:"column:created_by_id;index"`
+	CreatedBy      *User     `gorm:"foreignKey:CreatedByID"`
 	CreatedAt      time.Time `gorm:"column:created_at;autoCreateTime"`
 	UpdatedAt      time.Time `gorm:"column:updated_at;autoUpdateTime"`
 }

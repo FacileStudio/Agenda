@@ -33,21 +33,32 @@
 		return { date: iso.slice(0, 10), time: iso.slice(11, 16) || '09:00' };
 	}
 
+	// Build a LOCAL wall-clock "YYYY-MM-DDTHH:mm" string. The stored start_at/
+	// end_at are UTC instants; toISOString() would yield UTC wall-clock (e.g.
+	// 11:00 for a 13:00 CEST event), so we read local components instead. This
+	// matches the save path, which parses the inputs as local time.
+	function pad(n: number): string {
+		return String(n).padStart(2, '0');
+	}
+	function toLocalInput(d: Date): string {
+		return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+	}
+
 	function defaultStart(): string {
-		if (event) return new Date(event.start_at).toISOString().slice(0, 16);
-		if (initialDate) return new Date(initialDate + 'T09:00').toISOString().slice(0, 16);
+		if (event) return toLocalInput(new Date(event.start_at));
+		if (initialDate) return `${initialDate}T09:00`;
 		const d = new Date();
 		d.setMinutes(0, 0, 0);
-		return d.toISOString().slice(0, 16);
+		return toLocalInput(d);
 	}
 
 	function defaultEnd(): string {
-		if (event) return new Date(event.end_at).toISOString().slice(0, 16);
-		if (initialDate) return new Date(initialDate + 'T10:00').toISOString().slice(0, 16);
+		if (event) return toLocalInput(new Date(event.end_at));
+		if (initialDate) return `${initialDate}T10:00`;
 		const d = new Date();
 		d.setMinutes(0, 0, 0);
 		d.setHours(d.getHours() + 1);
-		return d.toISOString().slice(0, 16);
+		return toLocalInput(d);
 	}
 
 	let title = $state(event?.title ?? '');
@@ -352,6 +363,25 @@
 						</Select.Content>
 					</Select.Root>
 				</div>
+
+				<!-- Created by (useful for shared calendars) -->
+				{#if event?.created_by}
+					{@const creator = event.created_by}
+					<div class="flex items-center gap-2 border-t border-border pt-3 text-sm text-muted-foreground">
+						{#if creator.avatar_url}
+							<img
+								src="/api{creator.avatar_url}"
+								alt={creator.name || creator.email}
+								class="size-6 shrink-0 rounded-full border border-border object-cover"
+							/>
+						{:else}
+							<span class="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-[10px] font-semibold">
+								{(creator.name || creator.email || '?').trim().slice(0, 2).toUpperCase()}
+							</span>
+						{/if}
+						<span>Créé par <span class="font-medium text-foreground">{creator.name || creator.email}</span></span>
+					</div>
+				{/if}
 
 				<!-- Error -->
 				{#if error}

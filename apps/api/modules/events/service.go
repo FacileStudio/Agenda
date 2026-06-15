@@ -29,7 +29,7 @@ func (s *Service) ListEvents(ctx context.Context, userID int64, calendarID int64
 		return nil, err
 	}
 
-	q := s.orm.WithContext(ctx).Where("calendar_id = ?", calendarID)
+	q := s.orm.WithContext(ctx).Preload("CreatedBy").Where("calendar_id = ?", calendarID)
 	if from != nil {
 		q = q.Where("end_at >= ?", from)
 	}
@@ -71,6 +71,7 @@ func (s *Service) CreateEvent(ctx context.Context, userID int64, calendarID int6
 	}
 
 	uid := newUID()
+	creatorID := userID
 	evt := &schemas.Event{
 		CalendarID:     calendarID,
 		UID:            uid,
@@ -83,6 +84,7 @@ func (s *Service) CreateEvent(ctx context.Context, userID int64, calendarID int6
 		IsAllDay:       req.IsAllDay,
 		RecurrenceRule: req.RecurrenceRule,
 		Status:         statusOrDefault(req.Status),
+		CreatedByID:    &creatorID,
 	}
 	evt.RawICS = buildRawICS(evt)
 
@@ -90,6 +92,7 @@ func (s *Service) CreateEvent(ctx context.Context, userID int64, calendarID int6
 		return nil, errors.Internal("failed to create event", err)
 	}
 	s.bumpSyncToken(ctx, calendarID)
+	s.orm.WithContext(ctx).Preload("CreatedBy").First(evt, evt.ID)
 
 	resp := toResponse(evt)
 	return &resp, nil
@@ -140,7 +143,9 @@ func (s *Service) UpdateEvent(ctx context.Context, userID int64, eventID int64, 
 	evt.Status = statusOrDefault(req.Status)
 	evt.RawICS = buildRawICS(evt)
 
-	if err := s.orm.WithContext(ctx).Save(evt).Error; err != nil {
+	// Omit the CreatedBy association so saving the event never upserts the
+	// user row; the creator is read-only here.
+	if err := s.orm.WithContext(ctx).Omit("CreatedBy").Save(evt).Error; err != nil {
 		return nil, errors.Internal("failed to update event", err)
 	}
 	s.bumpSyncToken(ctx, evt.CalendarID)
@@ -169,7 +174,7 @@ func (s *Service) DeleteEvent(ctx context.Context, userID int64, eventID int64) 
 
 func (s *Service) loadWithAccess(ctx context.Context, userID int64, eventID int64) (*schemas.Event, error) {
 	var evt schemas.Event
-	if err := s.orm.WithContext(ctx).First(&evt, eventID).Error; err != nil {
+	if err := s.orm.WithContext(ctx).Preload("CreatedBy").First(&evt, eventID).Error; err != nil {
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.NotFound("event not found")
 		}
@@ -231,6 +236,15 @@ func (s *Service) bumpSyncToken(ctx context.Context, calendarID int64) {
 }
 
 func toResponse(e *schemas.Event) EventResponse {
+	var creator *EventCreator
+	if e.CreatedBy != nil {
+		creator = &EventCreator{
+			ID:        e.CreatedBy.ID,
+			Name:      e.CreatedBy.Name,
+			Email:     e.CreatedBy.Email,
+			AvatarURL: e.CreatedBy.AvatarURL,
+		}
+	}
 	return EventResponse{
 		ID:             e.ID,
 		CalendarID:     e.CalendarID,
@@ -244,6 +258,7 @@ func toResponse(e *schemas.Event) EventResponse {
 		IsAllDay:       e.IsAllDay,
 		RecurrenceRule: e.RecurrenceRule,
 		Status:         e.Status,
+		CreatedBy:      creator,
 		CreatedAt:      e.CreatedAt,
 		UpdatedAt:      e.UpdatedAt,
 	}
