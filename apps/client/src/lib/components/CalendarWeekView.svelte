@@ -113,13 +113,15 @@
 
 	<!-- Time grid -->
 	<div class="flex flex-1 overflow-y-auto">
-		<!-- Time labels -->
+		<!-- Time labels: vertically centred on each hour grid line (the slot
+		     bottom-borders sit at hour*SLOT_HEIGHT). 00:00 stays pinned to the
+		     top edge so it isn't clipped by the scroll container. -->
 		<div class="w-12 flex-shrink-0 border-r">
 			<div class="relative" style="height: {24 * SLOT_HEIGHT}px;">
 				{#each HOURS as hour}
 					<div
 						class="absolute left-0 right-0 pr-1 text-right text-xs text-muted-foreground"
-						style="top: {hour * SLOT_HEIGHT}px;"
+						style="top: {hour * SLOT_HEIGHT}px;{hour === 0 ? '' : ' transform: translateY(-50%);'}"
 					>
 						{formatHour(hour)}
 					</div>
