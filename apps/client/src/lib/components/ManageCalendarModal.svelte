@@ -250,7 +250,7 @@
 									<button
 										onclick={() => handleRemoveMember(member.user_id)}
 										disabled={removingId === member.user_id}
-										class="cursor-pointer shrink-0 rounded-md bg-destructive p-1 text-white hover:bg-destructive/90 disabled:opacity-50"
+										class="flex size-7 cursor-pointer items-center justify-center shrink-0 rounded-full bg-destructive text-white hover:bg-destructive/90 disabled:opacity-50"
 										title="Retirer ce membre"
 									>
 										<iconify-icon icon="solar:trash-bin-2-linear" width="14"></iconify-icon>
