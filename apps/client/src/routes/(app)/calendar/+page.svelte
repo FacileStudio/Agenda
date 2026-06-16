@@ -122,9 +122,7 @@
 	function openCreateModal(date?: CalendarDate, hour?: number) {
 		selectedEvent = null;
 		if (date) {
-			const d = date.toDate(tz);
-			if (hour !== undefined) d.setHours(hour, 0, 0, 0);
-			modalInitialDate = d.toISOString().slice(0, 10);
+			modalInitialDate = `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`;
 		} else {
 			modalInitialDate = null;
 		}
