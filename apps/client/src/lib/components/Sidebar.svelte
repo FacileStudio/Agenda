@@ -90,27 +90,31 @@
 
 		<div class="flex-1 overflow-y-auto">
 			{#each ownedCalendars as cal (cal.id)}
-				<div class="group flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
+				<button
+					onclick={() => openManage(cal)}
+					class="group flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+				>
 					<span class="size-2.5 shrink-0 rounded-full" style="background-color: {cal.color}"></span>
 					<span class="flex-1 truncate">{cal.name}</span>
-					<button
-						onclick={() => openManage(cal)}
-						class="cursor-pointer shrink-0 rounded-md p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
-						title="Gérer"
-					>
-						<iconify-icon icon="solar:settings-minimalistic-linear" width="13"></iconify-icon>
-					</button>
-				</div>
+					<iconify-icon
+						icon="solar:settings-minimalistic-linear"
+						width="13"
+						class="shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+					></iconify-icon>
+				</button>
 			{/each}
 
 			{#if sharedCalendars.length > 0}
 				<p class="mt-3 mb-1 px-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Partagés</p>
 				{#each sharedCalendars as cal (cal.id)}
-					<div class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm">
+					<button
+						onclick={() => openManage(cal)}
+						class="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+					>
 						<span class="size-2.5 shrink-0 rounded-full" style="background-color: {cal.color}"></span>
 						<span class="flex-1 truncate">{cal.name}</span>
 						<span class="text-xs text-muted-foreground">{cal.role === 'writer' || cal.role === 'admin' ? 'Édit.' : 'Lect.'}</span>
-					</div>
+					</button>
 				{/each}
 			{/if}
 		</div>
