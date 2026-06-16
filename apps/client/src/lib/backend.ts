@@ -115,7 +115,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}) {
 	return (await response.json()) as T;
 }
 
-function resolveFileUrl(path: string) {
+export function resolveFileUrl(path: string) {
 	if (!path) return '';
 	if (/^https?:\/\//.test(path)) return path;
 	return `${backendBaseUrl}${path.startsWith('/') ? path : `/${path}`}`;

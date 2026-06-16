@@ -9,7 +9,7 @@
 	import { Calendar } from '$lib/components/ui/calendar';
 	import { parseDate, type DateValue } from '@internationalized/date';
 	import { cn } from '$lib/utils';
-	import type { AgendaEvent, CalendarItem, CreateEventRequest } from '$lib/backend';
+	import { resolveFileUrl, type AgendaEvent, type CalendarItem, type CreateEventRequest } from '$lib/backend';
 
 	let {
 		open = $bindable(false),
@@ -370,7 +370,7 @@
 					<div class="flex items-center gap-2 border-t border-border pt-3 text-sm text-muted-foreground">
 						{#if creator.avatar_url}
 							<img
-								src="/api{creator.avatar_url}"
+								src={resolveFileUrl(creator.avatar_url)}
 								alt={creator.name || creator.email}
 								class="size-6 shrink-0 rounded-full border border-border object-cover"
 							/>
