@@ -27,12 +27,12 @@
 			if (r.synced) {
 				const fresh = await backend.me();
 				app.setUser(fresh.user);
-				toast.success('Profil synchronisé depuis SSO.');
+				toast.success('Profil synchronise depuis SSO.');
 			} else {
-				toast.info('Profil déjà à jour.');
+				toast.info('Profil deja a jour.');
 			}
 		} catch {
-			toast.error('Échec de la synchronisation.');
+			toast.error('Echec de la synchronisation.');
 		} finally {
 			syncing = false;
 		}
@@ -71,7 +71,7 @@
 					{#if app.user?.avatar_source === 'oidc'}
 						<p class="flex items-center gap-1.5 text-xs text-muted-foreground">
 							<iconify-icon icon="solar:check-circle-linear" width="14" class="text-green-500"></iconify-icon>
-							Avatar synchronisé depuis SSO
+							Avatar synchronise depuis SSO
 						</p>
 					{/if}
 					{#if app.user?.avatar_source}
@@ -107,7 +107,7 @@
 				onclick={() => goto('/settings')}
 			>
 				<iconify-icon icon="solar:settings-linear" width="16"></iconify-icon>
-				Voir les paramètres
+				Voir les parametres
 			</Button>
 		</div>
 	</div>

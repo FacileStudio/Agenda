@@ -105,7 +105,7 @@
 			{/each}
 
 			{#if sharedCalendars.length > 0}
-				<p class="mt-3 mb-1 px-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Partagés</p>
+				<p class="mt-3 mb-1 px-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Partages</p>
 				{#each sharedCalendars as cal (cal.id)}
 					<button
 						onclick={() => openManage(cal)}
@@ -113,7 +113,7 @@
 					>
 						<span class="size-2.5 shrink-0 rounded-full" style="background-color: {cal.color}"></span>
 						<span class="flex-1 truncate">{cal.name}</span>
-						<span class="text-xs text-muted-foreground">{cal.role === 'writer' || cal.role === 'admin' ? 'Édit.' : 'Lect.'}</span>
+						<span class="text-xs text-muted-foreground">{cal.role === 'writer' || cal.role === 'admin' ? 'Edit.' : 'Lect.'}</span>
 					</button>
 				{/each}
 			{/if}
@@ -154,7 +154,7 @@
 			onclick={handleLogout}
 		>
 			<iconify-icon icon="solar:logout-2-linear" width="16"></iconify-icon>
-			Déconnexion
+			Deconnexion
 		</Button>
 	</div>
 </aside>

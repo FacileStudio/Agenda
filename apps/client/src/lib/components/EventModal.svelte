@@ -117,7 +117,7 @@
 	async function handleSave() {
 		if (!title.trim()) { error = 'Le titre est requis.'; return; }
 		if (!calendarId || !calendars.find((c) => c.id === calendarId)) {
-			error = 'Sélectionnez un calendrier valide.';
+			error = 'Selectionnez un calendrier valide.';
 			return;
 		}
 		const startISO = `${startDateStr}T${isAllDay ? '00:00' : (startTimeStr || '00:00')}`;
@@ -126,7 +126,7 @@
 			const s = new Date(startISO);
 			const e = new Date(endISO);
 			if (!isNaN(s.getTime()) && !isNaN(e.getTime()) && e <= s) {
-				error = 'La fin doit être après le début.';
+				error = 'La fin doit etre apres le debut.';
 				return;
 			}
 		}
@@ -151,7 +151,7 @@
 	}
 
 	async function handleDelete() {
-		if (!confirm('Supprimer cet événement ?')) return;
+		if (!confirm('Supprimer cet evenement ?')) return;
 		deleting = true;
 		error = '';
 		try {
@@ -183,7 +183,7 @@
 			<!-- Header -->
 			<div class="mb-4 flex items-center justify-between">
 				<h2 class="text-lg font-semibold">
-					{event ? "Modifier l'événement" : 'Nouvel événement'}
+					{event ? "Modifier l'evenement" : 'Nouvel evenement'}
 				</h2>
 				<DialogPrimitive.Close
 					class="cursor-pointer rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -200,7 +200,7 @@
 					<Input
 						id="event-title"
 						type="text"
-						placeholder="Titre de l'événement"
+						placeholder="Titre de l'evenement"
 						bind:value={title}
 						autofocus
 					/>
@@ -242,12 +242,12 @@
 				<!-- All day toggle -->
 				<div class="flex items-center gap-2">
 					<Checkbox id="all-day" bind:checked={isAllDay} />
-					<Label for="all-day">Toute la journée</Label>
+					<Label for="all-day">Toute la journee</Label>
 				</div>
 
 				<!-- Start date/time -->
 				<div class="flex flex-col gap-1.5">
-					<Label>Début</Label>
+					<Label>Debut</Label>
 					<div class="flex gap-2">
 						<Popover.Root bind:open={startPickerOpen}>
 							<Popover.Trigger class="flex-1">
@@ -354,12 +354,12 @@
 						onValueChange={(v: string) => { status = v; }}
 					>
 						<Select.Trigger class="w-full">
-							{status === 'confirmed' ? 'Confirmé' : status === 'tentative' ? 'Provisoire' : 'Annulé'}
+							{status === 'confirmed' ? 'Confirme' : status === 'tentative' ? 'Provisoire' : 'Annule'}
 						</Select.Trigger>
 						<Select.Content>
-							<Select.Item value="confirmed">Confirmé</Select.Item>
+							<Select.Item value="confirmed">Confirme</Select.Item>
 							<Select.Item value="tentative">Provisoire</Select.Item>
-							<Select.Item value="cancelled">Annulé</Select.Item>
+							<Select.Item value="cancelled">Annule</Select.Item>
 						</Select.Content>
 					</Select.Root>
 				</div>
@@ -379,7 +379,7 @@
 								{(creator.name || creator.email || '?').trim().slice(0, 2).toUpperCase()}
 							</span>
 						{/if}
-						<span>Créé par <span class="font-medium text-foreground">{creator.name || creator.email}</span></span>
+						<span>Cree par <span class="font-medium text-foreground">{creator.name || creator.email}</span></span>
 					</div>
 				{/if}
 

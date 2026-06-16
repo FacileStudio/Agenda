@@ -112,7 +112,7 @@
 				<Button variant="outline" onclick={onClose} disabled={saving}>Annuler</Button>
 				<Button onclick={handleCreate} disabled={saving} class="gap-2">
 					<iconify-icon icon="mdi:plus" width="16"></iconify-icon>
-					{saving ? 'Création…' : 'Créer'}
+					{saving ? 'Creation…' : 'Creer'}
 				</Button>
 			</div>
 		</DialogPrimitive.Content>

@@ -55,7 +55,7 @@
 <div class="flex h-full flex-col overflow-y-auto">
 	{#if grouped().length === 0}
 		<div class="flex h-full items-center justify-center text-sm text-muted-foreground">
-			Aucun événement à afficher
+			Aucun evenement a afficher
 		</div>
 	{:else}
 		{#each grouped() as group (group.key)}
@@ -79,7 +79,7 @@
 								<p class="truncate text-sm font-medium">{event.title}</p>
 								<p class="text-xs text-muted-foreground">
 									{#if event.is_all_day}
-										Toute la journée
+										Toute la journee
 									{:else}
 										{formatTime(event.start_at)} – {formatTime(event.end_at)}
 									{/if}

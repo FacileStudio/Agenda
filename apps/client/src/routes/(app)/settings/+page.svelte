@@ -64,7 +64,7 @@
 	}
 
 	async function revokeToken() {
-		if (!confirm('Révoquer le token ? Les clients CalDAV utilisant ce token seront déconnectés.')) return;
+		if (!confirm('Revoquer le token ? Les clients CalDAV utilisant ce token seront deconnectes.')) return;
 		tokenBusy = true;
 		try {
 			await backend.deleteApiToken();
@@ -105,12 +105,12 @@
 			if (r.synced) {
 				const fresh = await backend.me();
 				app.setUser(fresh.user);
-				toast.success('Profil synchronisé depuis SSO.');
+				toast.success('Profil synchronise depuis SSO.');
 			} else {
-				toast.info('Profil déjà à jour.');
+				toast.info('Profil deja a jour.');
 			}
 		} catch {
-			toast.error('Échec de la synchronisation.');
+			toast.error('Echec de la synchronisation.');
 		} finally {
 			syncing = false;
 		}
@@ -125,13 +125,13 @@
 </script>
 
 <svelte:head>
-	<title>Paramètres — Agenda</title>
+	<title>Parametres — Agenda</title>
 </svelte:head>
 
 <div class="flex h-full flex-col">
 	<div class="border-b px-6 pt-6 pb-0">
-		<h1 class="text-2xl font-semibold">Paramètres</h1>
-		<p class="mt-1 text-sm text-muted-foreground">Gérez votre compte et vos calendriers.</p>
+		<h1 class="text-2xl font-semibold">Parametres</h1>
+		<p class="mt-1 text-sm text-muted-foreground">Gerez votre compte et vos calendriers.</p>
 
 		<!-- Tabs -->
 		<div class="mt-4 flex gap-1">
@@ -174,7 +174,7 @@
 						{#if app.user?.avatar_source === 'oidc'}
 							<p class="flex items-center gap-1.5 text-xs text-muted-foreground">
 								<iconify-icon icon="solar:check-circle-linear" width="14" class="text-green-500"></iconify-icon>
-								Avatar synchronisé depuis SSO
+								Avatar synchronise depuis SSO
 							</p>
 						{/if}
 						{#if app.user?.avatar_source}
@@ -208,7 +208,7 @@
 
 				{#if app.user?.avatar_source === 'oidc'}
 					<p class="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
-						Votre profil est géré par votre fournisseur SSO. Les modifications doivent être effectuées là-bas puis synchronisées ici.
+						Votre profil est gere par votre fournisseur SSO. Les modifications doivent etre effectuees la-bas puis synchronisees ici.
 					</p>
 				{/if}
 			</div>
@@ -219,7 +219,7 @@
 				<div class="flex items-center justify-between">
 					<div>
 						<h2 class="text-base font-medium">Vos calendriers</h2>
-						<p class="text-sm text-muted-foreground">Créez et gérez vos calendriers partagés.</p>
+						<p class="text-sm text-muted-foreground">Creez et gerez vos calendriers partages.</p>
 					</div>
 					<Button onclick={() => (createOpen = true)} class="cursor-pointer gap-2">
 						<iconify-icon icon="mdi:plus" width="16"></iconify-icon>
@@ -246,7 +246,7 @@
 								{/if}
 								{#if cal.role !== 'owner'}
 									<span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-										{cal.role === 'writer' || cal.role === 'admin' ? 'Éditeur' : 'Lecteur'}
+										{cal.role === 'writer' || cal.role === 'admin' ? 'Editeur' : 'Lecteur'}
 									</span>
 								{/if}
 								{#if cal.role === 'owner'}
@@ -257,7 +257,7 @@
 										class="cursor-pointer gap-1.5 text-muted-foreground hover:text-foreground"
 									>
 										<iconify-icon icon="solar:settings-minimalistic-linear" width="14"></iconify-icon>
-										Gérer
+										Gerer
 									</Button>
 								{/if}
 							</div>
@@ -283,7 +283,7 @@
 						<span class="w-28 shrink-0 text-xs font-medium text-muted-foreground">Serveur</span>
 						<code class="min-w-0 flex-1 truncate text-xs">{serverOrigin}</code>
 						<Button variant="ghost" size="icon" class="cursor-pointer shrink-0 size-7"
-							onclick={() => { copyToken(serverOrigin); toast.success('Copié !'); }}>
+							onclick={() => { copyToken(serverOrigin); toast.success('Copie !'); }}>
 							<iconify-icon icon="solar:copy-linear" width="14"></iconify-icon>
 						</Button>
 					</div>
@@ -292,16 +292,16 @@
 						<span class="w-28 shrink-0 text-xs font-medium text-muted-foreground">Chemin</span>
 						<code class="min-w-0 flex-1 truncate text-xs">{caldavPath}</code>
 						<Button variant="ghost" size="icon" class="cursor-pointer shrink-0 size-7"
-							onclick={() => { copyToken(caldavPath); toast.success('Copié !'); }}>
+							onclick={() => { copyToken(caldavPath); toast.success('Copie !'); }}>
 							<iconify-icon icon="solar:copy-linear" width="14"></iconify-icon>
 						</Button>
 					</div>
 					<!-- Full URL (DAVx5, Thunderbird) -->
 					<div class="flex items-center gap-3 px-4 py-3">
-						<span class="w-28 shrink-0 text-xs font-medium text-muted-foreground">URL complète</span>
+						<span class="w-28 shrink-0 text-xs font-medium text-muted-foreground">URL complete</span>
 						<code class="min-w-0 flex-1 truncate text-xs">{caldavUrl}</code>
 						<Button variant="ghost" size="icon" class="cursor-pointer shrink-0 size-7"
-							onclick={() => { copyToken(caldavUrl); toast.success('Copié !'); }}>
+							onclick={() => { copyToken(caldavUrl); toast.success('Copie !'); }}>
 							<iconify-icon icon="solar:copy-linear" width="14"></iconify-icon>
 						</Button>
 					</div>
@@ -310,7 +310,7 @@
 						<span class="w-28 shrink-0 text-xs font-medium text-muted-foreground">Identifiant</span>
 						<code class="min-w-0 flex-1 truncate text-xs">{app.user?.email ?? ''}</code>
 						<Button variant="ghost" size="icon" class="cursor-pointer shrink-0 size-7"
-							onclick={() => { copyToken(app.user?.email ?? ''); toast.success('Copié !'); }}>
+							onclick={() => { copyToken(app.user?.email ?? ''); toast.success('Copie !'); }}>
 							<iconify-icon icon="solar:copy-linear" width="14"></iconify-icon>
 						</Button>
 					</div>
@@ -330,7 +330,7 @@
 				{#if isSSOUser}
 					<div class="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-400 flex items-start gap-2">
 						<iconify-icon icon="solar:info-circle-linear" width="14" class="mt-0.5 shrink-0"></iconify-icon>
-						<span>Vous êtes connecté via SSO — vous n'avez pas de mot de passe. Générez un <strong>token API</strong> ci-dessous et utilisez-le comme mot de passe CalDAV.</span>
+						<span>Vous etes connecte via SSO — vous n'avez pas de mot de passe. Generez un <strong>token API</strong> ci-dessous et utilisez-le comme mot de passe CalDAV.</span>
 					</div>
 				{/if}
 
@@ -350,14 +350,14 @@
 						<div class="rounded-lg border border-green-500/30 bg-green-500/5 p-4 space-y-2">
 							<p class="text-xs font-medium text-green-700 dark:text-green-400 flex items-center gap-1.5">
 								<iconify-icon icon="solar:check-circle-linear" width="14"></iconify-icon>
-								Token créé — copiez-le maintenant, il ne sera plus affiché.
+								Token cree — copiez-le maintenant, il ne sera plus affiche.
 							</p>
 							<div class="flex items-center gap-2">
 								<Input value={newToken} readonly class="font-mono text-xs" />
 								<Button variant="outline" size="sm" class="cursor-pointer shrink-0 gap-1.5"
 									onclick={() => copyToken(newToken!)}>
 									<iconify-icon icon={tokenCopied ? 'solar:check-circle-linear' : 'solar:copy-linear'} width="14"></iconify-icon>
-									{tokenCopied ? 'Copié' : 'Copier'}
+									{tokenCopied ? 'Copie' : 'Copier'}
 								</Button>
 							</div>
 						</div>
@@ -370,14 +370,14 @@
 								<div>
 									<p class="text-sm font-medium">{apiToken.name ?? 'Token'}</p>
 									{#if apiToken.created_at}
-										<p class="text-xs text-muted-foreground">Créé le {new Date(apiToken.created_at).toLocaleDateString('fr-FR')}</p>
+										<p class="text-xs text-muted-foreground">Cree le {new Date(apiToken.created_at).toLocaleDateString('fr-FR')}</p>
 									{/if}
 								</div>
 							</div>
 							<Button variant="destructive" size="sm" onclick={revokeToken} disabled={tokenBusy}
 								class="cursor-pointer gap-1.5">
 								<iconify-icon icon="solar:trash-bin-2-linear" width="14"></iconify-icon>
-								Révoquer
+								Revoquer
 							</Button>
 						</div>
 					{:else}
@@ -385,7 +385,7 @@
 							<Input bind:value={tokenName} placeholder="Nom du token (ex : MacBook)" class="flex-1" />
 							<Button onclick={generateToken} disabled={tokenBusy} class="cursor-pointer gap-2 shrink-0">
 								<iconify-icon icon="mdi:plus" width="16"></iconify-icon>
-								{tokenBusy ? 'Génération…' : 'Générer'}
+								{tokenBusy ? 'Generation…' : 'Generer'}
 							</Button>
 						</div>
 					{/if}
@@ -407,7 +407,7 @@
 								<iconify-icon icon="solar:alt-arrow-down-linear" width="14" class="text-muted-foreground transition-transform group-open:rotate-180"></iconify-icon>
 							</summary>
 							<ol class="list-decimal px-4 pb-4 pt-2 pl-10 space-y-1 text-muted-foreground">
-								<li>Réglages → Calendrier → Comptes → Ajouter un compte → Autre</li>
+								<li>Reglages → Calendrier → Comptes → Ajouter un compte → Autre</li>
 								<li>Ajouter un compte CalDAV</li>
 								<li>Serveur : <code class="text-foreground">{serverOrigin.replace(/^https?:\/\//, '')}</code></li>
 								<li>Nom d'utilisateur : votre email</li>
@@ -425,12 +425,12 @@
 								<iconify-icon icon="solar:alt-arrow-down-linear" width="14" class="text-muted-foreground transition-transform group-open:rotate-180"></iconify-icon>
 							</summary>
 							<ol class="list-decimal px-4 pb-4 pt-2 pl-10 space-y-1 text-muted-foreground">
-								<li>Calendrier → Réglages → Comptes → <span class="text-foreground">+</span> → CalDAV (Avancé)</li>
+								<li>Calendrier → Reglages → Comptes → <span class="text-foreground">+</span> → CalDAV (Avance)</li>
 								<li>Nom d'utilisateur : votre email</li>
 								<li>Mot de passe : {isSSOUser ? 'le token API ci-dessus' : 'votre mot de passe'}</li>
 								<li>Adresse du serveur : <code class="text-foreground">{serverOrigin.replace(/^https?:\/\//, '')}</code></li>
-								<li>Chemin d'accès : <code class="text-foreground">{caldavPath}</code></li>
-								<li>Port : <code class="text-foreground">443</code> — SSL activé</li>
+								<li>Chemin d'acces : <code class="text-foreground">{caldavPath}</code></li>
+								<li>Port : <code class="text-foreground">443</code> — SSL active</li>
 							</ol>
 						</details>
 
@@ -461,7 +461,7 @@
 								<iconify-icon icon="solar:alt-arrow-down-linear" width="14" class="text-muted-foreground transition-transform group-open:rotate-180"></iconify-icon>
 							</summary>
 							<ol class="list-decimal px-4 pb-4 pt-2 pl-10 space-y-1 text-muted-foreground">
-								<li>Agenda → Nouveau calendrier → Sur le réseau → CalDAV</li>
+								<li>Agenda → Nouveau calendrier → Sur le reseau → CalDAV</li>
 								<li>Emplacement : <code class="text-foreground">{caldavUrl}</code></li>
 								<li>Identifiant : votre email</li>
 								<li>Mot de passe : {isSSOUser ? 'le token API ci-dessus' : 'votre mot de passe'}</li>
@@ -476,14 +476,14 @@
 
 <CreateCalendarModal
 	bind:open={createOpen}
-	onCreated={() => { createOpen = false; app.refreshCalendars(); toast.success('Calendrier créé.'); }}
+	onCreated={() => { createOpen = false; app.refreshCalendars(); toast.success('Calendrier cree.'); }}
 	onClose={() => (createOpen = false)}
 />
 
 <ManageCalendarModal
 	bind:open={manageOpen}
 	calendar={managedCalendar}
-	onUpdated={() => { app.refreshCalendars(); toast.success('Calendrier mis à jour.'); }}
-	onDeleted={() => { manageOpen = false; managedCalendar = null; app.refreshCalendars(); toast.success('Calendrier supprimé.'); }}
+	onUpdated={() => { app.refreshCalendars(); toast.success('Calendrier mis a jour.'); }}
+	onDeleted={() => { manageOpen = false; managedCalendar = null; app.refreshCalendars(); toast.success('Calendrier supprime.'); }}
 	onClose={() => { manageOpen = false; managedCalendar = null; }}
 />

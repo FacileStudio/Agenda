@@ -174,7 +174,7 @@
 	<div class="flex flex-shrink-0 flex-wrap items-center gap-2 border-b px-2 py-2 sm:px-4">
 		<!-- Navigation -->
 		<div class="flex items-center gap-1">
-			<Button variant="ghost" size="icon-sm" class="cursor-pointer" onclick={() => navigate(-1)} aria-label="Précédent">
+			<Button variant="ghost" size="icon-sm" class="cursor-pointer" onclick={() => navigate(-1)} aria-label="Precedent">
 				<iconify-icon icon="solar:alt-arrow-left-linear" width="16"></iconify-icon>
 			</Button>
 			<Button variant="ghost" size="sm" class="cursor-pointer gap-1.5" onclick={goToday}>

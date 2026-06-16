@@ -48,8 +48,8 @@
 
 		<a
 			href="/settings"
-			aria-label="Réglages"
-			title="Réglages"
+			aria-label="Reglages"
+			title="Reglages"
 			class="flex items-center justify-center rounded-full px-2.5 py-1.5 transition-all duration-200 {settingsActive
 				? 'bg-foreground shadow-sm'
 				: 'hover:bg-muted/60'}"

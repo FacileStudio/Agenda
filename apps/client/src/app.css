@@ -222,7 +222,7 @@
 }
 
 @theme inline {
-	--font-sans: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+	--font-sans: 'Goga', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 	--font-heading: 'Goga', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 	--color-sidebar-ring: var(--sidebar-ring);
 	--color-sidebar-border: var(--sidebar-border);

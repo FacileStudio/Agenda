@@ -233,7 +233,7 @@
 				<div class="relative flex-1 border-r last:border-r-0">
 					{#each HOURS as hour}
 						<button
-							aria-label={`Créer un événement à ${hour}h`}
+							aria-label={`Creer un evenement a ${hour}h`}
 							class="absolute left-0 right-0 cursor-pointer border-b border-dashed border-border/50 hover:bg-accent/30"
 							style="top: {hour * SLOT_HEIGHT}px; height: {SLOT_HEIGHT}px;"
 							onclick={() => onSlotClick(day, hour)}

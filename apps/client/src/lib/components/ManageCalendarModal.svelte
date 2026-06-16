@@ -86,7 +86,7 @@
 	}
 
 	async function handleDelete() {
-		if (!calendar || !confirm(`Supprimer le calendrier "${calendar.name}" ? Cette action est irréversible.`)) return;
+		if (!calendar || !confirm(`Supprimer le calendrier "${calendar.name}" ? Cette action est irreversible.`)) return;
 		deleting = true;
 		try {
 			await backend.deleteCalendar(calendar.id);
@@ -115,12 +115,12 @@
 
 	function inviteErrorMessage(e: unknown): string {
 		if (e instanceof ApiError) {
-			if (e.status === 404) return 'Aucun compte trouvé avec cet email. La personne doit d\'abord se connecter à Agenda.';
+			if (e.status === 404) return 'Aucun compte trouve avec cet email. La personne doit d\'abord se connecter a Agenda.';
 			if (e.status === 403) return 'Vous n\'avez pas la permission de partager ce calendrier.';
-			if (e.message.includes('yourself')) return 'Vous ne pouvez pas vous inviter vous-même.';
-			if (e.status === 400) return 'Invitation invalide. Vérifiez l\'email et le rôle.';
+			if (e.message.includes('yourself')) return 'Vous ne pouvez pas vous inviter vous-meme.';
+			if (e.status === 400) return 'Invitation invalide. Verifiez l\'email et le role.';
 		}
-		return 'L\'invitation a échoué. Réessayez.';
+		return 'L\'invitation a echoue. Reessayez.';
 	}
 
 	async function handleRemoveMember(userId: number) {
@@ -141,9 +141,9 @@
 
 	function roleLabel(role: string) {
 		switch (role) {
-			case 'owner': return 'Propriétaire';
+			case 'owner': return 'Proprietaire';
 			case 'admin': return 'Admin';
-			case 'writer': return 'Éditeur';
+			case 'writer': return 'Editeur';
 			default: return 'Lecteur';
 		}
 	}
@@ -167,7 +167,7 @@
 					{#if editColor}
 						<span class="size-3 rounded-full flex-shrink-0" style="background-color: {editColor}"></span>
 					{/if}
-					<h2 class="text-lg font-semibold">Gérer le calendrier</h2>
+					<h2 class="text-lg font-semibold">Gerer le calendrier</h2>
 				</div>
 				<DialogPrimitive.Close
 					class="cursor-pointer rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -231,7 +231,7 @@
 				{#if loadingMembers}
 					<p class="text-sm text-muted-foreground">Chargement…</p>
 				{:else if members.length === 0}
-					<p class="text-sm text-muted-foreground">Aucun membre partagé.</p>
+					<p class="text-sm text-muted-foreground">Aucun membre partage.</p>
 				{:else}
 					<div class="flex flex-col gap-1">
 						{#each members as member (member.user_id)}
@@ -279,7 +279,7 @@
 								</Select.Trigger>
 								<Select.Content>
 									<Select.Item value="reader">Lecteur</Select.Item>
-									<Select.Item value="writer">Éditeur</Select.Item>
+									<Select.Item value="writer">Editeur</Select.Item>
 								</Select.Content>
 							</Select.Root>
 							<Button onclick={handleInvite} disabled={inviting} class="gap-1.5 shrink-0">
