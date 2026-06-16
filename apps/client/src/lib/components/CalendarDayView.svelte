@@ -33,12 +33,28 @@
 		);
 	}
 
+	function isMultiDay(event: AgendaEvent): boolean {
+		const s = new Date(event.start_at);
+		const e = new Date(event.end_at);
+		return new Date(s.getFullYear(), s.getMonth(), s.getDate()).getTime() !==
+			new Date(e.getFullYear(), e.getMonth(), e.getDate()).getTime();
+	}
+
+	function eventOverlapsDay(event: AgendaEvent, cell: CalendarDate): boolean {
+		const start = new Date(event.start_at).getTime();
+		const end = new Date(event.end_at).getTime();
+		const d = cell.toDate(tz);
+		const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+		const dayEnd = dayStart + 86400000;
+		return start < dayEnd && end > dayStart;
+	}
+
 	const todayDate = $derived(today(tz));
 
 	const isToday = $derived(currentDate.compare(todayDate) === 0);
 
-	const dayEvents = $derived(events.filter((e) => !e.is_all_day && isSameDay(e.start_at, currentDate)));
-	const allDayEvents = $derived(events.filter((e) => e.is_all_day && isSameDay(e.start_at, currentDate)));
+	const dayEvents = $derived(events.filter((e) => !e.is_all_day && !isMultiDay(e) && isSameDay(e.start_at, currentDate)));
+	const allDayEvents = $derived(events.filter((e) => (e.is_all_day || isMultiDay(e)) && eventOverlapsDay(e, currentDate)));
 
 	function getEventStyle(event: AgendaEvent): string {
 		const start = new Date(event.start_at);
@@ -64,7 +80,7 @@
 			<div class="flex flex-wrap gap-1">
 				{#each allDayEvents as event (event.id)}
 					<button
-						class="truncate rounded px-2 py-0.5 text-xs font-medium text-white"
+						class="cursor-pointer truncate rounded px-2 py-0.5 text-xs font-medium text-white transition-[filter] hover:brightness-90"
 						style="background-color: {getCalendarColor(event.calendar_id)}"
 						onclick={() => onEventClick(event)}
 					>
@@ -92,7 +108,7 @@
 			<!-- Hour rows -->
 			{#each HOURS as hour}
 				<button
-					class="absolute left-0 right-0 border-b border-dashed border-border/50 hover:bg-accent/30"
+					class="absolute left-0 right-0 cursor-pointer border-b border-dashed border-border/50 hover:bg-accent/30"
 					style="top: {hour * SLOT_HEIGHT}px; height: {SLOT_HEIGHT}px;"
 					onclick={() => onSlotClick(hour)}
 				>
@@ -108,7 +124,7 @@
 			<!-- Events -->
 			{#each dayEvents as event (event.id)}
 				<button
-					class="absolute left-14 right-2 overflow-hidden rounded px-1.5 py-0.5 text-left text-xs font-medium text-white shadow-sm hover:brightness-90"
+					class="absolute left-14 right-2 cursor-pointer overflow-hidden rounded px-1.5 py-0.5 text-left text-xs font-medium text-white shadow-sm transition-[filter] hover:brightness-90"
 					style="{getEventStyle(event)} background-color: {getCalendarColor(event.calendar_id)};"
 					onclick={() => onEventClick(event)}
 				>

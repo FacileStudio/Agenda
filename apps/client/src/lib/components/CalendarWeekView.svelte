@@ -3,8 +3,7 @@
 		type CalendarDate,
 		today,
 		getLocalTimeZone,
-		startOfWeek,
-		endOfWeek
+		startOfWeek
 	} from '@internationalized/date';
 	import type { AgendaEvent, CalendarItem } from '$lib/backend';
 
@@ -24,7 +23,18 @@
 
 	const tz = getLocalTimeZone();
 	const HOURS = Array.from({ length: 24 }, (_, i) => i);
-	const SLOT_HEIGHT = 60; // px per hour
+	const SLOT_HEIGHT = 60;
+	const LANE_HEIGHT = 22;
+	const DAY_ABBREVS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+	type SpanningSegment = {
+		event: AgendaEvent;
+		startCol: number;
+		span: number;
+		lane: number;
+		continuesLeft: boolean;
+		continuesRight: boolean;
+	};
 
 	function getCalendarColor(calendarId: number): string {
 		return calendars.find((c) => c.id === calendarId)?.color ?? '#6b7280';
@@ -37,6 +47,15 @@
 		return Array.from({ length: 7 }, (_, i) => weekStart.add({ days: i }));
 	});
 
+	function toDayStart(d: Date): number {
+		return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+	}
+
+	function cellDayStart(cell: CalendarDate): number {
+		const d = cell.toDate(tz);
+		return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+	}
+
 	function isSameDay(dateStr: string, cell: CalendarDate): boolean {
 		const d = new Date(dateStr);
 		return (
@@ -46,12 +65,83 @@
 		);
 	}
 
-	function eventsForDay(cell: CalendarDate): AgendaEvent[] {
-		return events.filter((e) => !e.is_all_day && isSameDay(e.start_at, cell));
+	function isMultiDay(event: AgendaEvent): boolean {
+		return toDayStart(new Date(event.start_at)) !== toDayStart(new Date(event.end_at));
 	}
 
-	function allDayEventsForDay(cell: CalendarDate): AgendaEvent[] {
-		return events.filter((e) => e.is_all_day && isSameDay(e.start_at, cell));
+	function isSpanning(event: AgendaEvent): boolean {
+		return event.is_all_day || isMultiDay(event);
+	}
+
+	function eventOverlapsDay(event: AgendaEvent, cell: CalendarDate): boolean {
+		const start = new Date(event.start_at).getTime();
+		const end = new Date(event.end_at).getTime();
+		const dayStart = cellDayStart(cell);
+		const dayEnd = dayStart + 86400000;
+		return start < dayEnd && end > dayStart;
+	}
+
+	const allDaySegments = $derived(() => {
+		const days = weekDays();
+		const spanning = events.filter((e) => isSpanning(e) && days.some((d) => eventOverlapsDay(e, d)));
+
+		const segments: SpanningSegment[] = [];
+		for (const event of spanning) {
+			let startCol = -1;
+			let endCol = -1;
+			for (let i = 0; i < 7; i++) {
+				if (eventOverlapsDay(event, days[i])) {
+					if (startCol === -1) startCol = i;
+					endCol = i;
+				}
+			}
+			if (startCol === -1) continue;
+
+			const eStartDay = toDayStart(new Date(event.start_at));
+			const eEndDay = toDayStart(new Date(event.end_at));
+			const weekStartDay = cellDayStart(days[0]);
+			const weekEndDay = cellDayStart(days[6]);
+
+			segments.push({
+				event,
+				startCol,
+				span: endCol - startCol + 1,
+				lane: 0,
+				continuesLeft: eStartDay < weekStartDay,
+				continuesRight: eEndDay > weekEndDay
+			});
+		}
+
+		segments.sort((a, b) => a.startCol - b.startCol || b.span - a.span);
+
+		for (let i = 0; i < segments.length; i++) {
+			let lane = 0;
+			const si = segments[i];
+			while (
+				segments.some(
+					(s, j) =>
+						j < i &&
+						s.lane === lane &&
+						s.startCol < si.startCol + si.span &&
+						s.startCol + s.span > si.startCol
+				)
+			) {
+				lane++;
+			}
+			segments[i].lane = lane;
+		}
+
+		return segments;
+	});
+
+	const allDayLanes = $derived(() => {
+		const segs = allDaySegments();
+		if (segs.length === 0) return 0;
+		return Math.max(...segs.map((s) => s.lane)) + 1;
+	});
+
+	function eventsForDay(cell: CalendarDate): AgendaEvent[] {
+		return events.filter((e) => !e.is_all_day && !isMultiDay(e) && isSameDay(e.start_at, cell));
 	}
 
 	function isToday(cell: CalendarDate): boolean {
@@ -72,50 +162,61 @@
 	function formatHour(h: number): string {
 		return h.toString().padStart(2, '0') + ':00';
 	}
-
-	const DAY_ABBREVS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 </script>
 
 <div class="flex h-full flex-col overflow-hidden">
-	<!-- All-day strip -->
-	<div class="flex border-b">
-		<div class="w-12 flex-shrink-0 border-r py-1"></div>
-		{#each weekDays() as day, di (day.toString())}
-			<div class="flex flex-1 flex-col border-r last:border-r-0">
-				<!-- Day header -->
-				<div
-					class="flex items-center justify-center gap-1 py-1 text-xs
-						{isToday(day) ? 'font-bold text-primary' : 'text-muted-foreground'}"
-				>
-					{DAY_ABBREVS[di]}
-					<span
-						class="flex size-5 items-center justify-center rounded-full text-xs
-							{isToday(day) ? 'bg-primary text-primary-foreground font-bold' : ''}"
+	<!-- Header: day labels + all-day spanning events -->
+	<div class="border-b">
+		<div class="flex">
+			<div class="w-12 flex-shrink-0 border-r"></div>
+			<div class="grid flex-1 grid-cols-7">
+				{#each weekDays() as day, di (day.toString())}
+					<div
+						class="flex items-center justify-center gap-1 border-r py-1 text-xs last:border-r-0
+							{isToday(day) ? 'font-bold text-primary' : 'text-muted-foreground'}"
 					>
-						{day.day}
-					</span>
-				</div>
-				<!-- All-day events -->
-				<div class="min-h-6 px-0.5 pb-1">
-					{#each allDayEventsForDay(day) as event (event.id)}
-						<button
-							class="mb-0.5 w-full truncate rounded px-1 py-0.5 text-left text-xs font-medium text-white"
-							style="background-color: {getCalendarColor(event.calendar_id)}"
-							onclick={() => onEventClick(event)}
+						{DAY_ABBREVS[di]}
+						<span
+							class="flex size-5 items-center justify-center rounded-full text-xs
+								{isToday(day) ? 'bg-primary text-primary-foreground font-bold' : ''}"
 						>
-							{event.title}
+							{day.day}
+						</span>
+					</div>
+				{/each}
+			</div>
+		</div>
+
+		{#if allDaySegments().length > 0}
+			<div class="flex border-t">
+				<div class="w-12 flex-shrink-0 border-r"></div>
+				<div class="relative flex-1" style="height: {allDayLanes() * LANE_HEIGHT + 4}px;">
+					{#each allDaySegments() as seg}
+						{@const lPad = seg.continuesLeft ? 0 : 2}
+						{@const rPad = seg.continuesRight ? 0 : 2}
+						<button
+							class="absolute z-10 flex cursor-pointer items-center truncate px-1.5 text-xs font-medium text-white shadow-sm transition-[filter] hover:brightness-90
+								{seg.continuesLeft ? '' : 'rounded-l'}
+								{seg.continuesRight ? '' : 'rounded-r'}"
+							style="
+								left: calc({seg.startCol} * 100% / 7 + {lPad}px);
+								width: calc({seg.span} * 100% / 7 - {lPad + rPad}px);
+								top: {seg.lane * LANE_HEIGHT + 2}px;
+								height: {LANE_HEIGHT - 2}px;
+								background-color: {getCalendarColor(seg.event.calendar_id)};
+							"
+							onclick={() => onEventClick(seg.event)}
+						>
+							{seg.event.title}
 						</button>
 					{/each}
 				</div>
 			</div>
-		{/each}
+		{/if}
 	</div>
 
 	<!-- Time grid -->
 	<div class="flex flex-1 overflow-y-auto">
-		<!-- Time labels: vertically centred on each hour grid line (the slot
-		     bottom-borders sit at hour*SLOT_HEIGHT). 00:00 stays pinned to the
-		     top edge so it isn't clipped by the scroll container. -->
 		<div class="w-12 flex-shrink-0 border-r">
 			<div class="relative" style="height: {24 * SLOT_HEIGHT}px;">
 				{#each HOURS as hour}
@@ -129,24 +230,21 @@
 			</div>
 		</div>
 
-		<!-- Day columns -->
 		{#each weekDays() as day, di (day.toString())}
 			<div class="relative flex-1 border-r last:border-r-0">
 				<div class="relative" style="height: {24 * SLOT_HEIGHT}px;">
-					<!-- Hour slot backgrounds -->
 					{#each HOURS as hour}
 						<button
 							aria-label={`Créer un événement à ${hour}h`}
-							class="absolute left-0 right-0 border-b border-dashed border-border/50 hover:bg-accent/30"
+							class="absolute left-0 right-0 cursor-pointer border-b border-dashed border-border/50 hover:bg-accent/30"
 							style="top: {hour * SLOT_HEIGHT}px; height: {SLOT_HEIGHT}px;"
 							onclick={() => onSlotClick(day, hour)}
 						></button>
 					{/each}
 
-					<!-- Events -->
 					{#each eventsForDay(day) as event (event.id)}
 						<button
-							class="absolute left-0.5 right-0.5 overflow-hidden rounded px-1 py-0.5 text-left text-xs font-medium text-white shadow-sm hover:brightness-90"
+							class="absolute left-0.5 right-0.5 cursor-pointer overflow-hidden rounded px-1 py-0.5 text-left text-xs font-medium text-white shadow-sm transition-[filter] hover:brightness-90"
 							style="{getEventStyle(event)} background-color: {getCalendarColor(event.calendar_id)};"
 							onclick={() => onEventClick(event)}
 						>

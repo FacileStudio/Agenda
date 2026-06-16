@@ -68,7 +68,7 @@
 				<div class="divide-y">
 					{#each group.events as event (event.id)}
 						<button
-							class="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent"
+							class="flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent"
 							onclick={() => onEventClick(event)}
 						>
 							<span
