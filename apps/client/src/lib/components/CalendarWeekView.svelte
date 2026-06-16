@@ -216,9 +216,9 @@
 	</div>
 
 	<!-- Time grid -->
-	<div class="flex flex-1 overflow-y-auto">
-		<div class="w-12 flex-shrink-0 border-r">
-			<div class="relative" style="height: {24 * SLOT_HEIGHT}px;">
+	<div class="flex-1 overflow-y-auto">
+		<div class="flex" style="height: {24 * SLOT_HEIGHT}px;">
+			<div class="relative w-12 flex-shrink-0 border-r">
 				{#each HOURS as hour}
 					<div
 						class="absolute left-0 right-0 pr-1 text-right text-xs text-muted-foreground"
@@ -228,11 +228,9 @@
 					</div>
 				{/each}
 			</div>
-		</div>
 
-		{#each weekDays() as day, di (day.toString())}
-			<div class="relative flex-1 border-r last:border-r-0">
-				<div class="relative" style="height: {24 * SLOT_HEIGHT}px;">
+			{#each weekDays() as day, di (day.toString())}
+				<div class="relative flex-1 border-r last:border-r-0">
 					{#each HOURS as hour}
 						<button
 							aria-label={`Créer un événement à ${hour}h`}
@@ -255,7 +253,7 @@
 						</button>
 					{/each}
 				</div>
-			</div>
-		{/each}
+			{/each}
+		</div>
 	</div>
 </div>
