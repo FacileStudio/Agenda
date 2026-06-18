@@ -5,7 +5,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import * as Select from '$lib/components/ui/select';
 	import { Separator } from '$lib/components/ui/separator';
-	import { backend, ApiError, type CalendarItem, type CalendarMember } from '$lib/backend';
+	import { backend, ApiError, resolveFileUrl, type CalendarItem, type CalendarMember } from '$lib/backend';
 	import { cn } from '$lib/utils';
 
 	let {
@@ -250,9 +250,17 @@
 					<div class="flex flex-col gap-1">
 						{#each members as member (member.user_id)}
 							<div class="flex items-center gap-3 rounded-lg border border-border/60 px-3 py-2">
-								<div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
-									{(member.name || member.email).slice(0, 2).toUpperCase()}
-								</div>
+								{#if member.avatar_url}
+									<img
+										src={resolveFileUrl(member.avatar_url)}
+										alt={member.name || member.email}
+										class="h-8 w-8 shrink-0 rounded-full border border-border object-cover"
+									/>
+								{:else}
+									<div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+										{(member.name || member.email).slice(0, 2).toUpperCase()}
+									</div>
+								{/if}
 								<div class="min-w-0 flex-1">
 									<p class="truncate text-sm font-medium">{member.name || member.email}</p>
 									<p class="truncate text-xs text-muted-foreground">{member.email}</p>

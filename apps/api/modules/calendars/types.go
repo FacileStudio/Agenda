@@ -31,8 +31,9 @@ type CalendarResponse struct {
 }
 
 type MemberResponse struct {
-	UserID int64  `json:"user_id"`
-	Email  string `json:"email"`
-	Name   string `json:"name"`
-	Role   string `json:"role"`
+	UserID    int64  `json:"user_id"`
+	Email     string `json:"email"`
+	Name      string `json:"name"`
+	AvatarURL string `json:"avatar_url"`
+	Role      string `json:"role"`
 }

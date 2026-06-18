@@ -260,14 +260,15 @@ func (s *Service) ListMembers(ctx context.Context, userID int64, calendarID int6
 		return nil, err
 	}
 	type row struct {
-		UserID int64
-		Email  string
-		Name   string
-		Role   string
+		UserID    int64
+		Email     string
+		Name      string
+		AvatarURL string
+		Role      string
 	}
 	var rows []row
 	err := s.orm.WithContext(ctx).Raw(`
-		SELECT u.id AS user_id, u.email, u.name, cm.role
+		SELECT u.id AS user_id, u.email, u.name, u.avatar_url, cm.role
 		FROM calendar_members cm
 		JOIN users u ON u.id = cm.user_id
 		WHERE cm.calendar_id = ?
@@ -277,7 +278,7 @@ func (s *Service) ListMembers(ctx context.Context, userID int64, calendarID int6
 	}
 	out := make([]MemberResponse, len(rows))
 	for i, r := range rows {
-		out[i] = MemberResponse{UserID: r.UserID, Email: r.Email, Name: r.Name, Role: r.Role}
+		out[i] = MemberResponse{UserID: r.UserID, Email: r.Email, Name: r.Name, AvatarURL: r.AvatarURL, Role: r.Role}
 	}
 	return out, nil
 }

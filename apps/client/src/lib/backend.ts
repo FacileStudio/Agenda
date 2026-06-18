@@ -33,6 +33,7 @@ export type CalendarMember = {
 	user_id: number;
 	email: string;
 	name: string;
+	avatar_url: string;
 	role: string;
 };
 
