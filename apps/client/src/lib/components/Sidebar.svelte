@@ -7,6 +7,7 @@
 	import { backend, type UserProfile, type CalendarItem } from '$lib/backend';
 	import CreateCalendarModal from './CreateCalendarModal.svelte';
 	import ManageCalendarModal from './ManageCalendarModal.svelte';
+	import SpaceSwitcher from './SpaceSwitcher.svelte';
 
 	let { user, calendars }: { user: UserProfile | null; calendars: CalendarItem[] } = $props();
 
@@ -46,6 +47,7 @@
 
 	const navItems = [
 		{ href: '/calendar', label: 'Calendrier', icon: 'solar:calendar-linear' },
+		{ href: '/spaces', label: 'Espaces', icon: 'solar:users-group-rounded-linear' },
 	];
 
 	const ownedCalendars = $derived(calendars.filter(c => c.role === 'owner'));
@@ -58,6 +60,8 @@
 		<iconify-icon icon="solar:calendar-bold-duotone" width="28" class="text-foreground"></iconify-icon>
 		<span class="text-2xl font-bold tracking-tight">Agenda</span>
 	</div>
+
+	<SpaceSwitcher />
 
 	<!-- Navigation -->
 	<nav class="flex flex-col gap-1 px-3 pb-2">

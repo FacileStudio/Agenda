@@ -8,6 +8,8 @@ func Migrate(db *gorm.DB) error {
 		&Session{},
 		&AppSetting{},
 		&ApiToken{},
+		&Space{},
+		&SpaceMember{},
 		&Calendar{},
 		&CalendarMember{},
 		&Event{},

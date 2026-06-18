@@ -23,6 +23,7 @@ import (
 	"api/modules/calendars"
 	"api/modules/events"
 	"api/modules/settings"
+	"api/modules/spaces"
 	"api/modules/users"
 	"api/schemas"
 
@@ -75,6 +76,7 @@ func main() {
 	authService := auth.NewService(db, appEnv.StorageDir, appLogger, appEnv.EncryptionKey)
 	calendarService := calendars.NewService(db)
 	eventService := events.NewService(db)
+	spaceService := spaces.NewService(db)
 	userService := users.NewService(db, appEnv.StorageDir)
 	settingsService := settings.NewService(db)
 
@@ -104,6 +106,7 @@ func main() {
 	auth.RegisterRoutes(router, authService, appEnv)
 	calendars.RegisterRoutes(router, calendarService, authService)
 	events.RegisterRoutes(router, eventService, authService)
+	spaces.RegisterRoutes(router, spaceService, authService)
 	caldav.RegisterRoutes(router, db)
 	users.RegisterRoutes(router, userService, authService)
 	settings.RegisterRoutes(router, settingsService, authService)

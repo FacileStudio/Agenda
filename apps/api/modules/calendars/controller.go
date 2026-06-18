@@ -20,7 +20,14 @@ func newController(service *Service) *controller {
 
 func (c *controller) list(w http.ResponseWriter, r *http.Request) {
 	userID := mustUserID(r)
-	cals, err := c.service.ListCalendars(r.Context(), userID)
+	var spaceID *int64
+	if v := r.URL.Query().Get("space_id"); v != "" {
+		id, err := strconv.ParseInt(v, 10, 64)
+		if err == nil {
+			spaceID = &id
+		}
+	}
+	cals, err := c.service.ListCalendars(r.Context(), userID, spaceID)
 	if err != nil {
 		httpjson.WriteError(w, err)
 		return

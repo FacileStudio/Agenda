@@ -22,7 +22,10 @@
 	const userLabel = $derived(user?.name?.trim() || user?.email || '');
 	const settingsActive = $derived($page.url.pathname.startsWith('/settings'));
 
-	const items = [{ href: '/calendar', label: 'Calendrier', icon: 'solar:calendar-linear' }];
+	const items = [
+		{ href: '/calendar', label: 'Calendrier', icon: 'solar:calendar-linear' },
+		{ href: '/spaces', label: 'Espaces', icon: 'solar:users-group-rounded-linear' },
+	];
 </script>
 
 <nav

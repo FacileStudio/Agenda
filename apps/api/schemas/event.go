@@ -5,6 +5,7 @@ import "time"
 type Event struct {
 	ID                 int64     `gorm:"column:id;primaryKey"`
 	CalendarID         int64     `gorm:"column:calendar_id;index;uniqueIndex:idx_uid_calendar"`
+	SpaceID            *int64    `gorm:"column:space_id;index"`
 	UID                string    `gorm:"column:uid;uniqueIndex:idx_uid_calendar"`
 	ETag               string    `gorm:"column:etag"`
 	Sequence           int       `gorm:"column:sequence;default:0"`

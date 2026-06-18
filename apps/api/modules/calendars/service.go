@@ -40,8 +40,7 @@ func (s *Service) EnsurePersonalCalendar(ctx context.Context, userID int64) erro
 	return s.orm.WithContext(ctx).Create(cal).Error
 }
 
-func (s *Service) ListCalendars(ctx context.Context, userID int64) ([]CalendarResponse, error) {
-	// Ensure the personal calendar exists — idempotent, creates it on first call.
+func (s *Service) ListCalendars(ctx context.Context, userID int64, spaceID *int64) ([]CalendarResponse, error) {
 	_ = s.EnsurePersonalCalendar(ctx, userID)
 	type row struct {
 		ID          int64
@@ -55,16 +54,30 @@ func (s *Service) ListCalendars(ctx context.Context, userID int64) ([]CalendarRe
 	}
 
 	var rows []row
-	err := s.orm.WithContext(ctx).Raw(`
-		SELECT c.id, c.owner_id, c.name, c.color, c.description, c.echo_url, c.is_personal, 'owner' AS role
-		FROM calendars c
-		WHERE c.owner_id = ?
-		UNION ALL
-		SELECT c.id, c.owner_id, c.name, c.color, c.description, c.echo_url, c.is_personal, cm.role
-		FROM calendars c
-		JOIN calendar_members cm ON cm.calendar_id = c.id
-		WHERE cm.user_id = ? AND c.owner_id != ?
-	`, userID, userID, userID).Scan(&rows).Error
+	var err error
+	if spaceID != nil {
+		err = s.orm.WithContext(ctx).Raw(`
+			SELECT c.id, c.owner_id, c.name, c.color, c.description, c.echo_url, c.is_personal, 'owner' AS role
+			FROM calendars c
+			WHERE c.owner_id = ? AND c.space_id = ?
+			UNION ALL
+			SELECT c.id, c.owner_id, c.name, c.color, c.description, c.echo_url, c.is_personal, cm.role
+			FROM calendars c
+			JOIN calendar_members cm ON cm.calendar_id = c.id
+			WHERE cm.user_id = ? AND c.owner_id != ? AND c.space_id = ?
+		`, userID, *spaceID, userID, userID, *spaceID).Scan(&rows).Error
+	} else {
+		err = s.orm.WithContext(ctx).Raw(`
+			SELECT c.id, c.owner_id, c.name, c.color, c.description, c.echo_url, c.is_personal, 'owner' AS role
+			FROM calendars c
+			WHERE c.owner_id = ?
+			UNION ALL
+			SELECT c.id, c.owner_id, c.name, c.color, c.description, c.echo_url, c.is_personal, cm.role
+			FROM calendars c
+			JOIN calendar_members cm ON cm.calendar_id = c.id
+			WHERE cm.user_id = ? AND c.owner_id != ?
+		`, userID, userID, userID).Scan(&rows).Error
+	}
 	if err != nil {
 		return nil, errors.Internal("failed to list calendars", err)
 	}

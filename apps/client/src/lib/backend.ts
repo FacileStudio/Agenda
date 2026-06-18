@@ -77,6 +77,24 @@ export type CreateEventRequest = {
 	conference_provider?: string;
 };
 
+export type SpaceItem = {
+	id: number;
+	name: string;
+	description: string;
+	role: string;
+	created_at: string;
+	updated_at: string;
+};
+
+export type SpaceMember = {
+	user_id: number;
+	email: string;
+	name: string;
+	avatar_url: string;
+	role: string;
+	joined_at: string;
+};
+
 export type ApiTokenStatus = {
 	has_token: boolean;
 	name?: string;
@@ -158,8 +176,11 @@ export const backend = {
 		return apiFetch<{ synced: boolean }>('/auth/sync-profile', { method: 'POST' });
 	},
 
-	listCalendars() {
-		return apiFetch<CalendarItem[]>('/calendars/');
+	listCalendars(spaceId?: number) {
+		const params = new URLSearchParams();
+		if (spaceId != null) params.set('space_id', String(spaceId));
+		const qs = params.toString();
+		return apiFetch<CalendarItem[]>(`/calendars/${qs ? `?${qs}` : ''}`);
 	},
 	createCalendar(data: { name: string; color: string; description?: string; echo_url?: string }) {
 		return apiFetch<CalendarItem>('/calendars/', {
@@ -232,5 +253,50 @@ export const backend = {
 	},
 	deleteApiToken() {
 		return apiFetch<{ deleted: boolean }>('/users/me/api-token', { method: 'DELETE' });
+	},
+
+	listSpaces() {
+		return apiFetch<SpaceItem[]>('/spaces/');
+	},
+	getSpace(id: number) {
+		return apiFetch<SpaceItem>(`/spaces/${id}/`);
+	},
+	createSpace(data: { name: string; description?: string }) {
+		return apiFetch<SpaceItem>('/spaces/', {
+			method: 'POST',
+			body: JSON.stringify(data)
+		});
+	},
+	updateSpace(id: number, data: { name: string; description?: string }) {
+		return apiFetch<SpaceItem>(`/spaces/${id}/`, {
+			method: 'PUT',
+			body: JSON.stringify(data)
+		});
+	},
+	deleteSpace(id: number) {
+		return apiFetch<{ ok: boolean }>(`/spaces/${id}/`, { method: 'DELETE' });
+	},
+	listSpaceMembers(spaceId: number) {
+		return apiFetch<SpaceMember[]>(`/spaces/${spaceId}/members`);
+	},
+	addSpaceMember(spaceId: number, email: string, role: string) {
+		return apiFetch<{ ok: boolean }>(`/spaces/${spaceId}/members`, {
+			method: 'POST',
+			body: JSON.stringify({ email, role })
+		});
+	},
+	removeSpaceMember(spaceId: number, userId: number) {
+		return apiFetch<{ ok: boolean }>(`/spaces/${spaceId}/members/${userId}`, {
+			method: 'DELETE'
+		});
+	},
+	updateSpaceMemberRole(spaceId: number, userId: number, role: string) {
+		return apiFetch<{ ok: boolean }>(`/spaces/${spaceId}/members/${userId}/role`, {
+			method: 'PUT',
+			body: JSON.stringify({ role })
+		});
+	},
+	leaveSpace(spaceId: number) {
+		return apiFetch<{ ok: boolean }>(`/spaces/${spaceId}/leave`, { method: 'POST' });
 	}
 };

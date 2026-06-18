@@ -5,6 +5,7 @@ import "time"
 type Calendar struct {
 	ID          int64     `gorm:"column:id;primaryKey"`
 	OwnerID     int64     `gorm:"column:owner_id;index"`
+	SpaceID     *int64    `gorm:"column:space_id;index"`
 	Slug        string    `gorm:"column:slug;index"`
 	Name        string    `gorm:"column:name"`
 	Color       string    `gorm:"column:color"`
