@@ -107,7 +107,7 @@
 <div class="flex h-full flex-col">
 	<div class="border-b px-6 pt-6 pb-4">
 		<div class="flex items-center gap-3">
-			<button onclick={() => goto(`/spaces/${spaceId}`)} class="cursor-pointer text-muted-foreground hover:text-foreground">
+			<button onclick={() => goto(`/spaces/${spaceId}`)} class="cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Retour a l'espace">
 				<iconify-icon icon="solar:alt-arrow-left-linear" width="20"></iconify-icon>
 			</button>
 			<div>

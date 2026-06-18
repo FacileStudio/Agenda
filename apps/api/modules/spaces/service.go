@@ -20,15 +20,7 @@ func NewService(orm *gorm.DB) *Service {
 }
 
 func (s *Service) ListSpaces(ctx context.Context, userID int64) ([]SpaceResponse, error) {
-	type row struct {
-		ID          int64
-		Name        string
-		Description string
-		Role        string
-		CreatedAt   string
-		UpdatedAt   string
-	}
-	var rows []row
+	var rows []SpaceResponse
 	err := s.orm.WithContext(ctx).Raw(`
 		SELECT s.id, s.name, s.description, sm.role, s.created_at, s.updated_at
 		FROM spaces s
@@ -39,20 +31,7 @@ func (s *Service) ListSpaces(ctx context.Context, userID int64) ([]SpaceResponse
 	if err != nil {
 		return nil, errors.Internal("failed to list spaces", err)
 	}
-	out := make([]SpaceResponse, len(rows))
-	for i, r := range rows {
-		var space schemas.Space
-		s.orm.WithContext(ctx).First(&space, r.ID)
-		out[i] = SpaceResponse{
-			ID:          space.ID,
-			Name:        space.Name,
-			Description: space.Description,
-			Role:        r.Role,
-			CreatedAt:   space.CreatedAt,
-			UpdatedAt:   space.UpdatedAt,
-		}
-	}
-	return out, nil
+	return rows, nil
 }
 
 func (s *Service) GetSpace(ctx context.Context, userID int64, spaceID int64) (*SpaceResponse, error) {
@@ -143,15 +122,7 @@ func (s *Service) ListMembers(ctx context.Context, userID int64, spaceID int64) 
 	if _, _, err := s.loadWithAccess(ctx, userID, spaceID); err != nil {
 		return nil, err
 	}
-	type row struct {
-		UserID    int64
-		Email     string
-		Name      string
-		AvatarURL string
-		Role      string
-		JoinedAt  string
-	}
-	var rows []row
+	var rows []MemberResponse
 	err := s.orm.WithContext(ctx).Raw(`
 		SELECT u.id AS user_id, u.email, u.name, u.avatar_url, sm.role, sm.joined_at
 		FROM space_members sm
@@ -162,20 +133,7 @@ func (s *Service) ListMembers(ctx context.Context, userID int64, spaceID int64) 
 	if err != nil {
 		return nil, errors.Internal("failed to list members", err)
 	}
-	out := make([]MemberResponse, len(rows))
-	for i, r := range rows {
-		var member schemas.SpaceMember
-		s.orm.WithContext(ctx).Where("space_id = ? AND user_id = ?", spaceID, r.UserID).First(&member)
-		out[i] = MemberResponse{
-			UserID:    r.UserID,
-			Email:     r.Email,
-			Name:      r.Name,
-			AvatarURL: r.AvatarURL,
-			Role:      r.Role,
-			JoinedAt:  member.JoinedAt,
-		}
-	}
-	return out, nil
+	return rows, nil
 }
 
 func (s *Service) AddMember(ctx context.Context, userID int64, spaceID int64, req *AddMemberRequest) error {
