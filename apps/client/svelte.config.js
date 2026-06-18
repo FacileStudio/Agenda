@@ -10,7 +10,7 @@ const config = {
 			precompress: false
 		}),
 		prerender: {
-			entries: ['*', '/profile']
+			entries: []
 		}
 	},
 	vitePlugin: {
