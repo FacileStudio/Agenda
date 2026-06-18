@@ -9,7 +9,7 @@ import (
 
 func RegisterRoutes(router chi.Router, service *Service, authService *auth.Service) {
 	c := newController(service)
-	router.Route("/spaces", func(r chi.Router) {
+	router.Route("/api/spaces", func(r chi.Router) {
 		r.Use(middleware.RequireAuth(authService))
 		r.Get("/", c.list)
 		r.Post("/", c.create)

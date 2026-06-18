@@ -256,47 +256,47 @@ export const backend = {
 	},
 
 	listSpaces() {
-		return apiFetch<SpaceItem[]>('/spaces/');
+		return apiFetch<SpaceItem[]>('/api/spaces/');
 	},
 	getSpace(id: number) {
-		return apiFetch<SpaceItem>(`/spaces/${id}/`);
+		return apiFetch<SpaceItem>(`/api/spaces/${id}/`);
 	},
 	createSpace(data: { name: string; description?: string }) {
-		return apiFetch<SpaceItem>('/spaces/', {
+		return apiFetch<SpaceItem>('/api/spaces/', {
 			method: 'POST',
 			body: JSON.stringify(data)
 		});
 	},
 	updateSpace(id: number, data: { name: string; description?: string }) {
-		return apiFetch<SpaceItem>(`/spaces/${id}/`, {
+		return apiFetch<SpaceItem>(`/api/spaces/${id}/`, {
 			method: 'PUT',
 			body: JSON.stringify(data)
 		});
 	},
 	deleteSpace(id: number) {
-		return apiFetch<{ ok: boolean }>(`/spaces/${id}/`, { method: 'DELETE' });
+		return apiFetch<{ ok: boolean }>(`/api/spaces/${id}/`, { method: 'DELETE' });
 	},
 	listSpaceMembers(spaceId: number) {
-		return apiFetch<SpaceMember[]>(`/spaces/${spaceId}/members`);
+		return apiFetch<SpaceMember[]>(`/api/spaces/${spaceId}/members`);
 	},
 	addSpaceMember(spaceId: number, email: string, role: string) {
-		return apiFetch<{ ok: boolean }>(`/spaces/${spaceId}/members`, {
+		return apiFetch<{ ok: boolean }>(`/api/spaces/${spaceId}/members`, {
 			method: 'POST',
 			body: JSON.stringify({ email, role })
 		});
 	},
 	removeSpaceMember(spaceId: number, userId: number) {
-		return apiFetch<{ ok: boolean }>(`/spaces/${spaceId}/members/${userId}`, {
+		return apiFetch<{ ok: boolean }>(`/api/spaces/${spaceId}/members/${userId}`, {
 			method: 'DELETE'
 		});
 	},
 	updateSpaceMemberRole(spaceId: number, userId: number, role: string) {
-		return apiFetch<{ ok: boolean }>(`/spaces/${spaceId}/members/${userId}/role`, {
+		return apiFetch<{ ok: boolean }>(`/api/spaces/${spaceId}/members/${userId}/role`, {
 			method: 'PUT',
 			body: JSON.stringify({ role })
 		});
 	},
 	leaveSpace(spaceId: number) {
-		return apiFetch<{ ok: boolean }>(`/spaces/${spaceId}/leave`, { method: 'POST' });
+		return apiFetch<{ ok: boolean }>(`/api/spaces/${spaceId}/leave`, { method: 'POST' });
 	}
 };
