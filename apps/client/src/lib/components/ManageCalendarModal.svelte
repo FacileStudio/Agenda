@@ -212,7 +212,7 @@
 					<div class="flex flex-col gap-1.5">
 						<Label for="edit-echo-url">
 							<span class="flex items-center gap-1.5">
-								<iconify-icon icon="solar:videocamera-record-linear" width="14" class="text-muted-foreground"></iconify-icon>
+								<iconify-icon icon="solar:videocamera-record-bold-duotone" width="14" class="text-muted-foreground"></iconify-icon>
 								Echo (visioconference)
 							</span>
 						</Label>

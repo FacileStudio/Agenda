@@ -116,7 +116,7 @@
 		} else if (selectedCalendar?.echo_url) {
 			const uid = event?.uid ?? crypto.randomUUID().replace(/-/g, '');
 			const slug = uid.split('@')[0].slice(0, 16);
-			conferenceUrl = `${selectedCalendar.echo_url.replace(/\/$/, '')}/agenda-${slug}`;
+			conferenceUrl = `${selectedCalendar.echo_url.replace(/\/$/, '')}/${slug}`;
 			conferenceProvider = 'Echo';
 		}
 	}
@@ -357,13 +357,13 @@
 					<div class="flex flex-col gap-1.5">
 						<Label>
 							<span class="flex items-center gap-1.5">
-								<iconify-icon icon="solar:videocamera-record-linear" width="14" class="text-muted-foreground"></iconify-icon>
+								<iconify-icon icon="solar:videocamera-record-bold-duotone" width="14" class="text-muted-foreground"></iconify-icon>
 								Visioconference
 							</span>
 						</Label>
 						{#if conferenceUrl}
 							<div class="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
-								<iconify-icon icon="solar:videocamera-record-bold" width="18" class="shrink-0 text-primary"></iconify-icon>
+								<iconify-icon icon="solar:videocamera-record-bold-duotone" width="18" class="shrink-0 text-primary"></iconify-icon>
 								<a href={conferenceUrl} target="_blank" rel="noopener" class="min-w-0 flex-1 truncate text-sm text-primary underline underline-offset-2">
 									{conferenceUrl}
 								</a>
@@ -378,7 +378,7 @@
 							</div>
 						{:else}
 							<Button variant="outline" onclick={toggleConference} class="w-full cursor-pointer justify-start gap-2">
-								<iconify-icon icon="solar:videocamera-record-linear" width="16"></iconify-icon>
+								<iconify-icon icon="solar:videocamera-record-bold-duotone" width="16"></iconify-icon>
 								Ajouter une visio Echo
 							</Button>
 						{/if}
