@@ -6,7 +6,6 @@
 
 	let avatarFailed = $state(false);
 
-	// Reset the fallback when the avatar URL changes (e.g. after profile sync).
 	$effect(() => {
 		void user?.avatar_url;
 		avatarFailed = false;
@@ -19,11 +18,16 @@
 		return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase();
 	}
 
+	function isActive(href: string) {
+		return $page.url.pathname === href || $page.url.pathname.startsWith(href + '/');
+	}
+
 	const userLabel = $derived(user?.name?.trim() || user?.email || '');
-	const settingsActive = $derived($page.url.pathname.startsWith('/settings'));
+	const settingsActive = $derived(isActive('/settings'));
 
 	const items = [
 		{ href: '/calendar', label: 'Calendrier', icon: 'solar:calendar-linear' },
+		{ href: '/events', label: 'Événements', icon: 'solar:calendar-mark-linear' },
 		{ href: '/spaces', label: 'Espaces', icon: 'solar:users-group-rounded-linear' },
 	];
 </script>
@@ -36,7 +40,7 @@
 		class="flex items-center gap-1 rounded-full border border-border/40 bg-background/55 p-1.5 shadow-lg shadow-black/10 ring-1 ring-white/10 backdrop-blur-2xl backdrop-saturate-150"
 	>
 		{#each items as item (item.href)}
-			{@const active = $page.url.pathname.startsWith(item.href)}
+			{@const active = isActive(item.href)}
 			<a
 				href={item.href}
 				aria-label={item.label}
@@ -51,8 +55,8 @@
 
 		<a
 			href="/settings"
-			aria-label="Reglages"
-			title="Reglages"
+			aria-label="Réglages"
+			title="Réglages"
 			class="flex items-center justify-center rounded-full px-2.5 py-1.5 transition-all duration-200 {settingsActive
 				? 'bg-foreground shadow-sm'
 				: 'hover:bg-muted/60'}"

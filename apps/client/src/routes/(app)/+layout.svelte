@@ -49,7 +49,7 @@
 </script>
 
 {#if loaded}
-	<div class="flex h-screen w-full overflow-hidden">
+	<div class="flex h-[100dvh] w-full overflow-hidden">
 		<Sidebar {user} {calendars} />
 		<main class="flex-1 overflow-auto pb-24 md:pb-0">
 			{@render children()}

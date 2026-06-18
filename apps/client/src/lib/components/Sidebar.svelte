@@ -2,8 +2,6 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { getContext } from 'svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { Separator } from '$lib/components/ui/separator';
 	import { backend, type UserProfile, type CalendarItem } from '$lib/backend';
 	import CreateCalendarModal from './CreateCalendarModal.svelte';
 	import ManageCalendarModal from './ManageCalendarModal.svelte';
@@ -18,7 +16,6 @@
 	let manageOpen = $state(false);
 	let avatarFailed = $state(false);
 
-	// Reset the fallback when the avatar URL changes (e.g. after profile sync).
 	$effect(() => {
 		void user?.avatar_url;
 		avatarFailed = false;
@@ -40,109 +37,102 @@
 		return u?.name?.trim() || u?.email || '';
 	}
 
-	async function handleLogout() {
+	async function logout() {
 		try { await backend.logout(); } catch {}
 		goto('/login');
 	}
 
-	const navItems = [
+	const navLinks = [
 		{ href: '/calendar', label: 'Calendrier', icon: 'solar:calendar-linear' },
+		{ href: '/events', label: 'Événements', icon: 'solar:calendar-mark-linear' },
 		{ href: '/spaces', label: 'Espaces', icon: 'solar:users-group-rounded-linear' },
+		{ href: '/settings', label: 'Réglages', icon: 'solar:settings-linear' },
 	];
 
 	const ownedCalendars = $derived(calendars.filter(c => c.role === 'owner'));
 	const sharedCalendars = $derived(calendars.filter(c => c.role !== 'owner'));
 </script>
 
-<aside class="sticky top-0 hidden h-screen w-60 flex-col border-r bg-background md:flex">
-	<!-- Logo -->
+<aside class="sticky top-0 hidden h-[100dvh] w-60 flex-col border-r bg-background md:flex">
 	<div class="flex items-center gap-3 px-5 pt-8 pb-4">
 		<iconify-icon icon="solar:calendar-bold-duotone" width="28" class="text-foreground"></iconify-icon>
-		<span class="text-2xl font-bold tracking-tight">Agenda</span>
+		<span class="text-2xl font-bold font-heading tracking-tight">Agenda</span>
 	</div>
 
 	<SpaceSwitcher />
 
-	<!-- Navigation -->
-	<nav class="flex flex-col gap-1 px-3 pb-2">
-		{#each navItems as item}
-			{@const active = $page.url.pathname.startsWith(item.href)}
+	<nav class="flex flex-1 flex-col gap-1 px-3">
+		{#each navLinks as link}
+			{@const active = $page.url.pathname === link.href || $page.url.pathname.startsWith(link.href + '/')}
 			<a
-				href={item.href}
-				class="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors {active
+				href={link.href}
+				class="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors {active
 					? 'bg-foreground text-background font-medium'
 					: 'text-muted-foreground hover:bg-muted hover:text-foreground'}"
 			>
-				<iconify-icon icon={item.icon} width="16" class="shrink-0"></iconify-icon>
-				<span>{item.label}</span>
+				<iconify-icon icon={link.icon} width="16"></iconify-icon>
+				{link.label}
 			</a>
 		{/each}
-	</nav>
 
-	<!-- Calendars -->
-	<div class="flex flex-1 flex-col overflow-hidden px-3 pt-3">
-		<div class="mb-2 flex items-center justify-between px-1">
-			<p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Mes calendriers</p>
-			<button
-				onclick={() => (createOpen = true)}
-				class="cursor-pointer rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-				title="Nouveau calendrier"
-			>
-				<iconify-icon icon="mdi:plus" width="16"></iconify-icon>
-			</button>
-		</div>
-
-		<div class="flex-1 overflow-y-auto">
-			{#each ownedCalendars as cal (cal.id)}
+		<div class="mt-3 flex flex-col overflow-hidden">
+			<div class="mb-2 flex items-center justify-between px-1">
+				<p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Mes calendriers</p>
 				<button
-					onclick={() => openManage(cal)}
-					class="group flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+					onclick={() => (createOpen = true)}
+					class="cursor-pointer rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+					title="Nouveau calendrier"
 				>
-					<span class="size-2.5 shrink-0 rounded-full" style="background-color: {cal.color}"></span>
-					<span class="flex-1 truncate">{cal.name}</span>
-					<iconify-icon
-						icon="solar:settings-minimalistic-linear"
-						width="13"
-						class="shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
-					></iconify-icon>
+					<iconify-icon icon="mdi:plus" width="16"></iconify-icon>
 				</button>
-			{/each}
+			</div>
 
-			{#if sharedCalendars.length > 0}
-				<p class="mt-3 mb-1 px-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Partages</p>
-				{#each sharedCalendars as cal (cal.id)}
+			<div class="flex-1 overflow-y-auto">
+				{#each ownedCalendars as cal (cal.id)}
 					<button
 						onclick={() => openManage(cal)}
-						class="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+						class="group flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted"
 					>
 						<span class="size-2.5 shrink-0 rounded-full" style="background-color: {cal.color}"></span>
 						<span class="flex-1 truncate">{cal.name}</span>
-						<span class="text-xs text-muted-foreground">{cal.role === 'writer' || cal.role === 'admin' ? 'Edit.' : 'Lect.'}</span>
+						<iconify-icon
+							icon="solar:settings-minimalistic-linear"
+							width="13"
+							class="shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+						></iconify-icon>
 					</button>
 				{/each}
-			{/if}
+
+				{#if sharedCalendars.length > 0}
+					<p class="mt-3 mb-1 px-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Partages</p>
+					{#each sharedCalendars as cal (cal.id)}
+						<button
+							onclick={() => openManage(cal)}
+							class="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+						>
+							<span class="size-2.5 shrink-0 rounded-full" style="background-color: {cal.color}"></span>
+							<span class="flex-1 truncate">{cal.name}</span>
+							<span class="text-xs text-muted-foreground">{cal.role === 'writer' || cal.role === 'admin' ? 'Edit.' : 'Lect.'}</span>
+						</button>
+					{/each}
+				{/if}
+			</div>
 		</div>
-	</div>
+	</nav>
 
-	<Separator />
+	<div class="h-px bg-border"></div>
 
-	<!-- Profile section -->
 	<div class="flex flex-col gap-2 p-4">
-		<a
-			href="/settings"
-			class="flex cursor-pointer items-center gap-3 rounded-xl border border-border/70 bg-muted/40 p-2.5 transition-colors hover:bg-muted"
-		>
+		<div class="flex items-center gap-3 rounded-xl border border-border/70 bg-muted/40 p-2.5">
 			{#if user?.avatar_url && !avatarFailed}
 				<img
 					src={user.avatar_url}
 					alt={userLabel(user)}
-					class="h-10 w-10 shrink-0 rounded-full border border-border object-cover"
+					class="h-9 w-9 shrink-0 rounded-full border border-border object-cover"
 					onerror={() => (avatarFailed = true)}
 				/>
 			{:else}
-				<div
-					class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-foreground text-sm font-semibold text-background"
-				>
+				<div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-foreground text-xs font-semibold text-background">
 					{getInitials(userLabel(user))}
 				</div>
 			{/if}
@@ -150,16 +140,14 @@
 				<p class="truncate text-sm font-medium">{user?.name || 'Mon profil'}</p>
 				<p class="truncate text-xs text-muted-foreground">{user?.email}</p>
 			</div>
-		</a>
-		<Button
-			variant="ghost"
-			size="sm"
-			class="w-full cursor-pointer justify-start gap-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-			onclick={handleLogout}
+		</div>
+		<button
+			onclick={logout}
+			class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-destructive hover:bg-destructive/10"
 		>
 			<iconify-icon icon="solar:logout-2-linear" width="16"></iconify-icon>
-			Deconnexion
-		</Button>
+			Déconnexion
+		</button>
 	</div>
 </aside>
 
