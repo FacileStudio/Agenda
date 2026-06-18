@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
 	import { toast } from 'svelte-sonner';
 	import { backend } from '$lib/backend';
 	import { setSpaceContext } from '$lib/space-context.svelte';
@@ -33,31 +31,42 @@
 </svelte:head>
 
 <div class="flex h-full flex-col">
-	<div class="border-b px-6 pt-6 pb-4">
+	<div class="border-b border-border px-4 py-4 md:px-8 md:py-5">
 		<div class="flex items-center gap-3">
 			<button onclick={() => goto('/spaces')} class="cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Retour aux espaces">
-				<iconify-icon icon="solar:alt-arrow-left-linear" width="20"></iconify-icon>
+				<iconify-icon icon="solar:arrow-left-linear" width="20"></iconify-icon>
 			</button>
 			<div>
-				<h1 class="text-2xl font-semibold">Nouvel espace</h1>
+				<h1 class="text-lg font-semibold">Nouvel espace</h1>
 				<p class="mt-1 text-sm text-muted-foreground">Créez un espace pour collaborer avec votre équipe.</p>
 			</div>
 		</div>
 	</div>
 
-	<div class="flex-1 overflow-auto p-6">
-		<form onsubmit={handleSubmit} class="max-w-md space-y-6">
+	<div class="flex-1 overflow-auto p-4 md:p-8">
+		<form onsubmit={handleSubmit} class="max-w-xl space-y-6">
 			<div class="space-y-1.5">
-				<Label for="space-name">Nom</Label>
-				<Input id="space-name" bind:value={name} placeholder="Mon équipe" required />
+				<label for="space-name" class="text-sm font-medium">Nom</label>
+				<input
+					id="space-name"
+					bind:value={name}
+					placeholder="Mon équipe"
+					required
+					class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				/>
 			</div>
 			<div class="space-y-1.5">
-				<Label for="space-desc">Description</Label>
-				<Input id="space-desc" bind:value={description} placeholder="Description optionnelle" />
+				<label for="space-desc" class="text-sm font-medium">Description</label>
+				<input
+					id="space-desc"
+					bind:value={description}
+					placeholder="Description optionnelle"
+					class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				/>
 			</div>
 			<div class="flex gap-3">
 				<Button type="submit" disabled={submitting || !name.trim()} class="cursor-pointer gap-2">
-					<iconify-icon icon="mdi:plus" width="16"></iconify-icon>
+					<iconify-icon icon="solar:add-circle-linear" width="16"></iconify-icon>
 					{submitting ? 'Création…' : 'Créer'}
 				</Button>
 				<Button type="button" variant="outline" onclick={() => goto('/spaces')} class="cursor-pointer">

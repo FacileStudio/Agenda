@@ -23,6 +23,17 @@
 		goto(`/spaces/${space.id}`);
 	}
 
+	function roleBadgeClass(role: string): string {
+		switch (role) {
+			case 'owner':
+				return 'bg-amber-500/10 text-amber-600';
+			case 'admin':
+				return 'bg-blue-500/10 text-blue-600';
+			default:
+				return 'bg-muted text-muted-foreground';
+		}
+	}
+
 	const roleLabelMap: Record<string, string> = {
 		owner: 'Propriétaire',
 		admin: 'Administrateur',
@@ -35,42 +46,42 @@
 </svelte:head>
 
 <div class="flex h-full flex-col">
-	<div class="border-b px-6 pt-6 pb-4">
+	<div class="border-b border-border px-4 py-4 md:px-8 md:py-5">
 		<div class="flex items-center justify-between">
 			<div>
-				<h1 class="text-2xl font-semibold">Espaces</h1>
+				<h1 class="text-lg font-semibold">Espaces</h1>
 				<p class="mt-1 text-sm text-muted-foreground">Collaborez avec votre équipe dans des espaces partagés.</p>
 			</div>
 			<Button onclick={() => goto('/spaces/new')} class="cursor-pointer gap-2">
-				<iconify-icon icon="mdi:plus" width="16"></iconify-icon>
+				<iconify-icon icon="solar:add-circle-linear" width="16"></iconify-icon>
 				Nouvel espace
 			</Button>
 		</div>
 	</div>
 
-	<div class="flex-1 overflow-auto p-6">
+	<div class="flex-1 overflow-auto p-4 md:p-8">
 		{#if loading}
 			<div class="flex items-center justify-center py-12 text-muted-foreground">
 				<iconify-icon icon="solar:refresh-linear" width="20" class="animate-spin"></iconify-icon>
 			</div>
 		{:else if spaces.length === 0}
 			<div class="flex flex-col items-center justify-center py-16 text-center">
-				<iconify-icon icon="solar:users-group-rounded-linear" width="48" class="text-muted-foreground/50"></iconify-icon>
+				<iconify-icon icon="solar:users-group-rounded-bold-duotone" width="48" class="text-muted-foreground/50"></iconify-icon>
 				<p class="mt-4 text-sm text-muted-foreground">Aucun espace pour le moment.</p>
 				<Button onclick={() => goto('/spaces/new')} variant="outline" class="mt-4 cursor-pointer gap-2">
-					<iconify-icon icon="mdi:plus" width="16"></iconify-icon>
+					<iconify-icon icon="solar:add-circle-linear" width="16"></iconify-icon>
 					Créer un espace
 				</Button>
 			</div>
 		{:else}
-			<div class="max-w-2xl space-y-2">
+			<div class="max-w-2xl grid gap-3">
 				{#each spaces as space (space.id)}
 					<button
 						onclick={() => selectSpace(space)}
-						class="flex w-full cursor-pointer items-center gap-4 rounded-xl border border-border/70 bg-card p-4 text-left transition-colors hover:bg-muted/50"
+						class="flex w-full cursor-pointer items-center gap-4 rounded-lg border border-border p-4 text-left transition-colors hover:bg-muted/50"
 					>
-						<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-foreground/10">
-							<iconify-icon icon="solar:users-group-rounded-linear" width="20" class="text-foreground"></iconify-icon>
+						<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+							<iconify-icon icon="solar:users-group-rounded-bold-duotone" width="20" class="text-primary"></iconify-icon>
 						</div>
 						<div class="min-w-0 flex-1">
 							<p class="truncate text-sm font-medium">{space.name}</p>
@@ -78,7 +89,7 @@
 								<p class="truncate text-xs text-muted-foreground">{space.description}</p>
 							{/if}
 						</div>
-						<span class="shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
+						<span class="shrink-0 rounded-full px-2.5 py-0.5 text-xs {roleBadgeClass(space.role)}">
 							{roleLabelMap[space.role] ?? space.role}
 						</span>
 						<iconify-icon icon="solar:alt-arrow-right-linear" width="16" class="shrink-0 text-muted-foreground"></iconify-icon>

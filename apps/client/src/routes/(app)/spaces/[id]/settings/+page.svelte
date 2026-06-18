@@ -3,9 +3,6 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
-	import { Separator } from '$lib/components/ui/separator';
 	import { toast } from 'svelte-sonner';
 	import { backend, type SpaceItem } from '$lib/backend';
 	import { setSpaceContext } from '$lib/space-context.svelte';
@@ -68,33 +65,43 @@
 </svelte:head>
 
 <div class="flex h-full flex-col">
-	<div class="border-b px-6 pt-6 pb-4">
+	<div class="border-b border-border px-4 py-4 md:px-8 md:py-5">
 		<div class="flex items-center gap-3">
 			<button onclick={() => goto(`/spaces/${spaceId}`)} class="cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Retour à l'espace">
-				<iconify-icon icon="solar:alt-arrow-left-linear" width="20"></iconify-icon>
+				<iconify-icon icon="solar:arrow-left-linear" width="20"></iconify-icon>
 			</button>
 			<div>
-				<h1 class="text-2xl font-semibold">Paramètres</h1>
+				<h1 class="text-lg font-semibold">Paramètres</h1>
 				<p class="mt-1 text-sm text-muted-foreground">{space?.name ?? ''}</p>
 			</div>
 		</div>
 	</div>
 
-	<div class="flex-1 overflow-auto p-6">
+	<div class="flex-1 overflow-auto p-4 md:p-8">
 		{#if loading}
 			<div class="flex items-center justify-center py-12 text-muted-foreground">
 				<iconify-icon icon="solar:refresh-linear" width="20" class="animate-spin"></iconify-icon>
 			</div>
 		{:else}
-			<div class="max-w-md space-y-8">
+			<div class="max-w-xl space-y-8">
 				<form onsubmit={handleSave} class="space-y-6">
 					<div class="space-y-1.5">
-						<Label for="edit-name">Nom</Label>
-						<Input id="edit-name" bind:value={name} required />
+						<label for="edit-name" class="text-sm font-medium">Nom</label>
+						<input
+							id="edit-name"
+							bind:value={name}
+							required
+							class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						/>
 					</div>
 					<div class="space-y-1.5">
-						<Label for="edit-desc">Description</Label>
-						<Input id="edit-desc" bind:value={description} placeholder="Description optionnelle" />
+						<label for="edit-desc" class="text-sm font-medium">Description</label>
+						<input
+							id="edit-desc"
+							bind:value={description}
+							placeholder="Description optionnelle"
+							class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						/>
 					</div>
 					<Button type="submit" disabled={saving || !name.trim()} class="cursor-pointer gap-2">
 						<iconify-icon icon="solar:pen-2-linear" width="16"></iconify-icon>
@@ -102,18 +109,16 @@
 					</Button>
 				</form>
 
-				<Separator />
-
-				<div class="space-y-3">
-					<h2 class="text-base font-medium text-destructive">Zone dangereuse</h2>
-					<p class="text-sm text-muted-foreground">
+				<div class="border-t border-border pt-8">
+					<h2 class="text-lg font-semibold text-destructive">Zone dangereuse</h2>
+					<p class="mt-2 text-sm text-muted-foreground">
 						La suppression de l'espace est définitive et retire tous les membres.
 					</p>
 					<Button
-						variant="destructive"
+						variant="outline"
 						onclick={handleDelete}
 						disabled={deleting}
-						class="cursor-pointer gap-2"
+						class="mt-4 cursor-pointer gap-2 border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20"
 					>
 						<iconify-icon icon="solar:trash-bin-2-linear" width="16"></iconify-icon>
 						{deleting ? 'Suppression…' : 'Supprimer l\'espace'}
