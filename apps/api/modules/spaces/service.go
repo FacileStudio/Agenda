@@ -31,6 +31,9 @@ func (s *Service) ListSpaces(ctx context.Context, userID int64) ([]SpaceResponse
 	if err != nil {
 		return nil, errors.Internal("failed to list spaces", err)
 	}
+	if rows == nil {
+		rows = []SpaceResponse{}
+	}
 	return rows, nil
 }
 
@@ -132,6 +135,9 @@ func (s *Service) ListMembers(ctx context.Context, userID int64, spaceID int64) 
 	`, spaceID).Scan(&rows).Error
 	if err != nil {
 		return nil, errors.Internal("failed to list members", err)
+	}
+	if rows == nil {
+		rows = []MemberResponse{}
 	}
 	return rows, nil
 }
