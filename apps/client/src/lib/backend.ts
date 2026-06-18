@@ -24,6 +24,7 @@ export type CalendarItem = {
 	name: string;
 	color: string;
 	description: string;
+	echo_url: string;
 	is_personal: boolean;
 	role: string;
 };
@@ -55,6 +56,8 @@ export type AgendaEvent = {
 	is_all_day: boolean;
 	recurrence_rule: string;
 	status: string;
+	conference_url: string;
+	conference_provider: string;
 	created_by: EventCreator | null;
 	created_at: string;
 	updated_at: string;
@@ -69,6 +72,8 @@ export type CreateEventRequest = {
 	is_all_day?: boolean;
 	recurrence_rule?: string;
 	status?: string;
+	conference_url?: string;
+	conference_provider?: string;
 };
 
 export type ApiTokenStatus = {
@@ -155,7 +160,7 @@ export const backend = {
 	listCalendars() {
 		return apiFetch<CalendarItem[]>('/calendars/');
 	},
-	createCalendar(data: { name: string; color: string; description?: string }) {
+	createCalendar(data: { name: string; color: string; description?: string; echo_url?: string }) {
 		return apiFetch<CalendarItem>('/calendars/', {
 			method: 'POST',
 			body: JSON.stringify(data)
@@ -164,7 +169,7 @@ export const backend = {
 	getCalendar(id: number) {
 		return apiFetch<CalendarItem>(`/calendars/${id}/`);
 	},
-	updateCalendar(id: number, data: { name: string; color: string; description?: string }) {
+	updateCalendar(id: number, data: { name: string; color: string; description?: string; echo_url?: string }) {
 		return apiFetch<CalendarItem>(`/calendars/${id}/`, {
 			method: 'PUT',
 			body: JSON.stringify(data)

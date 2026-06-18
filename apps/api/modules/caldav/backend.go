@@ -316,6 +316,15 @@ func (b *Backend) PutCalendarObject(ctx context.Context, objPath string, calenda
 		evt.Status = "confirmed"
 	}
 
+	if conf := propText(comp, "CONFERENCE"); conf != "" {
+		evt.ConferenceURL = conf
+		if p := comp.Props.Get("CONFERENCE"); p != nil {
+			if lbl := p.Params.Get("LABEL"); lbl != "" {
+				evt.ConferenceProvider = lbl
+			}
+		}
+	}
+
 	dtstart, _ := comp.Props.DateTime(ical.PropDateTimeStart, nil)
 	dtend, _ := comp.Props.DateTime(ical.PropDateTimeEnd, nil)
 	if dtstart.IsZero() {

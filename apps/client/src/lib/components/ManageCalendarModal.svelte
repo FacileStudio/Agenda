@@ -38,6 +38,7 @@
 	let editName = $state('');
 	let editColor = $state('');
 	let editDescription = $state('');
+	let editEchoUrl = $state('');
 	let saving = $state(false);
 	let deleting = $state(false);
 	let error = $state('');
@@ -47,6 +48,7 @@
 			editName = calendar.name;
 			editColor = calendar.color;
 			editDescription = calendar.description || '';
+			editEchoUrl = calendar.echo_url || '';
 			error = '';
 			inviteEmail = '';
 			inviteRole = 'reader';
@@ -75,7 +77,8 @@
 			await backend.updateCalendar(calendar.id, {
 				name: editName.trim(),
 				color: editColor,
-				description: editDescription || undefined
+				description: editDescription || undefined,
+				echo_url: editEchoUrl.trim() || undefined
 			});
 			onUpdated();
 		} catch (e: unknown) {
@@ -204,6 +207,17 @@
 					<div class="flex flex-col gap-1.5">
 						<Label for="edit-desc">Description</Label>
 						<Input id="edit-desc" bind:value={editDescription} placeholder="Description (optionnelle)" />
+					</div>
+
+					<div class="flex flex-col gap-1.5">
+						<Label for="edit-echo-url">
+							<span class="flex items-center gap-1.5">
+								<iconify-icon icon="solar:videocamera-record-linear" width="14" class="text-muted-foreground"></iconify-icon>
+								Echo (visioconference)
+							</span>
+						</Label>
+						<Input id="edit-echo-url" bind:value={editEchoUrl} placeholder="https://echo.facile.studio" />
+						<p class="text-xs text-muted-foreground">URL de l'instance Echo pour ce calendrier</p>
 					</div>
 
 					{#if error}

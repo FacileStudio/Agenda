@@ -24,6 +24,7 @@
 	let name = $state('');
 	let color = $state('#3b82f6');
 	let description = $state('');
+	let echoUrl = $state('');
 	let saving = $state(false);
 	let error = $state('');
 
@@ -32,6 +33,7 @@
 			name = '';
 			color = '#3b82f6';
 			description = '';
+			echoUrl = '';
 			error = '';
 		}
 	});
@@ -40,7 +42,7 @@
 		if (!name.trim()) { error = 'Le nom est requis.'; return; }
 		saving = true; error = '';
 		try {
-			await backend.createCalendar({ name: name.trim(), color, description: description || undefined });
+			await backend.createCalendar({ name: name.trim(), color, description: description || undefined, echo_url: echoUrl.trim() || undefined });
 			onCreated();
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Une erreur est survenue.';
@@ -101,6 +103,17 @@
 				<div class="flex flex-col gap-1.5">
 					<Label for="cal-desc">Description</Label>
 					<Input id="cal-desc" bind:value={description} placeholder="Description (optionnelle)" />
+				</div>
+
+				<div class="flex flex-col gap-1.5">
+					<Label for="cal-echo-url">
+						<span class="flex items-center gap-1.5">
+							<iconify-icon icon="solar:videocamera-record-linear" width="14" class="text-muted-foreground"></iconify-icon>
+							Echo (visioconference)
+						</span>
+					</Label>
+					<Input id="cal-echo-url" bind:value={echoUrl} placeholder="https://echo.facile.studio" />
+					<p class="text-xs text-muted-foreground">URL de l'instance Echo pour ce calendrier</p>
 				</div>
 
 				{#if error}

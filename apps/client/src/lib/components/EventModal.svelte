@@ -70,6 +70,8 @@
 	let saving = $state(false);
 	let deleting = $state(false);
 	let error = $state('');
+	let conferenceUrl = $state('');
+	let conferenceProvider = $state('');
 
 	let startDateStr = $state('');
 	let startTimeStr = $state('');
@@ -86,6 +88,8 @@
 			isAllDay = event?.is_all_day ?? false;
 			status = event?.status ?? 'confirmed';
 			calendarId = event?.calendar_id ?? (calendars[0]?.id ?? 0);
+			conferenceUrl = event?.conference_url ?? '';
+			conferenceProvider = event?.conference_provider ?? '';
 			error = '';
 			const s = splitDT(defaultStart());
 			const e = splitDT(defaultEnd());
@@ -102,6 +106,20 @@
 
 	const startDateVal = $derived(safeParseDate(startDateStr));
 	const endDateVal = $derived(safeParseDate(endDateStr));
+	const selectedCalendar = $derived(calendars.find(c => c.id === calendarId));
+	const echoAvailable = $derived(!!selectedCalendar?.echo_url);
+
+	function toggleConference() {
+		if (conferenceUrl) {
+			conferenceUrl = '';
+			conferenceProvider = '';
+		} else if (selectedCalendar?.echo_url) {
+			const uid = event?.uid ?? crypto.randomUUID().replace(/-/g, '');
+			const slug = uid.split('@')[0].slice(0, 16);
+			conferenceUrl = `${selectedCalendar.echo_url.replace(/\/$/, '')}/agenda-${slug}`;
+			conferenceProvider = 'Echo';
+		}
+	}
 
 	function formatDisplayDate(dateStr: string): string {
 		if (!dateStr) return 'Choisir une date';
@@ -140,7 +158,9 @@
 				start_at: new Date(startISO).toISOString(),
 				end_at: new Date(endISO).toISOString(),
 				is_all_day: isAllDay,
-				status: status || undefined
+				status: status || undefined,
+				conference_url: conferenceUrl || undefined,
+				conference_provider: conferenceProvider || undefined
 			};
 			await onSave(calendarId, data);
 		} catch (e: unknown) {
@@ -332,6 +352,38 @@
 						bind:value={location}
 					/>
 				</div>
+
+				{#if echoAvailable || conferenceUrl}
+					<div class="flex flex-col gap-1.5">
+						<Label>
+							<span class="flex items-center gap-1.5">
+								<iconify-icon icon="solar:videocamera-record-linear" width="14" class="text-muted-foreground"></iconify-icon>
+								Visioconference
+							</span>
+						</Label>
+						{#if conferenceUrl}
+							<div class="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+								<iconify-icon icon="solar:videocamera-record-bold" width="18" class="shrink-0 text-primary"></iconify-icon>
+								<a href={conferenceUrl} target="_blank" rel="noopener" class="min-w-0 flex-1 truncate text-sm text-primary underline underline-offset-2">
+									{conferenceUrl}
+								</a>
+								<button
+									type="button"
+									onclick={toggleConference}
+									class="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
+									title="Retirer la visioconference"
+								>
+									<iconify-icon icon="solar:close-circle-linear" width="16"></iconify-icon>
+								</button>
+							</div>
+						{:else}
+							<Button variant="outline" onclick={toggleConference} class="w-full cursor-pointer justify-start gap-2">
+								<iconify-icon icon="solar:videocamera-record-linear" width="16"></iconify-icon>
+								Ajouter une visio Echo
+							</Button>
+						{/if}
+					</div>
+				{/if}
 
 				<!-- Description -->
 				<div class="flex flex-col gap-1.5">

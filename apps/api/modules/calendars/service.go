@@ -49,17 +49,18 @@ func (s *Service) ListCalendars(ctx context.Context, userID int64) ([]CalendarRe
 		Name        string
 		Color       string
 		Description string
+		EchoURL     string
 		IsPersonal  bool
 		Role        string
 	}
 
 	var rows []row
 	err := s.orm.WithContext(ctx).Raw(`
-		SELECT c.id, c.owner_id, c.name, c.color, c.description, c.is_personal, 'owner' AS role
+		SELECT c.id, c.owner_id, c.name, c.color, c.description, c.echo_url, c.is_personal, 'owner' AS role
 		FROM calendars c
 		WHERE c.owner_id = ?
 		UNION ALL
-		SELECT c.id, c.owner_id, c.name, c.color, c.description, c.is_personal, cm.role
+		SELECT c.id, c.owner_id, c.name, c.color, c.description, c.echo_url, c.is_personal, cm.role
 		FROM calendars c
 		JOIN calendar_members cm ON cm.calendar_id = c.id
 		WHERE cm.user_id = ? AND c.owner_id != ?
@@ -76,6 +77,7 @@ func (s *Service) ListCalendars(ctx context.Context, userID int64) ([]CalendarRe
 			Name:        r.Name,
 			Color:       r.Color,
 			Description: r.Description,
+			EchoURL:     r.EchoURL,
 			IsPersonal:  r.IsPersonal,
 			Role:        r.Role,
 		}
@@ -104,6 +106,7 @@ func (s *Service) CreateCalendar(ctx context.Context, userID int64, req *CreateC
 		Name:        req.Name,
 		Color:       req.Color,
 		Description: req.Description,
+		EchoURL:     req.EchoURL,
 		SyncToken:   syncToken(),
 	}
 	if err := s.orm.WithContext(ctx).Create(cal).Error; err != nil {
@@ -115,6 +118,7 @@ func (s *Service) CreateCalendar(ctx context.Context, userID int64, req *CreateC
 		Name:        cal.Name,
 		Color:       cal.Color,
 		Description: cal.Description,
+		EchoURL:     cal.EchoURL,
 		IsPersonal:  false,
 		Role:        "owner",
 	}, nil
@@ -131,6 +135,7 @@ func (s *Service) GetCalendar(ctx context.Context, userID int64, calendarID int6
 		Name:        cal.Name,
 		Color:       cal.Color,
 		Description: cal.Description,
+		EchoURL:     cal.EchoURL,
 		IsPersonal:  cal.IsPersonal,
 		Role:        role,
 	}, nil
@@ -150,6 +155,7 @@ func (s *Service) UpdateCalendar(ctx context.Context, userID int64, calendarID i
 	cal.Name = req.Name
 	cal.Color = req.Color
 	cal.Description = req.Description
+	cal.EchoURL = req.EchoURL
 	if err := s.orm.WithContext(ctx).Save(cal).Error; err != nil {
 		return nil, errors.Internal("failed to update calendar", err)
 	}
@@ -159,6 +165,7 @@ func (s *Service) UpdateCalendar(ctx context.Context, userID int64, calendarID i
 		Name:        cal.Name,
 		Color:       cal.Color,
 		Description: cal.Description,
+		EchoURL:     cal.EchoURL,
 		IsPersonal:  cal.IsPersonal,
 		Role:        role,
 	}, nil

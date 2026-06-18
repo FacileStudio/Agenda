@@ -9,6 +9,7 @@ type Calendar struct {
 	Name        string    `gorm:"column:name"`
 	Color       string    `gorm:"column:color"`
 	Description string    `gorm:"column:description"`
+	EchoURL     string    `gorm:"column:echo_url"`
 	IsPersonal  bool      `gorm:"column:is_personal;default:false"`
 	SyncToken   string    `gorm:"column:sync_token"`
 	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime"`

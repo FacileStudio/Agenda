@@ -4,12 +4,14 @@ type CreateCalendarRequest struct {
 	Name        string `json:"name"`
 	Color       string `json:"color"`
 	Description string `json:"description"`
+	EchoURL     string `json:"echo_url"`
 }
 
 type UpdateCalendarRequest struct {
 	Name        string `json:"name"`
 	Color       string `json:"color"`
 	Description string `json:"description"`
+	EchoURL     string `json:"echo_url"`
 }
 
 type ShareCalendarRequest struct {
@@ -23,6 +25,7 @@ type CalendarResponse struct {
 	Name        string `json:"name"`
 	Color       string `json:"color"`
 	Description string `json:"description"`
+	EchoURL     string `json:"echo_url"`
 	IsPersonal  bool   `json:"is_personal"`
 	Role        string `json:"role"` // owner, admin, writer, reader
 }

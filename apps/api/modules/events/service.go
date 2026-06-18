@@ -3,8 +3,8 @@ package events
 import (
 	"context"
 	"crypto/rand"
-	stderrors "errors"
 	"encoding/hex"
+	stderrors "errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -73,18 +73,20 @@ func (s *Service) CreateEvent(ctx context.Context, userID int64, calendarID int6
 	uid := newUID()
 	creatorID := userID
 	evt := &schemas.Event{
-		CalendarID:     calendarID,
-		UID:            uid,
-		ETag:           newETag(),
-		Title:          req.Title,
-		Description:    req.Description,
-		Location:       req.Location,
-		StartAt:        req.StartAt,
-		EndAt:          req.EndAt,
-		IsAllDay:       req.IsAllDay,
-		RecurrenceRule: req.RecurrenceRule,
-		Status:         statusOrDefault(req.Status),
-		CreatedByID:    &creatorID,
+		CalendarID:         calendarID,
+		UID:                uid,
+		ETag:               newETag(),
+		Title:              req.Title,
+		Description:        req.Description,
+		Location:           req.Location,
+		StartAt:            req.StartAt,
+		EndAt:              req.EndAt,
+		IsAllDay:           req.IsAllDay,
+		RecurrenceRule:     req.RecurrenceRule,
+		Status:             statusOrDefault(req.Status),
+		ConferenceURL:      req.ConferenceURL,
+		ConferenceProvider: req.ConferenceProvider,
+		CreatedByID:        &creatorID,
 	}
 	evt.RawICS = buildRawICS(evt)
 
@@ -141,6 +143,8 @@ func (s *Service) UpdateEvent(ctx context.Context, userID int64, eventID int64, 
 	evt.IsAllDay = req.IsAllDay
 	evt.RecurrenceRule = req.RecurrenceRule
 	evt.Status = statusOrDefault(req.Status)
+	evt.ConferenceURL = req.ConferenceURL
+	evt.ConferenceProvider = req.ConferenceProvider
 	evt.RawICS = buildRawICS(evt)
 
 	// Omit the CreatedBy association so saving the event never upserts the
@@ -246,21 +250,23 @@ func toResponse(e *schemas.Event) EventResponse {
 		}
 	}
 	return EventResponse{
-		ID:             e.ID,
-		CalendarID:     e.CalendarID,
-		UID:            e.UID,
-		ETag:           e.ETag,
-		Title:          e.Title,
-		Description:    e.Description,
-		Location:       e.Location,
-		StartAt:        e.StartAt,
-		EndAt:          e.EndAt,
-		IsAllDay:       e.IsAllDay,
-		RecurrenceRule: e.RecurrenceRule,
-		Status:         e.Status,
-		CreatedBy:      creator,
-		CreatedAt:      e.CreatedAt,
-		UpdatedAt:      e.UpdatedAt,
+		ID:                 e.ID,
+		CalendarID:         e.CalendarID,
+		UID:                e.UID,
+		ETag:               e.ETag,
+		Title:              e.Title,
+		Description:        e.Description,
+		Location:           e.Location,
+		StartAt:            e.StartAt,
+		EndAt:              e.EndAt,
+		IsAllDay:           e.IsAllDay,
+		RecurrenceRule:     e.RecurrenceRule,
+		Status:             e.Status,
+		ConferenceURL:      e.ConferenceURL,
+		ConferenceProvider: e.ConferenceProvider,
+		CreatedBy:          creator,
+		CreatedAt:          e.CreatedAt,
+		UpdatedAt:          e.UpdatedAt,
 	}
 }
 
@@ -345,6 +351,13 @@ func buildRawICS(e *schemas.Event) string {
 	}
 	if e.RecurrenceRule != "" {
 		ics += fold(fmt.Sprintf("RRULE:%s", e.RecurrenceRule))
+	}
+	if e.ConferenceURL != "" {
+		label := "Visioconference"
+		if e.ConferenceProvider != "" {
+			label = e.ConferenceProvider
+		}
+		ics += fold(fmt.Sprintf("CONFERENCE;VALUE=URI;FEATURE=AUDIO,VIDEO;LABEL=%s:%s", escapeICS(label), e.ConferenceURL))
 	}
 	ics += fold(fmt.Sprintf("STATUS:%s", strings.ToUpper(e.Status)))
 	ics += "END:VEVENT\r\nEND:VCALENDAR\r\n"
