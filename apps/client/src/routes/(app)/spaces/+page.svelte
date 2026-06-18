@@ -24,8 +24,8 @@
 	}
 
 	const roleLabelMap: Record<string, string> = {
-		owner: 'Proprietaire',
-		admin: 'Admin',
+		owner: 'Propriétaire',
+		admin: 'Administrateur',
 		member: 'Membre'
 	};
 </script>
@@ -39,7 +39,7 @@
 		<div class="flex items-center justify-between">
 			<div>
 				<h1 class="text-2xl font-semibold">Espaces</h1>
-				<p class="mt-1 text-sm text-muted-foreground">Collaborez avec votre equipe dans des espaces partages.</p>
+				<p class="mt-1 text-sm text-muted-foreground">Collaborez avec votre équipe dans des espaces partagés.</p>
 			</div>
 			<Button onclick={() => goto('/spaces/new')} class="cursor-pointer gap-2">
 				<iconify-icon icon="mdi:plus" width="16"></iconify-icon>
@@ -59,7 +59,7 @@
 				<p class="mt-4 text-sm text-muted-foreground">Aucun espace pour le moment.</p>
 				<Button onclick={() => goto('/spaces/new')} variant="outline" class="mt-4 cursor-pointer gap-2">
 					<iconify-icon icon="mdi:plus" width="16"></iconify-icon>
-					Creer un espace
+					Créer un espace
 				</Button>
 			</div>
 		{:else}

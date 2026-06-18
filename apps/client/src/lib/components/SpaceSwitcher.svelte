@@ -83,7 +83,7 @@
 					class="flex w-full cursor-pointer items-center gap-2 rounded-b-lg px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 				>
 					<iconify-icon icon="solar:settings-minimalistic-linear" width="16" class="shrink-0"></iconify-icon>
-					<span>Gerer les espaces</span>
+					<span>Gérer les espaces</span>
 				</button>
 			</div>
 		</div>

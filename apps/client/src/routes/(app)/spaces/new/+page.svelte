@@ -18,7 +18,7 @@
 		try {
 			const space = await backend.createSpace({ name: name.trim(), description: description.trim() });
 			setSpaceContext({ spaceId: space.id, name: space.name, role: space.role });
-			toast.success('Espace cree.');
+			toast.success('Espace créé.');
 			goto(`/spaces/${space.id}`);
 		} catch (err: unknown) {
 			toast.error(err instanceof Error ? err.message : 'Erreur.');
@@ -40,7 +40,7 @@
 			</button>
 			<div>
 				<h1 class="text-2xl font-semibold">Nouvel espace</h1>
-				<p class="mt-1 text-sm text-muted-foreground">Creez un espace pour collaborer avec votre equipe.</p>
+				<p class="mt-1 text-sm text-muted-foreground">Créez un espace pour collaborer avec votre équipe.</p>
 			</div>
 		</div>
 	</div>
@@ -49,7 +49,7 @@
 		<form onsubmit={handleSubmit} class="max-w-md space-y-6">
 			<div class="space-y-1.5">
 				<Label for="space-name">Nom</Label>
-				<Input id="space-name" bind:value={name} placeholder="Mon equipe" required />
+				<Input id="space-name" bind:value={name} placeholder="Mon équipe" required />
 			</div>
 			<div class="space-y-1.5">
 				<Label for="space-desc">Description</Label>
@@ -58,7 +58,7 @@
 			<div class="flex gap-3">
 				<Button type="submit" disabled={submitting || !name.trim()} class="cursor-pointer gap-2">
 					<iconify-icon icon="mdi:plus" width="16"></iconify-icon>
-					{submitting ? 'Creation…' : 'Creer'}
+					{submitting ? 'Création…' : 'Créer'}
 				</Button>
 				<Button type="button" variant="outline" onclick={() => goto('/spaces')} class="cursor-pointer">
 					Annuler

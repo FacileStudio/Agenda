@@ -23,8 +23,8 @@
 	const isOwner = $derived(space?.role === 'owner');
 
 	const roleLabelMap: Record<string, string> = {
-		owner: 'Proprietaire',
-		admin: 'Admin',
+		owner: 'Propriétaire',
+		admin: 'Administrateur',
 		member: 'Membre'
 	};
 
@@ -53,7 +53,7 @@
 			await backend.addSpaceMember(spaceId, addEmail.trim(), addRole);
 			addEmail = '';
 			addRole = 'member';
-			toast.success('Membre ajoute.');
+			toast.success('Membre ajouté.');
 			await loadData();
 		} catch (err: unknown) {
 			toast.error(err instanceof Error ? err.message : 'Erreur.');
@@ -66,7 +66,7 @@
 		if (!confirm('Retirer ce membre de l\'espace ?')) return;
 		try {
 			await backend.removeSpaceMember(spaceId, userId);
-			toast.success('Membre retire.');
+			toast.success('Membre retiré.');
 			await loadData();
 		} catch (err: unknown) {
 			toast.error(err instanceof Error ? err.message : 'Erreur.');
@@ -76,7 +76,7 @@
 	async function changeRole(userId: number, newRole: string) {
 		try {
 			await backend.updateSpaceMemberRole(spaceId, userId, newRole);
-			toast.success('Role mis a jour.');
+			toast.success('Rôle mis à jour.');
 			await loadData();
 		} catch (err: unknown) {
 			toast.error(err instanceof Error ? err.message : 'Erreur.');
@@ -88,7 +88,7 @@
 		leaveBusy = true;
 		try {
 			await backend.leaveSpace(spaceId);
-			toast.success('Vous avez quitte l\'espace.');
+			toast.success('Vous avez quitté l\'espace.');
 			goto('/spaces');
 		} catch (err: unknown) {
 			toast.error(err instanceof Error ? err.message : 'Erreur.');
@@ -107,7 +107,7 @@
 <div class="flex h-full flex-col">
 	<div class="border-b px-6 pt-6 pb-4">
 		<div class="flex items-center gap-3">
-			<button onclick={() => goto(`/spaces/${spaceId}`)} class="cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Retour a l'espace">
+			<button onclick={() => goto(`/spaces/${spaceId}`)} class="cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Retour à l'espace">
 				<iconify-icon icon="solar:alt-arrow-left-linear" width="20"></iconify-icon>
 			</button>
 			<div>
@@ -131,7 +131,7 @@
 							<Input id="add-email" type="email" bind:value={addEmail} placeholder="email@exemple.com" required />
 						</div>
 						<div class="w-32 space-y-1.5">
-							<Label for="add-role">Role</Label>
+							<Label for="add-role">Rôle</Label>
 							<select
 								id="add-role"
 								bind:value={addRole}
@@ -177,7 +177,7 @@
 								>
 									<option value="member">Membre</option>
 									<option value="admin">Admin</option>
-									<option value="owner">Proprietaire</option>
+									<option value="owner">Propriétaire</option>
 								</select>
 							{:else}
 								<span class="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
@@ -208,7 +208,7 @@
 							class="cursor-pointer gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
 						>
 							<iconify-icon icon="solar:logout-2-linear" width="16"></iconify-icon>
-							{leaveBusy ? 'Depart…' : 'Quitter l\'espace'}
+							{leaveBusy ? 'Départ…' : 'Quitter l\'espace'}
 						</Button>
 					</div>
 				{/if}

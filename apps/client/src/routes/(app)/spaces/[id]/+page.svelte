@@ -16,8 +16,8 @@
 	const isOwner = $derived(space?.role === 'owner');
 
 	const roleLabelMap: Record<string, string> = {
-		owner: 'Proprietaire',
-		admin: 'Admin',
+		owner: 'Propriétaire',
+		admin: 'Administrateur',
 		member: 'Membre'
 	};
 
@@ -76,13 +76,13 @@
 						{#if canManage}
 							<Button onclick={() => goto(`/spaces/${spaceId}/members`)} variant="outline" class="cursor-pointer gap-2">
 								<iconify-icon icon="solar:users-group-rounded-linear" width="16"></iconify-icon>
-								Gerer
+								Gérer
 							</Button>
 						{/if}
 						{#if isOwner}
 							<Button onclick={() => goto(`/spaces/${spaceId}/settings`)} variant="outline" class="cursor-pointer gap-2">
 								<iconify-icon icon="solar:settings-minimalistic-linear" width="16"></iconify-icon>
-								Parametres
+								Paramètres
 							</Button>
 						{/if}
 					</div>
