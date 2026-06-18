@@ -36,10 +36,29 @@ const NOUNS = [
 	'steep', 'terra', 'torch', 'trove', 'vault', 'verge', 'wharf', 'woods',
 ];
 
+const VERBS = [
+	'bloom', 'blaze', 'break', 'build', 'carve', 'chase', 'clasp', 'climb',
+	'craft', 'crest', 'dance', 'darts', 'dives', 'draws', 'dream', 'drift',
+	'drive', 'fades', 'falls', 'feast', 'flame', 'flash', 'flies', 'float',
+	'flows', 'forge', 'frost', 'glide', 'gleam', 'graft', 'grasp', 'graze',
+	'grill', 'grind', 'grove', 'guide', 'holds', 'hover', 'hunts', 'jolts',
+	'keeps', 'kneel', 'knots', 'lands', 'leaps', 'lifts', 'links', 'lofts',
+	'looks', 'march', 'meets', 'melds', 'mends', 'mines', 'molds', 'moves',
+	'paces', 'paint', 'parse', 'plant', 'plays', 'plots', 'plows', 'pools',
+	'pours', 'press', 'pulls', 'quake', 'quest', 'raise', 'reach', 'reign',
+	'rides', 'rings', 'roams', 'roots', 'rules', 'runs', 'sails', 'sands',
+	'sculpt', 'seeds', 'seeks', 'sends', 'serve', 'shape', 'sheds', 'shift',
+	'shims', 'shines', 'ships', 'skate', 'soars', 'solve', 'spark', 'speak',
+	'spins', 'stamp', 'stand', 'stays', 'stems', 'steps', 'stirs', 'stone',
+	'sweep', 'swirl', 'tails', 'takes', 'tends', 'trace', 'trade', 'train',
+	'treks', 'turns', 'twirl', 'veers', 'views', 'wades', 'wakes', 'walks',
+	'watch', 'weave', 'wield', 'winds', 'works', 'wraps', 'wrote', 'yields',
+];
+
 export function roomName(uid: string): string {
 	const hex = uid.split('@')[0].replace(/-/g, '');
 	const a = parseInt(hex.slice(0, 4), 16) || 0;
 	const b = parseInt(hex.slice(4, 8), 16) || 0;
-	const c = parseInt(hex.slice(8, 10), 16) || 0;
-	return `${ADJECTIVES[a % ADJECTIVES.length]}-${NOUNS[b % NOUNS.length]}-${c % 100}`;
+	const c = parseInt(hex.slice(8, 12), 16) || 0;
+	return `${ADJECTIVES[a % ADJECTIVES.length]}-${NOUNS[b % NOUNS.length]}-${VERBS[c % VERBS.length]}`;
 }
