@@ -10,6 +10,7 @@
 	import { parseDate, type DateValue } from '@internationalized/date';
 	import { cn } from '$lib/utils';
 	import { resolveFileUrl, type AgendaEvent, type CalendarItem, type CreateEventRequest } from '$lib/backend';
+	import { roomName } from '$lib/room-name';
 
 	let {
 		open = $bindable(false),
@@ -115,8 +116,7 @@
 			conferenceProvider = '';
 		} else if (selectedCalendar?.echo_url) {
 			const uid = event?.uid ?? crypto.randomUUID().replace(/-/g, '');
-			const slug = uid.split('@')[0].slice(0, 16);
-			conferenceUrl = `${selectedCalendar.echo_url.replace(/\/$/, '')}/${slug}`;
+			conferenceUrl = `${selectedCalendar.echo_url.replace(/\/$/, '')}/${roomName(uid)}`;
 			conferenceProvider = 'Echo';
 		}
 	}
