@@ -27,7 +27,6 @@
 
 	const items = [
 		{ href: '/calendar', label: 'Calendrier', icon: 'solar:calendar-linear' },
-		{ href: '/events', label: 'Événements', icon: 'solar:calendar-mark-linear' },
 		{ href: '/spaces', label: 'Espaces', icon: 'solar:users-group-rounded-linear' },
 	];
 </script>
