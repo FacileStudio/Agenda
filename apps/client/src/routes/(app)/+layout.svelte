@@ -2,6 +2,7 @@
 	import { onMount, setContext } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { backend, type UserProfile, type CalendarItem } from '$lib/backend';
+	import { spaceId } from '$lib/space-context.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import MobileNav from '$lib/components/MobileNav.svelte';
 
@@ -24,11 +25,16 @@
 
 	async function refreshCalendars() {
 		try {
-			calendars = await backend.listCalendars();
+			calendars = await backend.listCalendars(spaceId() ?? undefined);
 		} catch {
 			calendars = [];
 		}
 	}
+
+	$effect(() => {
+		const _space = spaceId();
+		refreshCalendars();
+	});
 
 	onMount(async () => {
 		try {

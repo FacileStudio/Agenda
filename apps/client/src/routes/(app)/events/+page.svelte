@@ -2,13 +2,14 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { backend, type AgendaEvent, type CalendarItem } from '$lib/backend';
+	import { spaceId } from '$lib/space-context.svelte';
 
 	let events = $state<(AgendaEvent & { calendar_name?: string })[]>([]);
 	let loading = $state(true);
 
 	onMount(async () => {
 		try {
-			const calendars: CalendarItem[] = await backend.listCalendars();
+			const calendars: CalendarItem[] = await backend.listCalendars(spaceId() ?? undefined);
 			const now = new Date();
 			const from = now.toISOString();
 			const to = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
