@@ -5,6 +5,7 @@ type CreateCalendarRequest struct {
 	Color       string `json:"color"`
 	Description string `json:"description"`
 	EchoURL     string `json:"echo_url"`
+	SpaceID     *int64 `json:"space_id"`
 }
 
 type UpdateCalendarRequest struct {

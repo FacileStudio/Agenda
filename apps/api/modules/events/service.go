@@ -70,10 +70,16 @@ func (s *Service) CreateEvent(ctx context.Context, userID int64, calendarID int6
 		return nil, err
 	}
 
+	var cal schemas.Calendar
+	if err := s.orm.WithContext(ctx).Select("space_id").First(&cal, calendarID).Error; err != nil {
+		return nil, errors.Internal("failed to load calendar", err)
+	}
+
 	uid := newUID()
 	creatorID := userID
 	evt := &schemas.Event{
 		CalendarID:         calendarID,
+		SpaceID:            cal.SpaceID,
 		UID:                uid,
 		ETag:               newETag(),
 		Title:              req.Title,
@@ -131,6 +137,11 @@ func (s *Service) UpdateEvent(ctx context.Context, userID int64, eventID int64, 
 			return nil, err
 		}
 		evt.CalendarID = req.CalendarID
+		var destCal schemas.Calendar
+		if err := s.orm.WithContext(ctx).Select("space_id").First(&destCal, req.CalendarID).Error; err != nil {
+			return nil, errors.Internal("failed to load destination calendar", err)
+		}
+		evt.SpaceID = destCal.SpaceID
 	}
 
 	evt.ETag = newETag()

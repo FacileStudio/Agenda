@@ -115,6 +115,7 @@ func (s *Service) CreateCalendar(ctx context.Context, userID int64, req *CreateC
 	slug := slugify(req.Name) + "-" + strconv.FormatInt(userID, 10) + "-" + strconv.FormatInt(time.Now().UnixMilli(), 36)
 	cal := &schemas.Calendar{
 		OwnerID:     userID,
+		SpaceID:     req.SpaceID,
 		Slug:        slug,
 		Name:        req.Name,
 		Color:       req.Color,

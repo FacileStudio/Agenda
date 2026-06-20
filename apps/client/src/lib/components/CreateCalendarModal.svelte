@@ -5,6 +5,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import { backend } from '$lib/backend';
 	import { cn } from '$lib/utils';
+	import { spaceId } from '$lib/space-context.svelte';
 
 	let {
 		open = $bindable(false),
@@ -42,7 +43,7 @@
 		if (!name.trim()) { error = 'Le nom est requis.'; return; }
 		saving = true; error = '';
 		try {
-			await backend.createCalendar({ name: name.trim(), color, description: description || undefined, echo_url: echoUrl.trim() || undefined });
+			await backend.createCalendar({ name: name.trim(), color, description: description || undefined, echo_url: echoUrl.trim() || undefined, space_id: spaceId() });
 			onCreated();
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Une erreur est survenue.';
