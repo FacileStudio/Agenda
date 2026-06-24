@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	stderrors "errors"
 	"encoding/hex"
+	"encoding/xml"
+	stderrors "errors"
 	"fmt"
+	"io"
 	"net/http"
 	"path"
 	"strconv"
@@ -52,9 +54,11 @@ func (b *Backend) CreateCalendar(ctx context.Context, calendar *caldav.Calendar)
 	if user == nil {
 		return webdav.NewHTTPError(http.StatusUnauthorized, fmt.Errorf("not authenticated"))
 	}
-	// Extract calendarID from path if it already exists, otherwise create new
-	_, calID, _, _ := parsePath(calendar.Path)
-	if calID != 0 {
+	// Extract the calendar segment from the path. Apple proposes its own path
+	// (a UUID) via MKCOL/MKCALENDAR; store it so the calendar is addressable at
+	// the URL the client chose.
+	_, calSeg, _, _ := parsePath(calendar.Path)
+	if calSeg != "" && b.resolveCalID(ctx, calSeg) != 0 {
 		return webdav.NewHTTPError(http.StatusConflict, fmt.Errorf("calendar already exists"))
 	}
 	// Auto-create via the calendars service would be cleaner, but here we go direct
@@ -64,16 +68,91 @@ func (b *Backend) CreateCalendar(ctx context.Context, calendar *caldav.Calendar)
 		name = "New Calendar"
 	}
 	cal := &schemas.Calendar{
-		OwnerID:   user.ID,
-		Slug:      slug,
-		Name:      name,
-		Color:     "#6366f1",
-		SyncToken: newSyncToken(),
+		OwnerID:    user.ID,
+		CalDAVPath: calSeg,
+		Slug:       slug,
+		Name:       name,
+		Color:      "#6366f1",
+		SyncToken:  newSyncToken(),
 	}
 	if err := b.db.WithContext(ctx).Create(cal).Error; err != nil {
 		return webdav.NewHTTPError(http.StatusInternalServerError, err)
 	}
 	return nil
+}
+
+type mkcalendarBody struct {
+	DisplayName string `xml:"set>prop>displayname"`
+	Color       string `xml:"set>prop>calendar-color"`
+}
+
+// HandleMkcalendar implements RFC 4791 §5.3.1 MKCALENDAR, which go-webdav does
+// not support (it only does MKCOL). Apple Calendar uses MKCALENDAR to create a
+// calendar at a client-chosen URL; without this it gets 405 and reports
+// "failed to update... the request to the server failed".
+func (b *Backend) HandleMkcalendar(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user := userFromContext(ctx)
+	if user == nil {
+		w.Header().Set("WWW-Authenticate", `Basic realm="Agenda CalDAV"`)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if err := b.validatePathUser(ctx, r.URL.Path); err != nil {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	_, calSeg, _, _ := parsePath(r.URL.Path)
+	if calSeg == "" {
+		http.Error(w, "invalid path", http.StatusBadRequest)
+		return
+	}
+	if b.resolveCalID(ctx, calSeg) != 0 {
+		http.Error(w, "calendar already exists", http.StatusConflict)
+		return
+	}
+
+	name := "New Calendar"
+	color := "#6366f1"
+	if r.Body != nil {
+		if data, _ := io.ReadAll(io.LimitReader(r.Body, 1<<20)); len(data) > 0 {
+			var body mkcalendarBody
+			if err := xml.Unmarshal(data, &body); err == nil {
+				if body.DisplayName != "" {
+					name = body.DisplayName
+				}
+				if c := normalizeColor(body.Color); c != "" {
+					color = c
+				}
+			}
+		}
+	}
+
+	cal := &schemas.Calendar{
+		OwnerID:    user.ID,
+		CalDAVPath: calSeg,
+		Slug:       fmt.Sprintf("cal-%d-%d", user.ID, time.Now().UnixMilli()),
+		Name:       name,
+		Color:      color,
+		SyncToken:  newSyncToken(),
+	}
+	if err := b.db.WithContext(ctx).Create(cal).Error; err != nil {
+		http.Error(w, "failed to create calendar", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+}
+
+// normalizeColor trims an Apple #RRGGBBAA color down to #RRGGBB.
+func normalizeColor(c string) string {
+	c = strings.TrimSpace(c)
+	if len(c) == 9 && c[0] == '#' {
+		return c[:7]
+	}
+	if len(c) == 7 && c[0] == '#' {
+		return c
+	}
+	return ""
 }
 
 func (b *Backend) ListCalendars(ctx context.Context) ([]caldav.Calendar, error) {
@@ -121,7 +200,8 @@ func (b *Backend) GetCalendarObject(ctx context.Context, objPath string, req *ca
 	if err := b.validatePathUser(ctx, objPath); err != nil {
 		return nil, err
 	}
-	_, calID, uid, err := parsePath(objPath)
+	_, calSeg, uid, err := parsePath(objPath)
+	calID := b.resolveCalID(ctx, calSeg)
 	if err != nil || uid == "" {
 		return nil, webdav.NewHTTPError(http.StatusNotFound, fmt.Errorf("invalid path"))
 	}
@@ -146,7 +226,8 @@ func (b *Backend) ListCalendarObjects(ctx context.Context, calPath string, req *
 	if err := b.validatePathUser(ctx, calPath); err != nil {
 		return nil, err
 	}
-	_, calID, _, err := parsePath(calPath)
+	_, calSeg, _, err := parsePath(calPath)
+	calID := b.resolveCalID(ctx, calSeg)
 	if err != nil {
 		return nil, webdav.NewHTTPError(http.StatusNotFound, fmt.Errorf("invalid path"))
 	}
@@ -184,7 +265,8 @@ func (b *Backend) QueryCalendarObjects(ctx context.Context, calPath string, quer
 	homeSet, _ := b.CalendarHomeSetPath(ctx)
 
 	// Scope to a specific calendar when the path contains one, otherwise search all.
-	_, calID, _, _ := parsePath(calPath)
+	_, calSeg, _, _ := parsePath(calPath)
+	calID := b.resolveCalID(ctx, calSeg)
 	var cals []schemas.Calendar
 	if calID != 0 {
 		if err := b.checkCalendarAccess(ctx, calID); err != nil {
@@ -218,7 +300,7 @@ func (b *Backend) QueryCalendarObjects(ctx context.Context, calPath string, quer
 		if err := q.Find(&evts).Error; err != nil {
 			continue
 		}
-		cp := homeSet + "/" + strconv.FormatInt(cal.ID, 10)
+		cp := homeSet + "/" + calPathSeg(&cal)
 		for i := range evts {
 			objPath := cp + "/" + evts[i].UID + ".ics"
 			co, err := toCalendarObject(&evts[i], objPath)
@@ -235,7 +317,8 @@ func (b *Backend) PutCalendarObject(ctx context.Context, objPath string, calenda
 	if err := b.validatePathUser(ctx, objPath); err != nil {
 		return nil, err
 	}
-	_, calID, rawPathSeg, err := parsePath(objPath)
+	_, calSeg, rawPathSeg, err := parsePath(objPath)
+	calID := b.resolveCalID(ctx, calSeg)
 	if err != nil {
 		return nil, webdav.NewHTTPError(http.StatusBadRequest, fmt.Errorf("invalid path"))
 	}
@@ -363,7 +446,8 @@ func (b *Backend) DeleteCalendarObject(ctx context.Context, objPath string) erro
 	if err := b.validatePathUser(ctx, objPath); err != nil {
 		return err
 	}
-	_, calID, uid, err := parsePath(objPath)
+	_, calSeg, uid, err := parsePath(objPath)
+	calID := b.resolveCalID(ctx, calSeg)
 	if err != nil || uid == "" {
 		return webdav.NewHTTPError(http.StatusNotFound, fmt.Errorf("invalid path"))
 	}
@@ -385,27 +469,47 @@ func (b *Backend) DeleteCalendarObject(ctx context.Context, objPath string) erro
 	return nil
 }
 
-// parsePath extracts (email, calendarID, uid) from a DAV path like
-// /dav/{email}/calendars/{calendarID}/{uid}.ics
-func parsePath(p string) (email string, calendarID int64, uid string, err error) {
+// parsePath extracts (email, calendarSegment, uid) from a DAV path like
+// /dav/{email}/calendars/{calendarSegment}/{uid}.ics
+// calSeg is the raw third segment: either our numeric calendar ID (web-created
+// calendars) or a client-assigned path (calendars created via MKCALENDAR).
+func parsePath(p string) (email string, calSeg string, uid string, err error) {
 	p = path.Clean(p)
 	p = strings.TrimPrefix(p, davPrefix+"/")
 	parts := strings.SplitN(p, "/", 4)
 	if len(parts) < 1 {
-		return "", 0, "", fmt.Errorf("invalid path")
+		return "", "", "", fmt.Errorf("invalid path")
 	}
 	email = parts[0]
 	if len(parts) >= 3 {
-		calendarID, _ = strconv.ParseInt(parts[2], 10, 64)
+		calSeg = parts[2]
 	}
 	if len(parts) >= 4 {
 		uid = parts[3]
 	}
-	return email, calendarID, uid, nil
+	return email, calSeg, uid, nil
+}
+
+// resolveCalID maps a path segment to a numeric calendar ID. A numeric segment
+// is our own ID; anything else is a client-assigned MKCALENDAR path stored in
+// cal_dav_path. Returns 0 when the segment is empty or unknown.
+func (b *Backend) resolveCalID(ctx context.Context, seg string) int64 {
+	if seg == "" {
+		return 0
+	}
+	if id, err := strconv.ParseInt(seg, 10, 64); err == nil {
+		return id
+	}
+	var cal schemas.Calendar
+	if err := b.db.WithContext(ctx).Select("id").Where("cal_dav_path = ?", seg).First(&cal).Error; err == nil {
+		return cal.ID
+	}
+	return 0
 }
 
 func (b *Backend) loadCalendarByPath(ctx context.Context, p string) (*schemas.Calendar, error) {
-	_, calID, _, err := parsePath(p)
+	_, calSeg, _, err := parsePath(p)
+	calID := b.resolveCalID(ctx, calSeg)
 	if err != nil || calID == 0 {
 		return nil, webdav.NewHTTPError(http.StatusNotFound, fmt.Errorf("calendar not found"))
 	}
@@ -472,9 +576,18 @@ func (b *Backend) bumpSyncToken(ctx context.Context, calID int64) {
 	b.db.WithContext(ctx).Model(&schemas.Calendar{}).Where("id = ?", calID).Update("sync_token", newSyncToken())
 }
 
+// calPathSeg is the URL segment a calendar is addressed by: the client-assigned
+// MKCALENDAR path when present, otherwise our numeric ID.
+func calPathSeg(c *schemas.Calendar) string {
+	if c.CalDAVPath != "" {
+		return c.CalDAVPath
+	}
+	return strconv.FormatInt(c.ID, 10)
+}
+
 func toCaldavCalendar(c *schemas.Calendar, homeSet string) caldav.Calendar {
 	return caldav.Calendar{
-		Path:                  homeSet + "/" + strconv.FormatInt(c.ID, 10),
+		Path:                  homeSet + "/" + calPathSeg(c),
 		Name:                  c.Name,
 		Description:           c.Description,
 		SupportedComponentSet: []string{ical.CompEvent},
@@ -485,7 +598,11 @@ func toCaldavCalendar(c *schemas.Calendar, homeSet string) caldav.Calendar {
 func toCalendarObject(e *schemas.Event, objPath string) (*caldav.CalendarObject, error) {
 	cal, err := ical.NewDecoder(strings.NewReader(e.RawICS)).Decode()
 	if err != nil {
-		return nil, webdav.NewHTTPError(http.StatusInternalServerError, fmt.Errorf("failed to parse stored ICS: %w", err))
+		// A stored event with empty or corrupt raw_ics must not 500 the request:
+		// a single bad row would otherwise break the whole calendar's sync
+		// (Apple Calendar: "failed to update... request failed"). Rebuild a valid
+		// VEVENT from the structured columns so the event still syncs.
+		cal = eventToICS(e)
 	}
 	// ETag must be the raw unquoted value — go-webdav wraps it in %q when writing headers.
 	// ContentLength is 0 because go-webdav re-encodes cal.Data and the byte count may differ.
@@ -495,6 +612,47 @@ func toCalendarObject(e *schemas.Event, objPath string) (*caldav.CalendarObject,
 		ETag:    e.ETag,
 		Data:    cal,
 	}, nil
+}
+
+// eventToICS reconstructs a minimal but valid VCALENDAR from an event's
+// structured columns. Used as a fallback when raw_ics is missing or unparseable
+// so CalDAV reads never fail on a single corrupt row.
+func eventToICS(e *schemas.Event) *ical.Calendar {
+	cal := ical.NewCalendar()
+	cal.Props.SetText(ical.PropVersion, "2.0")
+	cal.Props.SetText(ical.PropProductID, "-//FacileStudio//Agenda//EN")
+
+	evt := ical.NewEvent()
+	evt.Props.SetText(ical.PropUID, e.UID)
+	stamp := e.UpdatedAt
+	if stamp.IsZero() {
+		stamp = e.CreatedAt
+	}
+	if !stamp.IsZero() {
+		evt.Props.SetDateTime(ical.PropDateTimeStamp, stamp.UTC())
+	}
+	evt.Props.SetText(ical.PropSummary, e.Title)
+	if e.IsAllDay {
+		evt.Props.SetDate(ical.PropDateTimeStart, e.StartAt.UTC())
+		evt.Props.SetDate(ical.PropDateTimeEnd, e.EndAt.UTC())
+	} else {
+		evt.Props.SetDateTime(ical.PropDateTimeStart, e.StartAt.UTC())
+		evt.Props.SetDateTime(ical.PropDateTimeEnd, e.EndAt.UTC())
+	}
+	if e.Description != "" {
+		evt.Props.SetText(ical.PropDescription, e.Description)
+	}
+	if e.Location != "" {
+		evt.Props.SetText(ical.PropLocation, e.Location)
+	}
+	if e.RecurrenceRule != "" {
+		evt.Props.SetText(ical.PropRecurrenceRule, e.RecurrenceRule)
+	}
+	if e.Status != "" {
+		evt.Props.SetText(ical.PropStatus, strings.ToUpper(e.Status))
+	}
+	cal.Children = append(cal.Children, evt.Component)
+	return cal
 }
 
 func findVEvent(cal *ical.Calendar) *ical.Component {

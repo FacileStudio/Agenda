@@ -6,6 +6,7 @@ type Calendar struct {
 	ID          int64     `gorm:"column:id;primaryKey"`
 	OwnerID     int64     `gorm:"column:owner_id;index"`
 	SpaceID     *int64    `gorm:"column:space_id;index"`
+	CalDAVPath  string    `gorm:"column:cal_dav_path;index;not null;default:''"`
 	Slug        string    `gorm:"column:slug;index"`
 	Name        string    `gorm:"column:name"`
 	Color       string    `gorm:"column:color"`

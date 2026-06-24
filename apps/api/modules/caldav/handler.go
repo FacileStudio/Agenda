@@ -39,8 +39,17 @@ func RegisterRoutes(router chi.Router, db *gorm.DB) {
 	router.HandleFunc("/.well-known/caldav", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, davPrefix+"/", http.StatusFound)
 	})
-	router.With(rateLimiter, auth).HandleFunc(davPrefix, handler.ServeHTTP)
-	router.With(rateLimiter, auth).HandleFunc(davPrefix+"/*", handler.ServeHTTP)
+	// go-webdav has no MKCALENDAR support (only MKCOL), so Apple Calendar's
+	// calendar creation 405s. Intercept it and route to the backend.
+	davHandler := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "MKCALENDAR" {
+			backend.HandleMkcalendar(w, r)
+			return
+		}
+		handler.ServeHTTP(w, r)
+	}
+	router.With(rateLimiter, auth).HandleFunc(davPrefix, davHandler)
+	router.With(rateLimiter, auth).HandleFunc(davPrefix+"/*", davHandler)
 }
 
 func davAuthMiddleware(db *gorm.DB) func(http.Handler) http.Handler {
