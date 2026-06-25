@@ -45,7 +45,6 @@
 	const navLinks = [
 		{ href: '/calendar', label: 'Calendrier', icon: 'solar:calendar-linear' },
 		{ href: '/spaces', label: 'Espaces', icon: 'solar:users-group-rounded-linear' },
-		{ href: '/settings', label: 'Réglages', icon: 'solar:settings-linear' },
 	];
 
 	const ownedCalendars = $derived(calendars.filter(c => c.role === 'owner'));
@@ -122,7 +121,12 @@
 	<div class="h-px bg-border"></div>
 
 	<div class="flex flex-col gap-2 p-4">
-		<div class="flex items-center gap-3 rounded-xl border border-border/70 bg-muted/40 p-2.5">
+		<a
+			href="/settings"
+			class="flex items-center gap-3 rounded-xl border p-2.5 transition-colors {$page.url.pathname.startsWith('/settings')
+				? 'border-border bg-muted'
+				: 'border-border/70 bg-muted/40 hover:bg-muted'}"
+		>
 			{#if user?.avatar_url && !avatarFailed}
 				<img
 					src={user.avatar_url}
@@ -139,7 +143,8 @@
 				<p class="truncate text-sm font-medium">{user?.name || 'Mon profil'}</p>
 				<p class="truncate text-xs text-muted-foreground">{user?.email}</p>
 			</div>
-		</div>
+			<iconify-icon icon="solar:settings-linear" width="16" class="shrink-0 text-muted-foreground"></iconify-icon>
+		</a>
 		<button
 			onclick={logout}
 			class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-destructive hover:bg-destructive/10"
