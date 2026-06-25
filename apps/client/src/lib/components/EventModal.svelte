@@ -80,6 +80,7 @@
 	let endTimeStr = $state('');
 	let startPickerOpen = $state(false);
 	let endPickerOpen = $state(false);
+	let durationMs = $state(60 * 60 * 1000);
 
 	$effect(() => {
 		if (open) {
@@ -98,8 +99,39 @@
 			startTimeStr = s.time;
 			endDateStr = e.date;
 			endTimeStr = e.time;
+			const diff = combineDT(endDateStr, endTimeStr).getTime() - combineDT(startDateStr, startTimeStr).getTime();
+			durationMs = diff > 0 ? diff : 60 * 60 * 1000;
 		}
 	});
+
+	function combineDT(dateStr: string, timeStr: string): Date {
+		return new Date(`${dateStr}T${timeStr || '00:00'}`);
+	}
+
+	// Start moved: shift the end to preserve the event's duration (Google/Apple
+	// Calendar behaviour). This also auto-resolves the case where the new start
+	// would land after the old end.
+	function shiftEndToPreserveDuration() {
+		if (isAllDay) return;
+		const start = combineDT(startDateStr, startTimeStr);
+		if (isNaN(start.getTime())) return;
+		const end = new Date(start.getTime() + durationMs);
+		endDateStr = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
+		endTimeStr = `${pad(end.getHours())}:${pad(end.getMinutes())}`;
+	}
+
+	// End moved: remember the new duration. If the user picks an end before the
+	// start, snap it back to the last valid duration so the form never holds an
+	// invalid range.
+	function rememberDurationFromEnd() {
+		if (isAllDay) return;
+		const start = combineDT(startDateStr, startTimeStr);
+		const end = combineDT(endDateStr, endTimeStr);
+		if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
+		const diff = end.getTime() - start.getTime();
+		if (diff > 0) durationMs = diff;
+		else shiftEndToPreserveDuration();
+	}
 
 	function safeParseDate(dateStr: string): DateValue | undefined {
 		try { return parseDate(dateStr); } catch { return undefined; }
@@ -286,7 +318,7 @@
 									locale="fr-FR"
 									captionLayout="dropdown"
 									onValueChange={(v: import('@internationalized/date').DateValue | undefined) => {
-										if (v) { startDateStr = v.toString(); startPickerOpen = false; }
+										if (v) { startDateStr = v.toString(); startPickerOpen = false; shiftEndToPreserveDuration(); }
 									}}
 								/>
 							</Popover.Content>
@@ -295,6 +327,7 @@
 							<Input
 								type="time"
 								bind:value={startTimeStr}
+								onchange={shiftEndToPreserveDuration}
 								class="w-28 cursor-pointer"
 							/>
 						{/if}
@@ -322,7 +355,7 @@
 									locale="fr-FR"
 									captionLayout="dropdown"
 									onValueChange={(v: import('@internationalized/date').DateValue | undefined) => {
-										if (v) { endDateStr = v.toString(); endPickerOpen = false; }
+										if (v) { endDateStr = v.toString(); endPickerOpen = false; rememberDurationFromEnd(); }
 									}}
 								/>
 							</Popover.Content>
@@ -331,6 +364,7 @@
 							<Input
 								type="time"
 								bind:value={endTimeStr}
+								onchange={rememberDurationFromEnd}
 								class="w-28 cursor-pointer"
 							/>
 						{/if}
