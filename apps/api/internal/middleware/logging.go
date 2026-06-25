@@ -49,12 +49,27 @@ func RequestLogger(logger *slog.Logger) func(http.Handler) http.Handler {
 				slog.String("path", request.URL.Path),
 				slog.String("query", redactQuery(request.URL.RawQuery)),
 				slog.String("remote_addr", request.RemoteAddr),
+				slog.String("client_ip", clientIP(request)),
+				slog.String("user_agent", request.UserAgent()),
 				slog.Int("status", writer.status),
 				slog.Int("bytes", writer.bytes),
 				slog.Duration("duration", time.Since(startedAt)),
 			)
 		})
 	}
+}
+
+func clientIP(request *http.Request) string {
+	if cf := request.Header.Get("Cf-Connecting-Ip"); cf != "" {
+		return cf
+	}
+	if xff := request.Header.Get("X-Forwarded-For"); xff != "" {
+		if comma := strings.IndexByte(xff, ','); comma >= 0 {
+			return strings.TrimSpace(xff[:comma])
+		}
+		return strings.TrimSpace(xff)
+	}
+	return request.RemoteAddr
 }
 
 func redactQuery(rawQuery string) string {
