@@ -99,38 +99,56 @@
 			startTimeStr = s.time;
 			endDateStr = e.date;
 			endTimeStr = e.time;
-			const diff = combineDT(endDateStr, endTimeStr).getTime() - combineDT(startDateStr, startTimeStr).getTime();
-			durationMs = diff > 0 ? diff : 60 * 60 * 1000;
+			const allDay = event?.is_all_day ?? false;
+			const startAnchor = new Date(`${s.date}T${allDay ? '00:00' : (s.time || '00:00')}`);
+			const endAnchor = new Date(`${e.date}T${allDay ? '00:00' : (e.time || '00:00')}`);
+			const diff = endAnchor.getTime() - startAnchor.getTime();
+			durationMs = (allDay ? diff >= 0 : diff > 0) ? diff : 60 * 60 * 1000;
 		}
 	});
 
-	function combineDT(dateStr: string, timeStr: string): Date {
-		return new Date(`${dateStr}T${timeStr || '00:00'}`);
+	// Wall-clock anchor for duration maths. All-day events are measured midnight
+	// to midnight (day granularity); timed events use their real times.
+	function anchorDT(dateStr: string, timeStr: string): Date {
+		return new Date(`${dateStr}T${isAllDay ? '00:00' : (timeStr || '00:00')}`);
+	}
+
+	// Current valid duration in ms, or null if the range is invalid. All-day
+	// allows a zero-length (single-day) span; timed events must be strictly > 0.
+	function currentDuration(): number | null {
+		const start = anchorDT(startDateStr, startTimeStr);
+		const end = anchorDT(endDateStr, endTimeStr);
+		if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
+		const diff = end.getTime() - start.getTime();
+		return (isAllDay ? diff >= 0 : diff > 0) ? diff : null;
 	}
 
 	// Start moved: shift the end to preserve the event's duration (Google/Apple
-	// Calendar behaviour). This also auto-resolves the case where the new start
-	// would land after the old end.
+	// Calendar behaviour). Auto-resolves a start dragged past the old end, for
+	// both timed and multi-day all-day events. All-day uses calendar-day
+	// arithmetic so the span survives DST and month boundaries.
 	function shiftEndToPreserveDuration() {
-		if (isAllDay) return;
-		const start = combineDT(startDateStr, startTimeStr);
+		if (isAllDay) {
+			const start = new Date(`${startDateStr}T00:00`);
+			if (isNaN(start.getTime())) return;
+			const days = Math.round(durationMs / 86400000);
+			const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + days);
+			endDateStr = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
+			return;
+		}
+		const start = anchorDT(startDateStr, startTimeStr);
 		if (isNaN(start.getTime())) return;
 		const end = new Date(start.getTime() + durationMs);
 		endDateStr = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
 		endTimeStr = `${pad(end.getHours())}:${pad(end.getMinutes())}`;
 	}
 
-	// End moved: remember the new duration. If the user picks an end before the
-	// start, snap it back to the last valid duration so the form never holds an
-	// invalid range.
+	// End moved: learn the new duration, or snap the end back if the user picked
+	// an end before the start so the form never holds an invalid range.
 	function rememberDurationFromEnd() {
-		if (isAllDay) return;
-		const start = combineDT(startDateStr, startTimeStr);
-		const end = combineDT(endDateStr, endTimeStr);
-		if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
-		const diff = end.getTime() - start.getTime();
-		if (diff > 0) durationMs = diff;
-		else shiftEndToPreserveDuration();
+		const d = currentDuration();
+		if (d === null) shiftEndToPreserveDuration();
+		else durationMs = d;
 	}
 
 	function safeParseDate(dateStr: string): DateValue | undefined {
