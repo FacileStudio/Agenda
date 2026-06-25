@@ -242,12 +242,12 @@
 
 					{#each eventsForDay(day) as event (event.id)}
 						<button
-							class="absolute left-0.5 right-0.5 cursor-pointer overflow-hidden rounded px-1 py-0.5 text-left text-xs font-medium text-white shadow-sm transition-[filter] hover:brightness-90"
+							class="absolute left-0.5 right-0.5 flex cursor-pointer flex-col items-start overflow-hidden rounded-md px-1.5 py-1 text-left text-xs font-medium leading-tight text-white shadow-sm transition-[filter] hover:brightness-90"
 							style="{getEventStyle(event)} background-color: {getCalendarColor(event.calendar_id)};"
 							onclick={() => onEventClick(event)}
 						>
-							<span class="block truncate font-semibold">{event.title}</span>
-							<span class="block truncate opacity-90">
+							<span class="block w-full truncate font-semibold">{event.title}</span>
+							<span class="mt-0.5 block w-full truncate opacity-90">
 								{new Date(event.start_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
 							</span>
 						</button>
