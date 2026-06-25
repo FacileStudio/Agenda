@@ -178,7 +178,7 @@
 <div class="flex h-full flex-col">
 	<div class="grid grid-cols-7 border-b">
 		{#each DAY_LABELS as label}
-			<div class="py-2 text-center text-xs font-medium text-muted-foreground">{label}</div>
+			<div class="py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
 		{/each}
 	</div>
 
@@ -219,7 +219,7 @@
 						<div class="flex flex-col gap-0.5 overflow-hidden">
 							{#each dayEvts.slice(0, 3) as event (event.id)}
 								<button
-									class="w-full cursor-pointer truncate rounded px-1 py-0.5 text-left text-xs font-medium text-white transition-[filter] hover:brightness-90"
+									class="w-full cursor-pointer truncate rounded-md px-1.5 py-0.5 text-left text-xs font-medium text-white transition-[filter] hover:brightness-90"
 									style="background-color: {getCalendarColor(event.calendar_id)}"
 									onclick={(e) => {
 										e.stopPropagation();
