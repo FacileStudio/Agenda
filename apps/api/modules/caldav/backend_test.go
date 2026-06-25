@@ -32,6 +32,53 @@ func TestMkcalendarBodyParse(t *testing.T) {
 	}
 }
 
+// macOS Reminders (remindd) creates a VTODO-only collection via MKCALENDAR;
+// Agenda is events-only, so such a request must be detected and rejected.
+func TestMkcalendarTasksOnlyDetection(t *testing.T) {
+	tasks := `<?xml version="1.0" encoding="utf-8"?>
+<B:mkcalendar xmlns:B="urn:ietf:params:xml:ns:caldav">
+  <A:set xmlns:A="DAV:">
+    <A:prop>
+      <A:displayname>DEFAULT_TASK_CALENDAR_NAME</A:displayname>
+      <B:supported-calendar-component-set>
+        <B:comp name="VTODO"/>
+      </B:supported-calendar-component-set>
+    </A:prop>
+  </A:set>
+</B:mkcalendar>`
+	var tm mkcalendarBody
+	if err := xml.Unmarshal([]byte(tasks), &tm); err != nil {
+		t.Fatalf("unmarshal tasks: %v", err)
+	}
+	if !tm.isTasksOnly() {
+		t.Fatalf("VTODO-only collection must be rejected, isTasksOnly=false")
+	}
+
+	events := `<?xml version="1.0" encoding="utf-8"?>
+<B:mkcalendar xmlns:B="urn:ietf:params:xml:ns:caldav">
+  <A:set xmlns:A="DAV:">
+    <A:prop>
+      <A:displayname>Work</A:displayname>
+      <B:supported-calendar-component-set>
+        <B:comp name="VEVENT"/>
+      </B:supported-calendar-component-set>
+    </A:prop>
+  </A:set>
+</B:mkcalendar>`
+	var em mkcalendarBody
+	if err := xml.Unmarshal([]byte(events), &em); err != nil {
+		t.Fatalf("unmarshal events: %v", err)
+	}
+	if em.isTasksOnly() {
+		t.Fatalf("VEVENT collection must be allowed, isTasksOnly=true")
+	}
+
+	var none mkcalendarBody
+	if none.isTasksOnly() {
+		t.Fatalf("empty component set must be allowed, isTasksOnly=true")
+	}
+}
+
 // A single event with empty or corrupt raw_ics must not fail the CalDAV read;
 // otherwise one bad row breaks the entire calendar's sync.
 func TestToCalendarObjectFallback(t *testing.T) {

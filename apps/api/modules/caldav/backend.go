@@ -82,9 +82,34 @@ func (b *Backend) CreateCalendar(ctx context.Context, calendar *caldav.Calendar)
 }
 
 type mkcalendarBody struct {
-	DisplayName string `xml:"set>prop>displayname"`
-	Color       string `xml:"set>prop>calendar-color"`
+	DisplayName string      `xml:"set>prop>displayname"`
+	Color       string      `xml:"set>prop>calendar-color"`
+	Comps       []mkcalComp `xml:"set>prop>supported-calendar-component-set>comp"`
 }
+
+type mkcalComp struct {
+	Name string `xml:"name,attr"`
+}
+
+// isTasksOnly reports whether the requested collection is a tasks/journal
+// collection (VTODO/VJOURNAL) with no VEVENT support. Agenda is events-only and
+// rejects VTODO objects, so creating such a collection only makes clients like
+// macOS Reminders recreate it on every sync. An empty component set means the
+// client did not constrain it, so we treat it as a normal calendar.
+func (m mkcalendarBody) isTasksOnly() bool {
+	if len(m.Comps) == 0 {
+		return false
+	}
+	for _, c := range m.Comps {
+		if strings.EqualFold(c.Name, "VEVENT") {
+			return false
+		}
+	}
+	return true
+}
+
+const mkcalendarUnsupportedComponent = `<?xml version="1.0" encoding="utf-8"?>
+<D:error xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav"><C:supported-calendar-component/></D:error>`
 
 // HandleMkcalendar implements RFC 4791 §5.3.1 MKCALENDAR, which go-webdav does
 // not support (it only does MKCOL). Apple Calendar uses MKCALENDAR to create a
@@ -118,6 +143,12 @@ func (b *Backend) HandleMkcalendar(w http.ResponseWriter, r *http.Request) {
 		if data, _ := io.ReadAll(io.LimitReader(r.Body, 1<<20)); len(data) > 0 {
 			var body mkcalendarBody
 			if err := xml.Unmarshal(data, &body); err == nil {
+				if body.isTasksOnly() {
+					w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+					w.WriteHeader(http.StatusForbidden)
+					_, _ = io.WriteString(w, mkcalendarUnsupportedComponent)
+					return
+				}
 				if body.DisplayName != "" {
 					name = body.DisplayName
 				}
