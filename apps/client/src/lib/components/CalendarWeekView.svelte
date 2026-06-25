@@ -165,8 +165,9 @@
 </script>
 
 <div class="flex h-full flex-col overflow-hidden">
+	<div class="flex-1 overflow-y-auto">
 	<!-- Header: day labels + all-day spanning events -->
-	<div class="border-b">
+	<div class="sticky top-0 z-20 border-b bg-background">
 		<div class="flex">
 			<div class="w-12 flex-shrink-0 border-r"></div>
 			<div class="grid flex-1 grid-cols-7">
@@ -216,7 +217,6 @@
 	</div>
 
 	<!-- Time grid -->
-	<div class="flex-1 overflow-y-auto">
 		<div class="flex" style="height: {24 * SLOT_HEIGHT}px;">
 			<div class="relative w-12 flex-shrink-0 border-r">
 				{#each HOURS as hour}
