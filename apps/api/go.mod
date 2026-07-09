@@ -3,6 +3,7 @@ module api
 go 1.24.0
 
 require (
+	github.com/FacileStudio/Journal/sdk/journal v0.0.0-20260708221941-db985ad2b1ba
 	github.com/coreos/go-oidc/v3 v3.11.0
 	github.com/emersion/go-ical v0.0.0-20250609112844-439c63cef608
 	github.com/emersion/go-webdav v0.7.0

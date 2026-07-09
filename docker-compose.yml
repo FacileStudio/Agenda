@@ -16,6 +16,9 @@ services:
   agenda:
     build: .
     env_file: .env
+    environment:
+      JOURNAL_URL: ${JOURNAL_URL:-}
+      JOURNAL_TOKEN: ${JOURNAL_TOKEN:-}
     depends_on:
       db:
         condition: service_healthy

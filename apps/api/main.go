@@ -27,6 +27,7 @@ import (
 	"api/modules/users"
 	"api/schemas"
 
+	"github.com/FacileStudio/Journal/sdk/journal"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )
@@ -39,6 +40,12 @@ func main() {
 		return
 	}
 	appLogger = logger.New(appEnv.LogLevel)
+
+	if appEnv.JournalURL != "" && appEnv.JournalToken != "" {
+		journalClient := journal.New(journal.Config{URL: appEnv.JournalURL, Token: appEnv.JournalToken})
+		defer journalClient.Close()
+		appLogger = slog.New(journal.NewHandler(journalClient, appLogger.Handler()))
+	}
 
 	db, err := database.Open(appEnv.DatabaseURL)
 	if err != nil {

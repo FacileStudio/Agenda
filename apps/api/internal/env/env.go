@@ -27,6 +27,8 @@ type Config struct {
 	OIDC               *OIDCConfig
 	SSOOnly            bool
 	EncryptionKey      []byte
+	JournalURL         string
+	JournalToken       string
 }
 
 func Load() (Config, error) {
@@ -54,6 +56,8 @@ func Load() (Config, error) {
 	}
 
 	env.SSOOnly = strings.ToLower(os.Getenv("SSO_ONLY")) == "true"
+	env.JournalURL = os.Getenv("JOURNAL_URL")
+	env.JournalToken = os.Getenv("JOURNAL_TOKEN")
 
 	if issuer := os.Getenv("OIDC_ISSUER"); issuer != "" {
 		clientID := os.Getenv("OIDC_CLIENT_ID")
