@@ -23,6 +23,7 @@ services:
     expose:
       - "4000"
     environment:
+      APP_ENV: ${APP_ENV:-production}
       PORT: "4000"
       JOURNAL_URL: ${JOURNAL_URL:-}
       JOURNAL_TOKEN: ${JOURNAL_TOKEN:-}

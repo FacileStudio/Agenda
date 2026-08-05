@@ -11,7 +11,7 @@ import (
 )
 
 func RegisterRoutes(router chi.Router, service *Service, authService *auth.Service) {
-	router.Route("/api/settings", func(r chi.Router) {
+	router.Route("/settings", func(r chi.Router) {
 		r.With(middleware.RequireAuth(authService)).Get("/", func(w http.ResponseWriter, req *http.Request) {
 			resp, err := service.controller.getSettings(req.Context())
 			if err != nil {

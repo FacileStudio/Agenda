@@ -32,7 +32,7 @@
 		if (raw === 'register') tab = 'register';
 
 		try {
-			const cfg = await fetch(`${backend.baseUrl}/auth/config`, { credentials: 'include' }).then(r => r.json());
+			const cfg = await fetch(`${backend.apiBaseUrl}/auth/config`, { credentials: 'include' }).then(r => r.json());
 			ssoOnly = cfg.sso_only ?? false;
 			oidcEnabled = cfg.oidc_enabled ?? false;
 			if (ssoOnly) tab = 'login';
@@ -178,7 +178,7 @@
 						</div>
 					{/if}
 
-					<a href="{backend.baseUrl}/auth/oidc" class="block">
+					<a href="{backend.apiBaseUrl}/auth/oidc" class="block">
 						<button type="button" class={outlineButtonClass}>Continue with SSO</button>
 					</a>
 				{/if}

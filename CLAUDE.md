@@ -82,14 +82,38 @@ Supported clients: Apple Calendar, iOS Calendar, Thunderbird, DAVx⁵ (Android)
 
 Auth: HTTP Basic Auth (email + password) or session cookie
 
+## Routing
+
+Everything the API serves lives under `/api` (`mountRoutes` in `apps/api/main.go`), so an
+unknown API path 404s instead of falling through to the SPA catch-all. Four things stay at
+the root because their URLs are held outside this repo:
+
+- `/dav/`, `/.well-known/caldav` — external CalDAV clients
+- `/files/*` — avatar URLs are stored in `users.avatar_url` as `/files/avatars/...`
+- `/health`, `/ready` — tronc mounts them at both `/` and `/api`
+- `/auth/oidc/callback` — 302s to `/api/auth/oidc/callback`; the old URL is registered in
+  Authentik and pinned by `OIDC_REDIRECT_URL`
+
+`main_test.go` asserts every URL the client calls still matches a route. Add to
+`clientCalls` when you add an endpoint.
+
 ## Environment Variables
 
-- `DATABASE_URL` — PostgreSQL connection string (default: local postgres, db `agenda`)
+`internal/env` embeds `troncenv.Core`, so `PORT`, `LOG_LEVEL`, `DATABASE_URL`, `APP_ENV`,
+`JOURNAL_URL`, `JOURNAL_TOKEN` and the CORS origins are read by tronc.
+
+- `DB_USER`, `DB_PASSWORD` — required unless `DATABASE_URL` is set; the DSN is assembled
+  from them plus `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_SSLMODE`. This is why `Load` fills
+  `Core` by hand instead of calling `troncenv.LoadCore`, which requires `DATABASE_URL`.
+- `APP_ENV` — `development` (default), `staging`, `production`
 - `PORT` — API port (default `4000`)
 - `LOG_LEVEL` — `debug`, `info`, `warn`, `error`
 - `STORAGE_DIR` — File storage for avatars (default `./data`)
+- `CLIENT_DIR` — Static SvelteKit build served by the binary
 - `ENCRYPTION_KEY` — Optional, encrypts OIDC tokens at rest
-- `DOMAINS` — Comma-separated CORS origins (only needed for separate client deploy)
+- `CORS_ALLOWED_ORIGINS` — Comma-separated origins, scheme included (only needed for a
+  separate client deploy). `ALLOWED_ORIGINS`, `DOMAINS`, `DOMAIN`, `CORS_ORIGINS`,
+  `TRUSTED_ORIGINS` and `CLIENT_ORIGIN` are read as fallbacks.
 - `OIDC_*` — OpenID Connect config (optional)
 - `SSO_ONLY` — Hide password auth when `true`
 
