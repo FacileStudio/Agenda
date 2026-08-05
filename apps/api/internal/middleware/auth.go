@@ -6,8 +6,8 @@ import (
 	"net/http"
 
 	"github.com/FacileStudio/Agenda/apps/api/internal/authcontext"
-	"github.com/FacileStudio/Agenda/apps/api/internal/errors"
-	"github.com/FacileStudio/Agenda/apps/api/internal/httpjson"
+	"github.com/FacileStudio/tronc/errors"
+	"github.com/FacileStudio/tronc/httpjson"
 )
 
 type Authenticator interface {

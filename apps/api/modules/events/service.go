@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FacileStudio/Agenda/apps/api/internal/errors"
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
+	"github.com/FacileStudio/tronc/errors"
 
 	"gorm.io/gorm"
 )

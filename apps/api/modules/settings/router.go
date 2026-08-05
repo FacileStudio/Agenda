@@ -3,9 +3,9 @@ package settings
 import (
 	"net/http"
 
-	"github.com/FacileStudio/Agenda/apps/api/internal/httpjson"
 	"github.com/FacileStudio/Agenda/apps/api/internal/middleware"
 	"github.com/FacileStudio/Agenda/apps/api/modules/auth"
+	"github.com/FacileStudio/tronc/httpjson"
 
 	"github.com/go-chi/chi/v5"
 )

@@ -10,9 +10,9 @@ import (
 
 	"github.com/FacileStudio/Agenda/apps/api/internal/authcrypto"
 	"github.com/FacileStudio/Agenda/apps/api/internal/crypto"
-	"github.com/FacileStudio/Agenda/apps/api/internal/errors"
 	"github.com/FacileStudio/Agenda/apps/api/internal/oidcavatar"
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
+	"github.com/FacileStudio/tronc/errors"
 
 	gooidc "github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"

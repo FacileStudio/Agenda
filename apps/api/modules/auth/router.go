@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/FacileStudio/Agenda/apps/api/internal/env"
-	"github.com/FacileStudio/Agenda/apps/api/internal/httpjson"
 	"github.com/FacileStudio/Agenda/apps/api/internal/middleware"
+	"github.com/FacileStudio/tronc/httpjson"
 
 	"github.com/go-chi/chi/v5"
 )

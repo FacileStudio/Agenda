@@ -1,3 +1,6 @@
+// Package errors carries the suite's error envelope: a stable machine-readable
+// code, a human-readable message, and the wrapped cause. Every Facile API
+// answers failures as {"error":{"code":...,"message":...}}.
 package errors
 
 import (
@@ -36,30 +39,25 @@ func Internal(message string, cause error) *Error {
 	return New("internal", message, cause)
 }
 
+var statusByCode = map[string]int{
+	"invalid_argument":    http.StatusBadRequest,
+	"unauthenticated":     http.StatusUnauthorized,
+	"permission_denied":   http.StatusForbidden,
+	"not_found":           http.StatusNotFound,
+	"already_exists":      http.StatusConflict,
+	"failed_precondition": http.StatusPreconditionFailed,
+	"resource_exhausted":  http.StatusRequestEntityTooLarge,
+	"rate_limited":        http.StatusTooManyRequests,
+	"internal":            http.StatusInternalServerError,
+}
+
 func Status(err error) int {
 	var appErr *Error
 	if !stderrors.As(err, &appErr) {
 		return http.StatusInternalServerError
 	}
-
-	switch appErr.Code {
-	case "invalid_argument":
-		return http.StatusBadRequest
-	case "unauthenticated":
-		return http.StatusUnauthorized
-	case "permission_denied":
-		return http.StatusForbidden
-	case "not_found":
-		return http.StatusNotFound
-	case "already_exists":
-		return http.StatusConflict
-	case "failed_precondition":
-		return http.StatusPreconditionFailed
-	case "resource_exhausted":
-		return http.StatusRequestEntityTooLarge
-	case "rate_limited":
-		return http.StatusTooManyRequests
-	default:
-		return http.StatusInternalServerError
+	if status, ok := statusByCode[appErr.Code]; ok {
+		return status
 	}
+	return http.StatusInternalServerError
 }
