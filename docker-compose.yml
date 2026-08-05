@@ -15,26 +15,43 @@ services:
       retries: 5
 
   agenda:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     restart: unless-stopped
     env_file: .env
+    expose:
+      - "4000"
     environment:
+      PORT: "4000"
       JOURNAL_URL: ${JOURNAL_URL:-}
       JOURNAL_TOKEN: ${JOURNAL_TOKEN:-}
+    healthcheck:
+      test: ["CMD", "/agenda", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - agenda_data:/app/data
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.agenda.rule=Host(`${DOMAIN}`)
-      - traefik.http.routers.agenda.entrypoints=websecure
-      - traefik.http.routers.agenda.tls.certresolver=letsencrypt
-      - traefik.http.services.agenda.loadbalancer.server.port=4000
     networks:
       - default
       - dokploy-network
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: dokploy-network
+      traefik.http.routers.agenda-web.rule: "Host(`agenda.facile.studio`)"
+      traefik.http.routers.agenda-web.entrypoints: web
+      traefik.http.routers.agenda-web.middlewares: redirect-to-https@file
+      traefik.http.routers.agenda-web.service: agenda-svc
+      traefik.http.routers.agenda-secure.rule: "Host(`agenda.facile.studio`)"
+      traefik.http.routers.agenda-secure.entrypoints: websecure
+      traefik.http.routers.agenda-secure.tls.certresolver: letsencrypt
+      traefik.http.routers.agenda-secure.service: agenda-svc
+      traefik.http.services.agenda-svc.loadbalancer.server.port: "4000"
 
 networks:
   dokploy-network:

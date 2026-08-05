@@ -5,10 +5,10 @@ RUN bun install --frozen-lockfile
 COPY apps/client/ .
 RUN bun run build
 
-FROM golang:1.26-alpine AS api-build
+FROM golang:1.24-alpine AS api-build
 WORKDIR /app
 COPY apps/api/ .
-RUN go build -mod=vendor -o /agenda .
+RUN go build -mod=vendor -trimpath -ldflags="-s -w" -o /agenda .
 
 FROM gcr.io/distroless/static-debian12
 WORKDIR /app

@@ -1,7 +1,7 @@
 # github.com/FacileStudio/Journal/sdk/journal v0.0.0-20260708221941-db985ad2b1ba
 ## explicit; go 1.24.0
 github.com/FacileStudio/Journal/sdk/journal
-# github.com/FacileStudio/tronc v0.3.0
+# github.com/FacileStudio/tronc v0.4.0
 ## explicit; go 1.24.0
 github.com/FacileStudio/tronc/errors
 github.com/FacileStudio/tronc/health
@@ -10,6 +10,7 @@ github.com/FacileStudio/tronc/httpjson
 github.com/FacileStudio/tronc/httpx
 github.com/FacileStudio/tronc/logger
 github.com/FacileStudio/tronc/middleware
+github.com/FacileStudio/tronc/spa
 # github.com/coreos/go-oidc/v3 v3.11.0
 ## explicit; go 1.21
 github.com/coreos/go-oidc/v3/oidc
