@@ -1,8 +1,8 @@
 package events
 
 import (
-	"api/internal/middleware"
-	"api/modules/auth"
+	"github.com/FacileStudio/Agenda/apps/api/internal/middleware"
+	"github.com/FacileStudio/Agenda/apps/api/modules/auth"
 
 	"github.com/go-chi/chi/v5"
 )

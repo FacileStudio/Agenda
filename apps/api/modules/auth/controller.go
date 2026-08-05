@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"api/internal/errors"
+	"github.com/FacileStudio/Agenda/apps/api/internal/errors"
 )
 
 type Controller struct {

@@ -5,9 +5,9 @@ import (
 	"net/url"
 	"time"
 
-	"api/internal/authcrypto"
-	"api/internal/middleware"
-	"api/schemas"
+	"github.com/FacileStudio/Agenda/apps/api/internal/authcrypto"
+	"github.com/FacileStudio/Agenda/apps/api/internal/middleware"
+	"github.com/FacileStudio/Agenda/apps/api/schemas"
 
 	gocaldav "github.com/emersion/go-webdav/caldav"
 	"github.com/go-chi/chi/v5"

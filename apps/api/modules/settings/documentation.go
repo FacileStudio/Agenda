@@ -1,6 +1,6 @@
 package settings
 
-import documentation "api/internal/documentation"
+import documentation "github.com/FacileStudio/Agenda/apps/api/internal/documentation"
 
 var Documentation = documentation.Module{
 	Name:        "settings",

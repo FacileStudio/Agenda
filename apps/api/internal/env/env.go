@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"api/internal/crypto"
+	"github.com/FacileStudio/Agenda/apps/api/internal/crypto"
 )
 
 type OIDCConfig struct {

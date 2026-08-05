@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"api/schemas"
+	"github.com/FacileStudio/Agenda/apps/api/schemas"
 )
 
 // Apple's MKCALENDAR body uses namespaced elements; confirm displayname and

@@ -3,7 +3,7 @@ package caldav
 import (
 	"context"
 
-	"api/schemas"
+	"github.com/FacileStudio/Agenda/apps/api/schemas"
 )
 
 type contextKey int

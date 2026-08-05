@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"api/schemas"
+	"github.com/FacileStudio/Agenda/apps/api/schemas"
 
 	"github.com/emersion/go-ical"
 	"github.com/emersion/go-webdav"

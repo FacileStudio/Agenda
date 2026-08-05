@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"api/schemas"
+	"github.com/FacileStudio/Agenda/apps/api/schemas"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"

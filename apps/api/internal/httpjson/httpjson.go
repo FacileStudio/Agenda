@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	"api/internal/errors"
+	"github.com/FacileStudio/Agenda/apps/api/internal/errors"
 )
 
 const maxJSONBodyBytes int64 = 1 << 20

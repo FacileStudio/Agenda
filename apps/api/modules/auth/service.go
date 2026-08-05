@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"api/internal/authcrypto"
-	"api/internal/crypto"
-	"api/internal/errors"
-	"api/internal/oidcavatar"
-	"api/schemas"
+	"github.com/FacileStudio/Agenda/apps/api/internal/authcrypto"
+	"github.com/FacileStudio/Agenda/apps/api/internal/crypto"
+	"github.com/FacileStudio/Agenda/apps/api/internal/errors"
+	"github.com/FacileStudio/Agenda/apps/api/internal/oidcavatar"
+	"github.com/FacileStudio/Agenda/apps/api/schemas"
 
 	gooidc "github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
@@ -311,11 +311,11 @@ func (service *Service) SyncOIDCProfile(ctx context.Context, userID string, prov
 	}
 
 	var claims struct {
-		Name             string `json:"name"`
+		Name              string `json:"name"`
 		PreferredUsername string `json:"preferred_username"`
-		GivenName        string `json:"given_name"`
-		FamilyName       string `json:"family_name"`
-		Picture          string `json:"picture"`
+		GivenName         string `json:"given_name"`
+		FamilyName        string `json:"family_name"`
+		Picture           string `json:"picture"`
 	}
 	if err := userInfo.Claims(&claims); err != nil {
 		service.logger.Warn("failed to parse UserInfo claims", slog.Int64("user_id", record.ID), slog.Any("error", err))
@@ -323,11 +323,11 @@ func (service *Service) SyncOIDCProfile(ctx context.Context, userID string, prov
 	}
 
 	profile := oidcavatar.Profile{
-		Name:             claims.Name,
+		Name:              claims.Name,
 		PreferredUsername: claims.PreferredUsername,
-		GivenName:        claims.GivenName,
-		FamilyName:       claims.FamilyName,
-		Picture:          claims.Picture,
+		GivenName:         claims.GivenName,
+		FamilyName:        claims.FamilyName,
+		Picture:           claims.Picture,
 	}
 
 	if displayName := profile.DisplayName(); displayName != "" {

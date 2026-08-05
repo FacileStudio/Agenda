@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"time"
 
-	"api/internal/authcontext"
-	"api/internal/env"
-	"api/internal/errors"
-	"api/internal/httpjson"
-	"api/internal/oidcavatar"
+	"github.com/FacileStudio/Agenda/apps/api/internal/authcontext"
+	"github.com/FacileStudio/Agenda/apps/api/internal/env"
+	"github.com/FacileStudio/Agenda/apps/api/internal/errors"
+	"github.com/FacileStudio/Agenda/apps/api/internal/httpjson"
+	"github.com/FacileStudio/Agenda/apps/api/internal/oidcavatar"
 
 	gooidc "github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
@@ -136,11 +136,11 @@ func (h *oidcHandler) callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	profile := oidcavatar.Profile{
-		Name:             claims.Name,
+		Name:              claims.Name,
 		PreferredUsername: claims.PreferredUsername,
-		GivenName:        claims.GivenName,
-		FamilyName:       claims.FamilyName,
-		Picture:          claims.Picture,
+		GivenName:         claims.GivenName,
+		FamilyName:        claims.FamilyName,
+		Picture:           claims.Picture,
 	}
 	_, token, err := h.service.upsertOIDCUser(r.Context(), claims.Email, profile, oauth2Token)
 	if err != nil {

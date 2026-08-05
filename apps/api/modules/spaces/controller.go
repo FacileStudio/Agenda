@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"api/internal/authcontext"
-	"api/internal/httpjson"
+	"github.com/FacileStudio/Agenda/apps/api/internal/authcontext"
+	"github.com/FacileStudio/Agenda/apps/api/internal/httpjson"
 
 	"github.com/go-chi/chi/v5"
 )
