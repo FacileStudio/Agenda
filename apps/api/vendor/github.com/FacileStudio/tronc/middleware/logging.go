@@ -64,10 +64,50 @@ func (writer *loggingResponseWriter) Unwrap() http.ResponseWriter {
 	return writer.ResponseWriter
 }
 
-// RequestLogger logs one record per request at info level, with the fields
-// every Facile app agreed on: request_id, method, path, query, remote_addr,
-// client_ip, user_agent, status, bytes, duration.
+// Kind classifies a request for logging, so API traffic can be told apart from
+// the static assets of the client the same binary now serves.
+type Kind string
+
+const (
+	KindAPI    Kind = "api"
+	KindHealth Kind = "health"
+	KindStatic Kind = "static"
+)
+
+// RequestLoggerConfig tunes how requests are classified and at which level each
+// class is recorded.
+type RequestLoggerConfig struct {
+	// APIPrefix marks API traffic. Defaults to "/api".
+	APIPrefix string
+	// QuietLevel is the level for health probes and static assets. It defaults
+	// to debug, which keeps them out of Journal: the shipping handler only
+	// forwards what the underlying handler admits, and apps run at info.
+	QuietLevel slog.Level
+}
+
+// RequestLogger logs one record per request with the fields every Facile app
+// agreed on: kind, request_id, method, path, query, remote_addr, client_ip,
+// user_agent, status, bytes, duration.
+//
+// API requests are logged at info. Health probes and the client's static assets
+// are logged at debug, because one binary now serves both halves of an app: at
+// info they would bury the API traffic in bundle requests and ship thousands of
+// asset lines a day to Journal.
 func RequestLogger(logger *slog.Logger) func(http.Handler) http.Handler {
+	return RequestLoggerWith(logger, RequestLoggerConfig{})
+}
+
+// RequestLoggerWith is RequestLogger with explicit classification rules.
+func RequestLoggerWith(logger *slog.Logger, cfg RequestLoggerConfig) func(http.Handler) http.Handler {
+	prefix := cfg.APIPrefix
+	if prefix == "" {
+		prefix = "/api"
+	}
+	quiet := cfg.QuietLevel
+	if quiet == 0 {
+		quiet = slog.LevelDebug
+	}
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 			startedAt := time.Now()
@@ -79,7 +119,18 @@ func RequestLogger(logger *slog.Logger) func(http.Handler) http.Handler {
 				writer.status = http.StatusOK
 			}
 
-			logger.Info("http request",
+			kind := Classify(request.URL.Path, prefix)
+			level := slog.LevelInfo
+			if kind != KindAPI {
+				level = quiet
+			}
+			// A failure is worth hearing about whatever it was serving.
+			if writer.status >= http.StatusInternalServerError {
+				level = slog.LevelError
+			}
+
+			logger.LogAttrs(request.Context(), level, "http request",
+				slog.String("kind", string(kind)),
 				slog.String("request_id", chimiddleware.GetReqID(request.Context())),
 				slog.String("method", request.Method),
 				slog.String("path", request.URL.Path),
@@ -93,6 +144,19 @@ func RequestLogger(logger *slog.Logger) func(http.Handler) http.Handler {
 			)
 		})
 	}
+}
+
+// Classify reports what a path is serving. Health probes are separated from the
+// API because a container healthcheck every ten seconds is not signal.
+func Classify(path, apiPrefix string) Kind {
+	switch path {
+	case "/health", "/ready", apiPrefix + "/health", apiPrefix + "/ready":
+		return KindHealth
+	}
+	if path == apiPrefix || strings.HasPrefix(path, apiPrefix+"/") {
+		return KindAPI
+	}
+	return KindStatic
 }
 
 // ClientIP reports the caller's address for logging only. It reads

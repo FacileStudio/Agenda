@@ -70,6 +70,17 @@ func Handler(cfg Config) http.Handler {
 	files := http.FileServer(root)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		// A static build answers reads and nothing else. Falling back to the
+		// index document for a POST is how a machine client silently succeeds
+		// against a route that no longer exists: it gets 200 and HTML, and any
+		// shipper that treats 2xx as delivery throws the payload away. Answer
+		// 405 so that failure is loud.
+		if request.Method != http.MethodGet && request.Method != http.MethodHead {
+			w.Header().Set("Allow", "GET, HEAD")
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
 		upath := path.Clean("/" + request.URL.Path)
 
 		if strings.HasPrefix(path.Base(upath), ".") {
