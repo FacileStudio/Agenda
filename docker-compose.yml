@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME:-agenda}
       POSTGRES_USER: ${DB_USER}
@@ -15,6 +16,7 @@ services:
 
   agenda:
     build: .
+    restart: unless-stopped
     env_file: .env
     environment:
       JOURNAL_URL: ${JOURNAL_URL:-}
