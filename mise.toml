@@ -1,0 +1,22 @@
+[tools]
+go = "1.24"
+
+[tasks.install]
+description = "Install client dependencies"
+run = 'cd apps/client && bun install --frozen-lockfile'
+
+[tasks.check]
+description = "Run the full quality gate: every Go module, then the client"
+run = "sh ./scripts/check.sh"
+
+[tasks.check-go]
+description = "Run the Go half of the quality gate"
+run = "sh ./scripts/check.sh --go-only"
+
+[tasks.format]
+description = "Format the Go sources in place"
+run = "sh ./scripts/check.sh --format"
+
+[tasks.hooks]
+description = "Enable the tracked git hooks in this clone"
+run = "git config core.hooksPath .githooks"

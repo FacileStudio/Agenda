@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+#
+# Quality gate, run before every push: gofmt -l, go vet and go test over every
+# Go module, then the client type-check. Reports only; never rewrites a file.
+# Run `sh scripts/check.sh --format` to fix formatting.
+#
+# Bypass once with:      git push --no-verify
+# Enable in a clone with: git config core.hooksPath .githooks   (or mise run hooks)
+
+set -eu
+exec sh "$(git rev-parse --show-toplevel)/scripts/check.sh"
