@@ -29,11 +29,19 @@ esac
 
 cd "$(git rev-parse --show-toplevel)"
 
-GO="${GO:-go}"
-GOFMT="${GOFMT:-gofmt}"
+# Resolve the toolchain from GOROOT when it is set. mise exports GOROOT for the
+# version this repo pins, but leaves an unrelated `go` earlier on PATH (Homebrew's,
+# here), and a go binary driving a different GOROOT fails with
+# `compile: version "X" does not match go tool version "Y"`.
+if [ -z "${GO:-}" ]; then
+  if [ -n "${GOROOT:-}" ] && [ -x "$GOROOT/bin/go" ]; then GO="$GOROOT/bin/go"; else GO=go; fi
+fi
+if [ -z "${GOFMT:-}" ]; then
+  if [ -n "${GOROOT:-}" ] && [ -x "$GOROOT/bin/gofmt" ]; then GOFMT="$GOROOT/bin/gofmt"; else GOFMT=gofmt; fi
+fi
 
-if ! command -v "$GO" >/dev/null 2>&1; then
-  echo "check: no '$GO' on PATH" >&2
+if ! command -v "$GO" >/dev/null 2>&1 && [ ! -x "$GO" ]; then
+  echo "check: no usable go ('$GO')" >&2
   exit 1
 fi
 
