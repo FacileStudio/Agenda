@@ -34,5 +34,26 @@ var Documentation = documentation.Module{
 				{Status: 500, Code: "internal", Description: "Unexpected server error."},
 			},
 		},
+		{
+			Method:       "GET",
+			Path:         "/auth/config",
+			Summary:      "Return the auth configuration",
+			Description:  "Reports which sign-in methods this deployment offers, so the client can hide password fields under SSO_ONLY.",
+			ResponseBody: "ConfigResponse",
+			Errors: []documentation.Error{
+				{Status: 500, Code: "internal", Description: "Unexpected server error."},
+			},
+		},
+		{
+			Method:      "POST",
+			Path:        "/auth/logout",
+			Summary:     "Log out",
+			Description: "Revokes the caller's session token.",
+			Auth:        "bearer token required",
+			Errors: []documentation.Error{
+				{Status: 401, Code: "unauthenticated", Description: "Authorization header is missing or invalid."},
+				{Status: 500, Code: "internal", Description: "Unexpected server error."},
+			},
+		},
 	},
 }

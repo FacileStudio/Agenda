@@ -8,7 +8,7 @@ var Documentation = documentation.Module{
 	Routes: []documentation.Route{
 		{
 			Method:       "GET",
-			Path:         "/api/settings",
+			Path:         "/settings",
 			Summary:      "Return current user settings",
 			Description:  "Returns the authenticated user's settings.",
 			Auth:         "bearer token required",
@@ -20,7 +20,7 @@ var Documentation = documentation.Module{
 		},
 		{
 			Method:       "PUT",
-			Path:         "/api/settings",
+			Path:         "/settings",
 			Summary:      "Update current user settings",
 			Description:  "Updates the authenticated user's settings.",
 			Auth:         "bearer token required",

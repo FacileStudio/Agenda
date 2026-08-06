@@ -15,6 +15,7 @@ import (
 
 	"github.com/FacileStudio/Agenda/apps/api/internal/crypto"
 	"github.com/FacileStudio/Agenda/apps/api/internal/database"
+	docs "github.com/FacileStudio/Agenda/apps/api/internal/documentation"
 	"github.com/FacileStudio/Agenda/apps/api/internal/env"
 	"github.com/FacileStudio/Agenda/apps/api/internal/middleware"
 	"github.com/FacileStudio/Agenda/apps/api/modules/auth"
@@ -27,6 +28,7 @@ import (
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
 
 	"github.com/FacileStudio/Journal/sdk/journal"
+	"github.com/FacileStudio/tronc/apiref"
 	"github.com/FacileStudio/tronc/health"
 	"github.com/FacileStudio/tronc/healthcheck"
 	"github.com/FacileStudio/tronc/httpx"
@@ -193,6 +195,7 @@ type mounts struct {
 // because their URLs are held by external clients, stored rows or Authentik.
 func mountRoutes(router chi.Router, m mounts) {
 	health.Mount(router, health.DB(m.sqlDB))
+	apiref.Mount(router, referenceConfig())
 	router.Handle("/files/*", http.StripPrefix("/files/", http.FileServer(http.Dir(m.env.StorageDir))))
 
 	caldav.RegisterRoutes(router, m.db)
@@ -208,6 +211,24 @@ func mountRoutes(router chi.Router, m mounts) {
 		users.RegisterRoutes(r, m.users, m.auth)
 		settings.RegisterRoutes(r, m.settings, m.auth)
 	})
+}
+
+// referenceConfig describes the API reference served at /docs. Registry paths
+// are written relative to /api, the one server every documented route hangs off.
+func referenceConfig() apiref.Config {
+	return apiref.Config{
+		Title:       "Agenda API",
+		Description: "Self-hosted calendar for creative studios, with CalDAV sync.",
+		Servers:     []string{"/api"},
+		Registry: docs.Response{Modules: []docs.Module{
+			auth.Documentation,
+			calendars.Documentation,
+			events.Documentation,
+			spaces.Documentation,
+			users.Documentation,
+			settings.Documentation,
+		}},
+	}
 }
 
 // redirectUnderAPI forwards a legacy root-level API path to its /api twin. The
