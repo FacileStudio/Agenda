@@ -69,6 +69,17 @@ for dir in $GO_MODULES; do
 
     "$GO" vet ./... || s=1
     "$GO" test ./... || s=1
+
+    # Postgres is the only database in this suite, tests included. A test on
+    # SQLite builds a different schema from the GORM struct tags and then
+    # passes, proving nothing about the Postgres DDL that actually ships — and
+    # it cannot run what does ship: SELECT ... FOR UPDATE, pg_trgm, LATERAL.
+    drivers="$(grep -nE 'gorm\.io/driver/(sqlite|mysql|sqlserver|clickhouse)|mattn/go-sqlite3|modernc\.org/sqlite' go.mod || true)"
+    if [ -n "$drivers" ]; then
+      echo "non-Postgres database driver in go.mod; use github.com/FacileStudio/tronc/testdb (see Wiki/MIGRATIONS.md):"
+      echo "$drivers"
+      s=1
+    fi
     exit "$s"
   ) || status=1
 done
