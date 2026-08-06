@@ -34,6 +34,8 @@ func Conflict(message string) *Error     { return New("already_exists", message,
 func Failed(message string) *Error       { return New("failed_precondition", message, nil) }
 func TooLarge(message string) *Error     { return New("resource_exhausted", message, nil) }
 func RateLimited(message string) *Error  { return New("rate_limited", message, nil) }
+func NotAllowed(message string) *Error   { return New("method_not_allowed", message, nil) }
+func Unavailable(message string) *Error  { return New("unavailable", message, nil) }
 
 func Internal(message string, cause error) *Error {
 	return New("internal", message, cause)
@@ -48,6 +50,8 @@ var statusByCode = map[string]int{
 	"failed_precondition": http.StatusPreconditionFailed,
 	"resource_exhausted":  http.StatusRequestEntityTooLarge,
 	"rate_limited":        http.StatusTooManyRequests,
+	"method_not_allowed":  http.StatusMethodNotAllowed,
+	"unavailable":         http.StatusServiceUnavailable,
 	"internal":            http.StatusInternalServerError,
 }
 

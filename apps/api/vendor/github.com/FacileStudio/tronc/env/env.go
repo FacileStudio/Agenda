@@ -56,16 +56,29 @@ type Core struct {
 func (c Core) IsProduction() bool { return c.AppEnv == Production }
 
 // LoadCore reads Core from the process environment. DATABASE_URL is required;
-// everything else has a default.
+// everything else has a default. Use LoadCoreWithout for a service that has no
+// database.
 func LoadCore() (Core, error) {
+	return loadCore(true)
+}
+
+// LoadCoreWithout is LoadCore for a service with no database of its own, so
+// DATABASE_URL is read if present and not required. Jardin is the case that
+// prompted it: it stores its state as files, and requiring a database URL would
+// have kept it off the shared configuration entirely.
+func LoadCoreWithout() (Core, error) {
+	return loadCore(false)
+}
+
+func loadCore(requireDatabase bool) (Core, error) {
 	port, err := Int("PORT", 8080)
 	if err != nil {
 		return Core{}, err
 	}
 
-	databaseURL, err := Required("DATABASE_URL")
-	if err != nil {
-		return Core{}, err
+	databaseURL := String("DATABASE_URL", "")
+	if requireDatabase && databaseURL == "" {
+		return Core{}, fmt.Errorf("env: DATABASE_URL is required")
 	}
 
 	return Core{
