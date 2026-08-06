@@ -2,16 +2,10 @@ package users
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/FacileStudio/Agenda/apps/api/schemas"
-
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 func TestPersistAvatarFileWritesToStorageDir(t *testing.T) {
@@ -67,32 +61,4 @@ func TestRemoveAvatarFileDeletesManagedAvatarOnly(t *testing.T) {
 	if _, err := os.Stat(externalPath); err != nil {
 		t.Fatalf("expected external file preserved, stat err=%v", err)
 	}
-}
-
-func newDatabaseBackedService(t *testing.T) *Service {
-	t.Helper()
-
-	orm, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("open test database: %v", err)
-	}
-
-	if err := orm.AutoMigrate(&schemas.User{}); err != nil {
-		t.Fatalf("migrate test database: %v", err)
-	}
-
-	return NewService(orm, t.TempDir())
-}
-
-func seedUser(t *testing.T, orm *gorm.DB, email string) schemas.User {
-	t.Helper()
-
-	user := schemas.User{
-		Email:        email,
-		PasswordHash: "hash",
-	}
-	if err := orm.Create(&user).Error; err != nil {
-		t.Fatalf("create user: %v", err)
-	}
-	return user
 }
