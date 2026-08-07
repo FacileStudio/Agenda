@@ -71,7 +71,7 @@
 					{#if app.user?.avatar_source === 'oidc'}
 						<p class="flex items-center gap-1.5 text-xs text-muted-foreground">
 							<iconify-icon icon="solar:check-circle-linear" width="14" class="text-green-500"></iconify-icon>
-							Avatar synchronise depuis SSO
+							Votre photo vient du SSO — changez-la dans Porte, elle se met a jour ici en quelques minutes.
 						</p>
 					{/if}
 					{#if app.user?.avatar_source}

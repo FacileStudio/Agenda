@@ -202,34 +202,6 @@ func (service *Service) deleteSession(ctx context.Context, token string) error {
 	return service.orm.WithContext(ctx).Where("token = ?", hashed).Delete(&schemas.Session{}).Error
 }
 
-// syncAvatar refreshes the user's OIDC avatar when needed: when the upstream
-// picture changed, or when the locally stored file is missing (self-healing).
-// The new file is fetched BEFORE the old one is removed, and OIDCPictureURL
-// only advances on success — so a transient fetch failure never leaves a
-// dangling avatar URL and the next sync retries. Uploaded avatars are untouched.
-// The caller is responsible for persisting record afterwards.
-func (service *Service) syncAvatar(record *schemas.User, picture string) {
-	if picture == "" || record.AvatarSource == "upload" {
-		return
-	}
-	localOK := record.AvatarURL != "" && oidcavatar.LocalAvatarExists(service.storageDir, record.AvatarURL)
-	if picture == record.OIDCPictureURL && localOK {
-		return
-	}
-	relPath, fetchErr := oidcavatar.FetchAvatar(picture, service.storageDir, record.ID, service.logger)
-	if fetchErr != nil {
-		service.logger.Warn("failed to fetch OIDC avatar", slog.Int64("user_id", record.ID), slog.Any("error", fetchErr))
-		return
-	}
-	old := record.AvatarURL
-	record.AvatarURL = "/files/" + relPath
-	record.AvatarSource = "oidc"
-	record.OIDCPictureURL = picture
-	if old != "" {
-		oidcavatar.RemoveFile(service.storageDir, strings.TrimPrefix(old, "/files/"))
-	}
-}
-
 func (service *Service) upsertOIDCUser(ctx context.Context, subject string, email string, emailTrusted bool, profile oidcavatar.Profile, oauth2Token *oauth2.Token) (userID string, token string, err error) {
 	var record schemas.User
 	found := false
@@ -263,13 +235,13 @@ func (service *Service) upsertOIDCUser(ctx context.Context, subject string, emai
 		record.OIDCRefreshToken = service.encryptToken(oauth2Token.RefreshToken)
 		record.OIDCTokenExpiry = oauth2Token.Expiry
 		record.ProfileSyncedAt = time.Now()
-		service.syncAvatar(&record, profile.Picture)
+		record.OIDCPictureURL = oidcavatar.PhotoURL(profile.Picture)
 		service.orm.WithContext(ctx).Save(&record)
 	} else {
 		if displayName := profile.DisplayName(); displayName != "" {
 			record.Name = displayName
 		}
-		service.syncAvatar(&record, profile.Picture)
+		record.OIDCPictureURL = oidcavatar.PhotoURL(profile.Picture)
 		record.OIDCAccessToken = service.encryptToken(oauth2Token.AccessToken)
 		record.OIDCRefreshToken = service.encryptToken(oauth2Token.RefreshToken)
 		record.OIDCTokenExpiry = oauth2Token.Expiry
@@ -308,9 +280,8 @@ func (service *Service) SyncOIDCProfile(ctx context.Context, userID string, prov
 	}
 
 	// Skip the cooldown for users who have no avatar yet so the first
-	// post-login sync can fetch it immediately.
-	hasAvatar := record.AvatarURL != ""
-	if hasAvatar && time.Since(record.ProfileSyncedAt) < 5*time.Minute {
+	// post-login sync can pick one up immediately.
+	if record.Avatar() != "" && time.Since(record.ProfileSyncedAt) < 5*time.Minute {
 		return false, nil
 	}
 
@@ -356,7 +327,7 @@ func (service *Service) SyncOIDCProfile(ctx context.Context, userID string, prov
 		record.Name = displayName
 	}
 
-	service.syncAvatar(&record, profile.Picture)
+	record.OIDCPictureURL = oidcavatar.PhotoURL(profile.Picture)
 
 	newToken, tokenErr := tokenSource.Token()
 	if tokenErr == nil {

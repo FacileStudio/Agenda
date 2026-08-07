@@ -127,7 +127,7 @@ func (s *Service) ListMembers(ctx context.Context, userID int64, spaceID int64) 
 	}
 	var rows []MemberResponse
 	err := s.orm.WithContext(ctx).Raw(`
-		SELECT u.id AS user_id, u.email, u.name, u.avatar_url, sm.role, sm.joined_at
+		SELECT u.id AS user_id, u.email, u.name, `+schemas.AvatarSelectExpr+` AS avatar_url, sm.role, sm.joined_at
 		FROM space_members sm
 		JOIN users u ON u.id = sm.user_id
 		WHERE sm.space_id = ?

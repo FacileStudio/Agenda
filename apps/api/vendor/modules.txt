@@ -13,6 +13,9 @@ github.com/FacileStudio/tronc/httpx
 github.com/FacileStudio/tronc/logger
 github.com/FacileStudio/tronc/middleware
 github.com/FacileStudio/tronc/spa
+# github.com/FacileStudio/tronc/testdb v0.1.1
+## explicit; go 1.24.0
+github.com/FacileStudio/tronc/testdb
 # github.com/coreos/go-oidc/v3 v3.11.0
 ## explicit; go 1.21
 github.com/coreos/go-oidc/v3/oidc
