@@ -1,5 +1,5 @@
 [tools]
-go = "1.24"
+go = "1.25"
 
 [tasks.install]
 description = "Install client dependencies"
