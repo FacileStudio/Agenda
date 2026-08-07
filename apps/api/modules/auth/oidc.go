@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/FacileStudio/Agenda/apps/api/internal/authcontext"
@@ -104,7 +105,7 @@ func (h *oidcHandler) callback(w http.ResponseWriter, r *http.Request) {
 
 	var claims struct {
 		Email             string `json:"email"`
-		EmailVerified     bool   `json:"email_verified"`
+		EmailVerified     any    `json:"email_verified"`
 		Name              string `json:"name"`
 		PreferredUsername string `json:"preferred_username"`
 		GivenName         string `json:"given_name"`
@@ -142,7 +143,7 @@ func (h *oidcHandler) callback(w http.ResponseWriter, r *http.Request) {
 		FamilyName:        claims.FamilyName,
 		Picture:           claims.Picture,
 	}
-	_, token, err := h.service.upsertOIDCUser(r.Context(), claims.Email, profile, oauth2Token)
+	_, token, err := h.service.upsertOIDCUser(r.Context(), idToken.Subject, claims.Email, emailClaimTrusted(claims.EmailVerified), profile, oauth2Token)
 	if err != nil {
 		httpjson.WriteError(w, err)
 		return
@@ -177,4 +178,24 @@ func randomState() (string, error) {
 		return "", err
 	}
 	return base64.URLEncoding.EncodeToString(b), nil
+}
+
+// emailClaimTrusted reports whether the email in an ID token may be used to
+// match an existing account. Matching on a mutable, unproven email is how an
+// identity provider that lets a user set any address becomes an account
+// takeover primitive, so the fallback is refused when the provider explicitly
+// says the address is unverified. An absent claim is treated as trusted: the
+// provider is making no assertion either way, and refusing it would strand
+// every account created before oidc_subject was recorded.
+func emailClaimTrusted(v any) bool {
+	switch val := v.(type) {
+	case nil:
+		return true
+	case bool:
+		return val
+	case string:
+		return !strings.EqualFold(val, "false")
+	default:
+		return false
+	}
 }

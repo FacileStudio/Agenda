@@ -9,6 +9,7 @@ type User struct {
 	AvatarURL        string    `gorm:"column:avatar_url"`
 	AvatarSource     string    `gorm:"column:avatar_source"`
 	OIDCPictureURL   string    `gorm:"column:oidc_picture_url"`
+	OIDCSubject      *string   `gorm:"column:oidc_subject;uniqueIndex"`
 	OIDCAccessToken  string    `gorm:"column:oidc_access_token"`
 	OIDCRefreshToken string    `gorm:"column:oidc_refresh_token"`
 	OIDCTokenExpiry  time.Time `gorm:"column:oidc_token_expiry"`
