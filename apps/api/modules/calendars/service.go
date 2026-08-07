@@ -282,7 +282,7 @@ func (s *Service) ListMembers(ctx context.Context, userID int64, calendarID int6
 	}
 	var rows []row
 	err := s.orm.WithContext(ctx).Raw(`
-		SELECT u.id AS user_id, u.email, u.name, u.avatar_url, cm.role
+		SELECT u.id AS user_id, u.email, u.name, `+schemas.AvatarSelectExpr+` AS avatar_url, cm.role
 		FROM calendar_members cm
 		JOIN users u ON u.id = cm.user_id
 		WHERE cm.calendar_id = ?

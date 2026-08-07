@@ -4,7 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
 	import { toast } from 'svelte-sonner';
-	import { backend, type SpaceItem, type SpaceMember, type UserProfile } from '$lib/backend';
+	import { backend, resolveFileUrl, type SpaceItem, type SpaceMember, type UserProfile } from '$lib/backend';
 
 	const app = getContext<{ user: UserProfile | null }>('app');
 	const spaceId = $derived(Number($page.params.id));
@@ -169,7 +169,7 @@
 						<div class="flex items-center gap-3 rounded-lg border border-border p-3">
 							{#if member.avatar_url}
 								<img
-									src={member.avatar_url}
+									src={resolveFileUrl(member.avatar_url)}
 									alt={member.name || member.email}
 									class="h-9 w-9 shrink-0 rounded-full border border-border object-cover"
 								/>

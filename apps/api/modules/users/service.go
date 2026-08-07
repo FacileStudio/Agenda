@@ -117,23 +117,29 @@ func (service *Service) storeAvatar(context context.Context, userID string, read
 		return nil, errors.Internal("failed to read user", err)
 	}
 
+	// Uploading is the fallback for people the IdP has no photo for, so a photo in Porte
+	// makes this endpoint unavailable rather than merely outranked. Accepting the file and
+	// then never showing it is the worse failure: the user sees a success and no change.
+	if record.OIDCPictureURL != "" {
+		return nil, errors.Invalid("votre photo est geree par le SSO — modifiez-la dans Porte")
+	}
+
 	relativePath, absolutePath, err := service.persistAvatarFile(id, reader, contentType)
 	if err != nil {
 		return nil, err
 	}
 
-	newAvatarURL := "/files/" + strings.ReplaceAll(relativePath, string(filepath.Separator), "/")
-	oldAvatarURL := record.AvatarURL
-	record.AvatarURL = newAvatarURL
-	record.AvatarSource = "upload"
+	newUploadPath := strings.ReplaceAll(relativePath, string(filepath.Separator), "/")
+	oldUploadPath := record.AvatarUploadPath
+	record.AvatarUploadPath = newUploadPath
 
 	if err := service.orm.WithContext(context).Save(&record).Error; err != nil {
 		_ = os.Remove(absolutePath)
 		return nil, errors.Internal("failed to save avatar", err)
 	}
 
-	if oldAvatarURL != "" {
-		service.removeAvatarFile(oldAvatarURL)
+	if oldUploadPath != "" {
+		service.removeAvatarFile("/files/" + oldUploadPath)
 	}
 
 	return mapUser(record), nil
@@ -153,15 +159,16 @@ func (service *Service) clearAvatar(context context.Context, userID string) (*Us
 		return nil, errors.Internal("failed to read user", err)
 	}
 
-	oldAvatarURL := record.AvatarURL
-	record.AvatarURL = ""
-	record.AvatarSource = ""
+	// Only the upload is the user's to clear. The Porte photo is not deleted from here —
+	// it is not ours, and the next sync would bring it straight back.
+	oldUploadPath := record.AvatarUploadPath
+	record.AvatarUploadPath = ""
 	if err := service.orm.WithContext(context).Save(&record).Error; err != nil {
 		return nil, errors.Internal("failed to clear avatar", err)
 	}
 
-	if oldAvatarURL != "" {
-		service.removeAvatarFile(oldAvatarURL)
+	if oldUploadPath != "" {
+		service.removeAvatarFile("/files/" + oldUploadPath)
 	}
 
 	return mapUser(record), nil
@@ -209,8 +216,8 @@ func mapUser(record schemas.User) *User {
 		ID:           strconv.FormatInt(record.ID, 10),
 		Email:        record.Email,
 		Name:         record.Name,
-		AvatarURL:    record.AvatarURL,
-		AvatarSource: record.AvatarSource,
+		AvatarURL:    record.Avatar(),
+		AvatarSource: record.AvatarOrigin(),
 		CreatedAt:    record.CreatedAt.UTC().Format(time.RFC3339),
 	}
 }

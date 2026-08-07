@@ -257,7 +257,7 @@ func toResponse(e *schemas.Event) EventResponse {
 			ID:        e.CreatedBy.ID,
 			Name:      e.CreatedBy.Name,
 			Email:     e.CreatedBy.Email,
-			AvatarURL: e.CreatedBy.AvatarURL,
+			AvatarURL: e.CreatedBy.Avatar(),
 		}
 	}
 	return EventResponse{

@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
-	import { backend, type SpaceItem, type SpaceMember } from '$lib/backend';
+	import { backend, resolveFileUrl, type SpaceItem, type SpaceMember } from '$lib/backend';
 	import { setSpaceContext, getSpaceContext, isPersonal } from '$lib/space-context.svelte';
 
 	const spaceId = $derived(Number($page.params.id));
@@ -130,7 +130,7 @@
 							<div class="flex items-center gap-3 rounded-lg border border-border p-3">
 								{#if member.avatar_url}
 									<img
-										src={member.avatar_url}
+										src={resolveFileUrl(member.avatar_url)}
 										alt={member.name || member.email}
 										class="h-9 w-9 shrink-0 rounded-full border border-border object-cover"
 									/>
