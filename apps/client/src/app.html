@@ -6,7 +6,22 @@
 		<link rel="alternate icon" href="%sveltekit.assets%/favicon.ico" type="image/x-icon" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>Agenda</title>
-		<script type="module" src="https://cdn.jsdelivr.net/npm/iconify-icon@2.2.0/dist/iconify-icon.min.js"></script>
+		<script>
+			// Resolve the theme before first paint so the app never flashes light-on-dark.
+			// Both classes are set: muse paints dark from a media query scoped to
+			// `:root:not(.light)`, so only an explicit `light` forces light on a dark OS.
+			(function () {
+				try {
+					var stored = localStorage.getItem('agenda.theme');
+					var dark =
+						stored === 'dark' ||
+						((!stored || stored === 'system') &&
+							window.matchMedia('(prefers-color-scheme: dark)').matches);
+					document.documentElement.classList.toggle('dark', dark);
+					document.documentElement.classList.toggle('light', !dark);
+				} catch (e) {}
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
