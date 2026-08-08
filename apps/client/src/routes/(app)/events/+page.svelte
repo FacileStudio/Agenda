@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { EmptyState, Spinner, icons } from '@facile/muse';
 	import { backend, type AgendaEvent, type CalendarItem } from '$lib/backend';
 	import { spaceId } from '$lib/space-context.svelte';
 
@@ -55,26 +56,31 @@
 
 	<div class="flex-1 overflow-auto p-4 md:p-8">
 		{#if loading}
-			<div class="flex items-center justify-center py-12 text-muted-foreground">
-				<iconify-icon icon="solar:refresh-linear" width="20" class="animate-spin"></iconify-icon>
+			<div class="flex items-center justify-center py-12">
+				<Spinner label="Chargement" />
 			</div>
 		{:else if events.length === 0}
-			<div class="flex flex-col items-center justify-center py-16 text-center">
-				<iconify-icon icon="solar:calendar-mark-bold-duotone" width="48" class="text-muted-foreground/50"></iconify-icon>
-				<p class="mt-4 text-sm text-muted-foreground">Aucun événement à venir</p>
+			<div class="mx-auto max-w-2xl">
+				<EmptyState
+					icon={icons.calendar}
+					title="Aucun événement à venir"
+					description="Vos rendez-vous des 30 prochains jours apparaîtront ici."
+				/>
 			</div>
 		{:else}
-			<div class="mx-auto max-w-2xl space-y-2">
+			<div class="mx-auto flex max-w-2xl flex-col gap-2">
 				{#each events as event (event.id)}
 					<button
+						type="button"
 						onclick={() => goto(`/calendar?event=${event.id}`)}
-						class="flex w-full items-center gap-4 rounded-lg border border-border p-4 text-left transition-colors hover:bg-muted/50"
+						class="flex w-full cursor-pointer items-center gap-4 rounded-fc-lg bg-card p-4 text-left transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 					>
-						<div class="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg bg-primary/10">
-							<iconify-icon icon="solar:calendar-mark-bold-duotone" width="20" class="text-primary"></iconify-icon>
+						<div class="flex size-10 shrink-0 items-center justify-center rounded-fc-md bg-muted text-muted-foreground">
+							<iconify-icon icon={icons.calendar} width="20" height="20" class="block size-5"
+							></iconify-icon>
 						</div>
 						<div class="min-w-0 flex-1">
-							<p class="truncate text-sm font-medium">{event.title || 'Sans titre'}</p>
+							<p class="truncate text-sm font-medium text-foreground">{event.title || 'Sans titre'}</p>
 							<div class="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
 								<span>{formatDate(event.start_at)}</span>
 								{#if !event.is_all_day}
@@ -87,7 +93,12 @@
 								{/if}
 							</div>
 						</div>
-						<iconify-icon icon="solar:alt-arrow-right-linear" width="16" class="shrink-0 text-muted-foreground"></iconify-icon>
+						<iconify-icon
+							icon={icons.arrow}
+							width="16"
+							height="16"
+							class="block size-4 shrink-0 text-muted-foreground"
+						></iconify-icon>
 					</button>
 				{/each}
 			</div>

@@ -1,12 +1,19 @@
 <script lang="ts">
-	import { Dialog as DialogPrimitive } from 'bits-ui';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
-	import * as Select from '$lib/components/ui/select';
-	import { Separator } from '$lib/components/ui/separator';
+	import {
+		Alert,
+		Avatar,
+		Badge,
+		Button,
+		ColorPicker,
+		ConfirmModal,
+		Divider,
+		Field,
+		Input,
+		Modal,
+		Select,
+		icons
+	} from '@facile/muse';
 	import { backend, ApiError, resolveFileUrl, type CalendarItem, type CalendarMember } from '$lib/backend';
-	import { cn } from '$lib/utils';
 
 	let {
 		open = $bindable(false),
@@ -34,6 +41,11 @@
 	let inviting = $state(false);
 	let inviteError = $state('');
 	let removingId = $state<number | null>(null);
+	let memberToRemove = $state<CalendarMember | null>(null);
+	let confirmRemoveOpen = $state(false);
+	let confirmDeleteOpen = $state(false);
+
+	const titleId = $props.id();
 
 	let editName = $state('');
 	let editColor = $state('');
@@ -54,6 +66,9 @@
 			inviteRole = 'reader';
 			inviteError = '';
 			members = [];
+			memberToRemove = null;
+			confirmRemoveOpen = false;
+			confirmDeleteOpen = false;
 			loadMembers();
 		}
 	});
@@ -89,7 +104,7 @@
 	}
 
 	async function handleDelete() {
-		if (!calendar || !confirm(`Supprimer le calendrier "${calendar.name}" ? Cette action est irreversible.`)) return;
+		if (!calendar) return;
 		deleting = true;
 		try {
 			await backend.deleteCalendar(calendar.id);
@@ -97,6 +112,7 @@
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Erreur.';
 			deleting = false;
+			throw e;
 		}
 	}
 
@@ -126,20 +142,16 @@
 		return 'L\'invitation a echoue. Reessayez.';
 	}
 
-	async function handleRemoveMember(userId: number) {
-		if (!calendar) return;
-		removingId = userId;
+	async function handleRemoveMember() {
+		const member = memberToRemove;
+		if (!calendar || !member) return;
+		removingId = member.user_id;
 		try {
-			await backend.removeMember(calendar.id, userId);
+			await backend.removeMember(calendar.id, member.user_id);
 			await loadMembers();
-		} catch {
 		} finally {
 			removingId = null;
 		}
-	}
-
-	function handleOpenChange(val: boolean) {
-		if (!val) onClose();
 	}
 
 	function roleLabel(role: string) {
@@ -150,189 +162,156 @@
 			default: return 'Lecteur';
 		}
 	}
+
+	function roleTone(role: string): 'owner' | 'admin' | 'neutral' {
+		if (role === 'owner') return 'owner';
+		if (role === 'admin') return 'admin';
+		return 'neutral';
+	}
 </script>
 
-<DialogPrimitive.Root bind:open onOpenChange={handleOpenChange}>
-	<DialogPrimitive.Portal>
-		<DialogPrimitive.Overlay
-			class="data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 fixed inset-0 z-50 bg-black/40 supports-backdrop-filter:backdrop-blur-xs"
-		/>
-		<DialogPrimitive.Content
-			class={cn(
-				'data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95',
-				'fixed top-1/2 left-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2',
-				'rounded-2xl border bg-background p-6 shadow-xl max-h-[90vh] overflow-y-auto'
-			)}
-		>
-			<!-- Header -->
-			<div class="mb-5 flex items-center justify-between">
-				<div class="flex items-center gap-2">
-					{#if editColor}
-						<span class="size-3 rounded-full flex-shrink-0" style="background-color: {editColor}"></span>
-					{/if}
-					<h2 class="text-lg font-semibold">Gerer le calendrier</h2>
-				</div>
-				<DialogPrimitive.Close
-					class="cursor-pointer rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-				>
-					<iconify-icon icon="solar:close-circle-linear" width="18"></iconify-icon>
-				</DialogPrimitive.Close>
+<Modal bind:open size="lg" showClose {onClose} aria-labelledby={titleId}>
+	{#snippet header()}
+		<div class="flex items-center gap-2">
+			{#if editColor}
+				<span class="size-3 shrink-0 rounded-full" style="background-color: {editColor}"></span>
+			{/if}
+			<h2 id={titleId} class="text-fc-lg font-semibold">Gerer le calendrier</h2>
+		</div>
+	{/snippet}
+
+	{#if calendar?.role === 'owner'}
+		<div class="flex flex-col gap-4">
+			<Field label="Nom">
+				<Input bind:value={editName} placeholder="Nom du calendrier" />
+			</Field>
+
+			<div class="flex flex-col gap-1.5">
+				<span class="text-fc-sm text-fc-fg">Couleur</span>
+				<ColorPicker bind:value={editColor} colors={COLORS} label="Couleur du calendrier" />
 			</div>
 
-			<!-- Edit form (owners only) -->
-			{#if calendar?.role === 'owner'}
-				<div class="flex flex-col gap-4">
-					<div class="flex flex-col gap-1.5">
-						<Label for="edit-name">Nom</Label>
-						<Input id="edit-name" bind:value={editName} placeholder="Nom du calendrier" />
-					</div>
+			<Field label="Description">
+				<Input bind:value={editDescription} placeholder="Description (optionnelle)" />
+			</Field>
 
-					<div class="flex flex-col gap-1.5">
-						<Label>Couleur</Label>
-						<div class="flex items-center gap-2 flex-wrap">
-							{#each COLORS as c}
-								<button
-									type="button"
-									onclick={() => (editColor = c)}
-									class={cn(
-										'size-7 cursor-pointer rounded-full border-2 transition-transform hover:scale-105',
-										editColor === c ? 'border-foreground scale-110' : 'border-transparent'
-									)}
-									style="background-color: {c}"
-								></button>
-							{/each}
-						</div>
-					</div>
+			<Field label="Echo (visioconférence)" helper="URL de l'instance Echo pour ce calendrier">
+				<Input bind:value={editEchoUrl} placeholder="https://echo.facile.studio" />
+			</Field>
 
-					<div class="flex flex-col gap-1.5">
-						<Label for="edit-desc">Description</Label>
-						<Input id="edit-desc" bind:value={editDescription} placeholder="Description (optionnelle)" />
-					</div>
-
-					<div class="flex flex-col gap-1.5">
-						<Label for="edit-echo-url">
-							<span class="flex items-center gap-1.5">
-								<iconify-icon icon="solar:videocamera-record-bold-duotone" width="14" class="text-muted-foreground"></iconify-icon>
-								Echo (visioconference)
-							</span>
-						</Label>
-						<Input id="edit-echo-url" bind:value={editEchoUrl} placeholder="https://echo.facile.studio" />
-						<p class="text-xs text-muted-foreground">URL de l'instance Echo pour ce calendrier</p>
-					</div>
-
-					{#if error}
-						<p class="text-sm text-destructive">{error}</p>
-					{/if}
-
-					<div class="flex justify-end">
-						<Button onclick={handleSave} disabled={saving} class="gap-2">
-							<iconify-icon icon="solar:check-circle-linear" width="16"></iconify-icon>
-							{saving ? 'Enregistrement…' : 'Enregistrer'}
-						</Button>
-					</div>
-				</div>
-
-				<Separator class="my-5" />
+			{#if error}
+				<Alert tone="danger">{error}</Alert>
 			{/if}
 
-			<!-- Members section -->
-			<div class="flex flex-col gap-3">
-				<div class="flex items-center gap-2">
-					<iconify-icon icon="solar:users-group-rounded-linear" width="16" class="text-muted-foreground"></iconify-icon>
-					<h3 class="text-sm font-medium">Membres</h3>
-				</div>
+			<div class="flex justify-end">
+				<Button icon={icons.check} onclick={handleSave} disabled={saving}>
+					{saving ? 'Enregistrement…' : 'Enregistrer'}
+				</Button>
+			</div>
+		</div>
 
-				{#if loadingMembers}
-					<p class="text-sm text-muted-foreground">Chargement…</p>
-				{:else if members.length === 0}
-					<p class="text-sm text-muted-foreground">Aucun membre partage.</p>
-				{:else}
-					<div class="flex flex-col gap-1">
-						{#each members as member (member.user_id)}
-							<div class="flex items-center gap-3 rounded-lg border border-border/60 px-3 py-2">
-								{#if member.avatar_url}
-									<img
-										src={resolveFileUrl(member.avatar_url)}
-										alt={member.name || member.email}
-										class="h-8 w-8 shrink-0 rounded-full border border-border object-cover"
-									/>
-								{:else}
-									<div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
-										{(member.name || member.email).slice(0, 2).toUpperCase()}
-									</div>
-								{/if}
-								<div class="min-w-0 flex-1">
-									<p class="truncate text-sm font-medium">{member.name || member.email}</p>
-									<p class="truncate text-xs text-muted-foreground">{member.email}</p>
-								</div>
-								<span class="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-									{roleLabel(member.role)}
-								</span>
-								{#if calendar?.role === 'owner' && member.role !== 'owner'}
-									<button
-										onclick={() => handleRemoveMember(member.user_id)}
-										disabled={removingId === member.user_id}
-										class="flex size-7 cursor-pointer items-center justify-center shrink-0 rounded-full bg-destructive text-white hover:bg-destructive/90 disabled:opacity-50"
-										title="Retirer ce membre"
-									>
-										<iconify-icon icon="solar:trash-bin-2-linear" width="14"></iconify-icon>
-									</button>
-								{/if}
-							</div>
-						{/each}
-					</div>
-				{/if}
+		<Divider class="my-5" />
+	{/if}
 
-				<!-- Invite form (owners only) -->
-				{#if calendar?.role === 'owner'}
-					<div class="flex flex-col gap-2 rounded-lg border border-dashed border-border p-3">
-						<p class="text-xs font-medium text-muted-foreground">Inviter un membre</p>
-						<div class="flex gap-2">
-							<Input
-								bind:value={inviteEmail}
-								placeholder="email@exemple.com"
-								type="email"
-								class="flex-1"
-								onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter') handleInvite(); }}
-							/>
-							<Select.Root type="single" value={inviteRole} onValueChange={(v) => { if (v) inviteRole = v; }}>
-								<Select.Trigger class="w-28">
-									{roleLabel(inviteRole)}
-								</Select.Trigger>
-								<Select.Content>
-									<Select.Item value="reader">Lecteur</Select.Item>
-									<Select.Item value="writer">Editeur</Select.Item>
-								</Select.Content>
-							</Select.Root>
-							<Button onclick={handleInvite} disabled={inviting} class="gap-1.5 shrink-0">
-								<iconify-icon icon="mdi:plus" width="16"></iconify-icon>
-								Inviter
-							</Button>
+	<div class="flex flex-col gap-3">
+		<div class="flex items-center gap-2">
+			<iconify-icon icon={icons.usersGroup} width="16" height="16" class="block size-4 text-fc-fg-muted"
+			></iconify-icon>
+			<h3 class="text-fc-sm font-medium">Membres</h3>
+		</div>
+
+		{#if loadingMembers}
+			<p class="text-fc-sm text-fc-fg-muted">Chargement…</p>
+		{:else if members.length === 0}
+			<p class="text-fc-sm text-fc-fg-muted">Aucun membre partage.</p>
+		{:else}
+			<div class="flex flex-col divide-y divide-fc-border">
+				{#each members as member (member.user_id)}
+					<div class="flex items-center gap-3 py-2">
+						<Avatar
+							size="sm"
+							src={member.avatar_url ? resolveFileUrl(member.avatar_url) : undefined}
+							name={member.name || member.email}
+						/>
+						<div class="min-w-0 flex-1">
+							<p class="truncate text-fc-sm font-medium text-fc-fg">{member.name || member.email}</p>
+							<p class="truncate text-fc-xs text-fc-fg-muted">{member.email}</p>
 						</div>
-						{#if inviteError}
-							<p class="text-xs text-destructive">{inviteError}</p>
+						<Badge tone={roleTone(member.role)}>{roleLabel(member.role)}</Badge>
+						{#if calendar?.role === 'owner' && member.role !== 'owner'}
+							<Button
+								variant="ghost-danger"
+								size="sm"
+								icon={icons.remove}
+								aria-label="Retirer {member.name || member.email}"
+								disabled={removingId === member.user_id}
+								onclick={() => { memberToRemove = member; confirmRemoveOpen = true; }}
+							/>
 						{/if}
 					</div>
-				{/if}
+				{/each}
 			</div>
+		{/if}
 
-			<!-- Footer: delete calendar -->
-			{#if calendar?.role === 'owner' && !calendar?.is_personal}
-				<Separator class="my-5" />
-				<div class="flex items-center justify-between">
-					<p class="text-xs text-muted-foreground">Zone dangereuse</p>
-					<Button
-						variant="destructive"
-						size="sm"
-						onclick={handleDelete}
-						disabled={deleting}
-						class="gap-2"
-					>
-						<iconify-icon icon="solar:trash-bin-2-linear" width="14"></iconify-icon>
-						{deleting ? 'Suppression…' : 'Supprimer ce calendrier'}
+		{#if calendar?.role === 'owner'}
+			<div class="flex flex-col gap-2 rounded-fc-md bg-fc-surface p-3">
+				<p class="text-fc-xs font-medium text-fc-fg-muted">Inviter un membre</p>
+				<div class="flex flex-col gap-2 sm:flex-row">
+					<Input
+						bind:value={inviteEmail}
+						placeholder="email@exemple.com"
+						type="email"
+						aria-label="Email du membre à inviter"
+						class="flex-1"
+						onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter') handleInvite(); }}
+					/>
+					<Select bind:value={inviteRole} aria-label="Rôle" class="sm:w-32">
+						<option value="reader">Lecteur</option>
+						<option value="writer">Editeur</option>
+					</Select>
+					<Button size="lg" icon={icons.plus} onclick={handleInvite} disabled={inviting}>
+						Inviter
 					</Button>
 				</div>
-			{/if}
-		</DialogPrimitive.Content>
-	</DialogPrimitive.Portal>
-</DialogPrimitive.Root>
+				{#if inviteError}
+					<p class="text-fc-xs text-fc-danger">{inviteError}</p>
+				{/if}
+			</div>
+		{/if}
+	</div>
+
+	{#if calendar?.role === 'owner' && !calendar?.is_personal}
+		<Divider class="my-5" />
+		<div class="flex items-center justify-between gap-3">
+			<p class="text-fc-xs text-fc-fg-muted">Zone dangereuse</p>
+			<Button
+				variant="danger"
+				size="sm"
+				icon={icons.remove}
+				onclick={() => (confirmDeleteOpen = true)}
+				disabled={deleting}
+			>
+				{deleting ? 'Suppression…' : 'Supprimer ce calendrier'}
+			</Button>
+		</div>
+	{/if}
+</Modal>
+
+<ConfirmModal
+	bind:open={confirmDeleteOpen}
+	tone="danger"
+	title="Supprimer ce calendrier ?"
+	description={`« ${calendar?.name ?? ''} » et tous ses événements seront supprimés pour chaque membre. Cette action est irréversible.`}
+	confirmLabel="Supprimer"
+	onConfirm={handleDelete}
+/>
+
+<ConfirmModal
+	bind:open={confirmRemoveOpen}
+	tone="danger"
+	title="Retirer ce membre ?"
+	description={`${memberToRemove?.name || memberToRemove?.email || 'Cette personne'} perdra immédiatement l'accès à ce calendrier.`}
+	confirmLabel="Retirer"
+	onConfirm={handleRemoveMember}
+	onCancel={() => (memberToRemove = null)}
+/>

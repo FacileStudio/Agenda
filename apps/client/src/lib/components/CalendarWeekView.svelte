@@ -6,6 +6,7 @@
 		startOfWeek
 	} from '@internationalized/date';
 	import type { AgendaEvent, CalendarItem } from '$lib/backend';
+	import { calendarColor, inkOn } from '$lib/calendar-colors';
 
 	let {
 		events,
@@ -37,7 +38,7 @@
 	};
 
 	function getCalendarColor(calendarId: number): string {
-		return calendars.find((c) => c.id === calendarId)?.color ?? '#6b7280';
+		return calendarColor(calendars, calendarId);
 	}
 
 	const todayDate = $derived(today(tz));
@@ -167,19 +168,19 @@
 <div class="flex h-full flex-col overflow-hidden">
 	<div class="flex-1 overflow-y-auto">
 	<!-- Header: day labels + all-day spanning events -->
-	<div class="sticky top-0 z-20 border-b bg-background">
+	<div class="sticky top-0 z-20 border-b border-border bg-background">
 		<div class="flex">
-			<div class="w-12 flex-shrink-0 border-r"></div>
+			<div class="w-12 shrink-0 border-r border-border"></div>
 			<div class="grid flex-1 grid-cols-7">
 				{#each weekDays() as day, di (day.toString())}
 					<div
-						class="flex items-center justify-center gap-1 border-r py-1 text-xs last:border-r-0
-							{isToday(day) ? 'font-bold text-primary' : 'text-muted-foreground'}"
+						class="flex items-center justify-center gap-1 border-r border-border py-1 text-xs last:border-r-0
+							{isToday(day) ? 'font-semibold text-foreground' : 'text-muted-foreground'}"
 					>
 						{DAY_ABBREVS[di]}
 						<span
 							class="flex size-5 items-center justify-center rounded-full text-xs
-								{isToday(day) ? 'bg-primary text-primary-foreground font-bold' : ''}"
+								{isToday(day) ? 'bg-primary font-semibold text-primary-foreground' : ''}"
 						>
 							{day.day}
 						</span>
@@ -189,22 +190,25 @@
 		</div>
 
 		{#if allDaySegments().length > 0}
-			<div class="flex border-t">
-				<div class="w-12 flex-shrink-0 border-r"></div>
+			<div class="flex border-t border-border">
+				<div class="w-12 shrink-0 border-r border-border"></div>
 				<div class="relative flex-1" style="height: {allDayLanes() * LANE_HEIGHT + 4}px;">
 					{#each allDaySegments() as seg}
 						{@const lPad = seg.continuesLeft ? 0 : 2}
 						{@const rPad = seg.continuesRight ? 0 : 2}
+						{@const fill = getCalendarColor(seg.event.calendar_id)}
 						<button
-							class="absolute z-10 flex cursor-pointer items-center truncate px-1.5 text-xs font-medium text-white shadow-sm transition-[filter] hover:brightness-90
-								{seg.continuesLeft ? '' : 'rounded-l'}
-								{seg.continuesRight ? '' : 'rounded-r'}"
+							type="button"
+							class="absolute z-10 flex cursor-pointer items-center truncate px-1.5 text-xs font-medium shadow-sm transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring
+								{seg.continuesLeft ? '' : 'rounded-l-md'}
+								{seg.continuesRight ? '' : 'rounded-r-md'}"
 							style="
 								left: calc({seg.startCol} * 100% / 7 + {lPad}px);
 								width: calc({seg.span} * 100% / 7 - {lPad + rPad}px);
 								top: {seg.lane * LANE_HEIGHT + 2}px;
 								height: {LANE_HEIGHT - 2}px;
-								background-color: {getCalendarColor(seg.event.calendar_id)};
+								background-color: {fill};
+								color: {inkOn(fill)};
 							"
 							onclick={() => onEventClick(seg.event)}
 						>
@@ -218,7 +222,7 @@
 
 	<!-- Time grid -->
 		<div class="flex" style="height: {24 * SLOT_HEIGHT}px;">
-			<div class="relative w-12 flex-shrink-0 border-r">
+			<div class="relative w-12 shrink-0 border-r border-border">
 				{#each HOURS as hour}
 					<div
 						class="absolute left-0 right-0 pr-1 text-right text-xs text-muted-foreground"
@@ -230,20 +234,23 @@
 			</div>
 
 			{#each weekDays() as day, di (day.toString())}
-				<div class="relative flex-1 border-r last:border-r-0">
+				<div class="relative flex-1 border-r border-border last:border-r-0">
 					{#each HOURS as hour}
 						<button
-							aria-label={`Creer un evenement a ${hour}h`}
-							class="absolute left-0 right-0 cursor-pointer border-b border-dashed border-border/50 hover:bg-accent/30"
+							type="button"
+							aria-label={`Créer un événement à ${hour}h`}
+							class="absolute right-0 left-0 cursor-pointer border-b border-dashed border-border transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
 							style="top: {hour * SLOT_HEIGHT}px; height: {SLOT_HEIGHT}px;"
 							onclick={() => onSlotClick(day, hour)}
 						></button>
 					{/each}
 
 					{#each eventsForDay(day) as event (event.id)}
+						{@const fill = getCalendarColor(event.calendar_id)}
 						<button
-							class="absolute left-0.5 right-0.5 flex cursor-pointer flex-col items-start overflow-hidden rounded-md px-1.5 py-1 text-left text-xs font-medium leading-tight text-white shadow-sm transition-[filter] hover:brightness-90"
-							style="{getEventStyle(event)} background-color: {getCalendarColor(event.calendar_id)};"
+							type="button"
+							class="absolute right-0.5 left-0.5 flex cursor-pointer flex-col items-start overflow-hidden rounded-md px-1.5 py-1 text-left text-xs leading-tight font-medium shadow-sm transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+							style="{getEventStyle(event)} background-color: {fill}; color: {inkOn(fill)};"
 							onclick={() => onEventClick(event)}
 						>
 							<span class="block w-full truncate font-semibold">{event.title}</span>

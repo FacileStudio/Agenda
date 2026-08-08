@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { type CalendarDate, today, getLocalTimeZone } from '@internationalized/date';
+	import { Badge } from '@facile/muse';
 	import type { AgendaEvent, CalendarItem } from '$lib/backend';
+	import { calendarColor, inkOn } from '$lib/calendar-colors';
 
 	let {
 		events,
@@ -21,7 +23,7 @@
 	const SLOT_HEIGHT = 60; // px per hour
 
 	function getCalendarColor(calendarId: number): string {
-		return calendars.find((c) => c.id === calendarId)?.color ?? '#6b7280';
+		return calendarColor(calendars, calendarId);
 	}
 
 	function isSameDay(dateStr: string, cell: CalendarDate): boolean {
@@ -75,13 +77,15 @@
 <div class="flex h-full flex-col overflow-hidden">
 	<!-- All-day strip -->
 	{#if allDayEvents.length > 0}
-		<div class="flex items-center gap-1 border-b px-4 py-2">
-			<span class="w-12 flex-shrink-0 text-xs text-muted-foreground">Jour</span>
+		<div class="flex items-center gap-1 border-b border-border px-4 py-2">
+			<span class="w-12 shrink-0 text-xs text-muted-foreground">Jour</span>
 			<div class="flex flex-wrap gap-1">
 				{#each allDayEvents as event (event.id)}
+					{@const fill = getCalendarColor(event.calendar_id)}
 					<button
-						class="cursor-pointer truncate rounded px-2 py-0.5 text-xs font-medium text-white transition-[filter] hover:brightness-90"
-						style="background-color: {getCalendarColor(event.calendar_id)}"
+						type="button"
+						class="cursor-pointer truncate rounded-md px-2 py-0.5 text-xs font-medium transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+						style="background-color: {fill}; color: {inkOn(fill)};"
 						onclick={() => onEventClick(event)}
 					>
 						{event.title}
@@ -92,13 +96,13 @@
 	{/if}
 
 	<!-- Day column header -->
-	<div class="flex items-center border-b px-4 py-2">
+	<div class="flex items-center border-b border-border px-4 py-2">
 		<div class="w-12"></div>
-		<div
-			class="flex flex-1 items-center justify-center gap-2 text-sm font-medium
-				{isToday ? 'text-primary' : 'text-foreground'}"
-		>
+		<div class="flex flex-1 items-center justify-center gap-2 text-sm font-medium capitalize text-foreground">
 			{currentDate.toDate(tz).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+			{#if isToday}
+				<Badge tone="accent">Aujourd'hui</Badge>
+			{/if}
 		</div>
 	</div>
 
@@ -108,7 +112,9 @@
 			<!-- Hour rows -->
 			{#each HOURS as hour}
 				<button
-					class="absolute left-0 right-0 cursor-pointer border-b border-dashed border-border/50 hover:bg-accent/30"
+					type="button"
+					aria-label={`Créer un événement à ${hour}h`}
+					class="absolute right-0 left-0 cursor-pointer border-b border-dashed border-border transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
 					style="top: {hour * SLOT_HEIGHT}px; height: {SLOT_HEIGHT}px;"
 					onclick={() => onSlotClick(hour)}
 				>
@@ -123,9 +129,11 @@
 
 			<!-- Events -->
 			{#each dayEvents as event (event.id)}
+				{@const fill = getCalendarColor(event.calendar_id)}
 				<button
-					class="absolute left-14 right-2 flex cursor-pointer flex-col items-start overflow-hidden rounded-md px-1.5 py-1 text-left text-xs font-medium leading-tight text-white shadow-sm transition-[filter] hover:brightness-90"
-					style="{getEventStyle(event)} background-color: {getCalendarColor(event.calendar_id)};"
+					type="button"
+					class="absolute right-2 left-14 flex cursor-pointer flex-col items-start overflow-hidden rounded-md px-1.5 py-1 text-left text-xs leading-tight font-medium shadow-sm transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+					style="{getEventStyle(event)} background-color: {fill}; color: {inkOn(fill)};"
 					onclick={() => onEventClick(event)}
 				>
 					<span class="block w-full truncate font-semibold">{event.title}</span>

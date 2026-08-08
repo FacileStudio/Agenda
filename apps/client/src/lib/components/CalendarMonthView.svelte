@@ -9,6 +9,7 @@
 		endOfWeek
 	} from '@internationalized/date';
 	import type { AgendaEvent, CalendarItem } from '$lib/backend';
+	import { calendarColor, inkOn } from '$lib/calendar-colors';
 
 	let {
 		events,
@@ -40,7 +41,7 @@
 	};
 
 	function getCalendarColor(calendarId: number): string {
-		return calendars.find((c) => c.id === calendarId)?.color ?? '#6b7280';
+		return calendarColor(calendars, calendarId);
 	}
 
 	function toDayStart(d: Date): number {
@@ -176,7 +177,7 @@
 </script>
 
 <div class="flex h-full flex-col">
-	<div class="grid grid-cols-7 border-b">
+	<div class="grid grid-cols-7 border-b border-border">
 		{#each DAY_LABELS as label}
 			<div class="py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
 		{/each}
@@ -186,7 +187,7 @@
 		{#each weeks() as week, wi (wi)}
 			{@const segments = getSpanningSegments(week)}
 			{@const lanes = lanesForWeek(segments)}
-			<div class="relative grid grid-cols-7 border-b last:border-b-0">
+			<div class="relative grid grid-cols-7 border-b border-border last:border-b-0">
 				{#each week as cell, ci (cell.toString())}
 					{@const dayEvts = singleDayEvents(cell)}
 					{@const inMonth = isCurrentMonth(cell)}
@@ -196,7 +197,7 @@
 					<div
 						role="button"
 						tabindex="0"
-						class="group flex flex-col border-r p-1 text-left transition-colors last:border-r-0 hover:bg-accent/50 cursor-pointer
+						class="group flex cursor-pointer flex-col border-r border-border p-1 text-left transition-colors last:border-r-0 hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring
 							{inMonth ? '' : 'opacity-40'}"
 						onclick={() => onDayClick(cell)}
 						onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') onDayClick(cell); }}
@@ -218,9 +219,11 @@
 
 						<div class="flex flex-col gap-0.5 overflow-hidden">
 							{#each dayEvts.slice(0, 3) as event (event.id)}
+								{@const fill = getCalendarColor(event.calendar_id)}
 								<button
-									class="w-full cursor-pointer truncate rounded-md px-1.5 py-0.5 text-left text-xs font-medium text-white transition-[filter] hover:brightness-90"
-									style="background-color: {getCalendarColor(event.calendar_id)}"
+									type="button"
+									class="w-full cursor-pointer truncate rounded-md px-1.5 py-0.5 text-left text-xs font-medium transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+									style="background-color: {fill}; color: {inkOn(fill)};"
 									onclick={(e) => {
 										e.stopPropagation();
 										onEventClick(event);
@@ -243,16 +246,19 @@
 					{#if seg.lane < MAX_VISIBLE_LANES}
 						{@const lPad = seg.continuesLeft ? 0 : 2}
 						{@const rPad = seg.continuesRight ? 0 : 2}
+						{@const fill = getCalendarColor(seg.event.calendar_id)}
 						<button
-							class="absolute z-10 flex cursor-pointer items-center truncate px-1.5 text-xs font-medium text-white shadow-sm transition-[filter] hover:brightness-90
-								{seg.continuesLeft ? '' : 'rounded-l'}
-								{seg.continuesRight ? '' : 'rounded-r'}"
+							type="button"
+							class="absolute z-10 flex cursor-pointer items-center truncate px-1.5 text-xs font-medium shadow-sm transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring
+								{seg.continuesLeft ? '' : 'rounded-l-md'}
+								{seg.continuesRight ? '' : 'rounded-r-md'}"
 							style="
 								left: calc({seg.startCol} * 100% / 7 + {lPad}px);
 								width: calc({seg.span} * 100% / 7 - {lPad + rPad}px);
 								top: {DAY_HEADER_OFFSET + seg.lane * LANE_HEIGHT}px;
 								height: {LANE_HEIGHT - 2}px;
-								background-color: {getCalendarColor(seg.event.calendar_id)};
+								background-color: {fill};
+								color: {inkOn(fill)};
 							"
 							onclick={(e) => {
 								e.stopPropagation();

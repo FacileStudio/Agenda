@@ -1,14 +1,17 @@
 <script lang="ts">
-	import { Dialog as DialogPrimitive } from 'bits-ui';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
-	import { Checkbox } from '$lib/components/ui/checkbox';
-	import * as Select from '$lib/components/ui/select';
-	import * as Popover from '$lib/components/ui/popover';
-	import { Calendar } from '$lib/components/ui/calendar';
-	import { parseDate, type DateValue } from '@internationalized/date';
-	import { cn } from '$lib/utils';
+	import {
+		Alert,
+		Avatar,
+		Button,
+		Checkbox,
+		ConfirmModal,
+		Field,
+		Input,
+		Modal,
+		Select,
+		Textarea,
+		icons
+	} from '@facile/muse';
 	import { resolveFileUrl, type AgendaEvent, type CalendarItem, type CreateEventRequest } from '$lib/backend';
 	import { roomName } from '$lib/room-name';
 
@@ -62,14 +65,15 @@
 		return toLocalInput(d);
 	}
 
-	let title = $state(event?.title ?? '');
-	let description = $state(event?.description ?? '');
-	let location = $state(event?.location ?? '');
-	let isAllDay = $state(event?.is_all_day ?? false);
-	let status = $state(event?.status ?? 'confirmed');
-	let calendarId = $state<number>(event?.calendar_id ?? (calendars[0]?.id ?? 0));
+	let title = $state('');
+	let description = $state('');
+	let location = $state('');
+	let isAllDay = $state(false);
+	let status = $state('confirmed');
+	let calendarId = $state(0);
 	let saving = $state(false);
 	let deleting = $state(false);
+	let confirmDeleteOpen = $state(false);
 	let error = $state('');
 	let conferenceUrl = $state('');
 	let conferenceProvider = $state('');
@@ -78,8 +82,6 @@
 	let startTimeStr = $state('');
 	let endDateStr = $state('');
 	let endTimeStr = $state('');
-	let startPickerOpen = $state(false);
-	let endPickerOpen = $state(false);
 	let durationMs = $state(60 * 60 * 1000);
 
 	$effect(() => {
@@ -93,6 +95,7 @@
 			conferenceUrl = event?.conference_url ?? '';
 			conferenceProvider = event?.conference_provider ?? '';
 			error = '';
+			confirmDeleteOpen = false;
 			const s = splitDT(defaultStart());
 			const e = splitDT(defaultEnd());
 			startDateStr = s.date;
@@ -151,13 +154,7 @@
 		else durationMs = d;
 	}
 
-	function safeParseDate(dateStr: string): DateValue | undefined {
-		try { return parseDate(dateStr); } catch { return undefined; }
-	}
-
-	const startDateVal = $derived(safeParseDate(startDateStr));
-	const endDateVal = $derived(safeParseDate(endDateStr));
-	const selectedCalendar = $derived(calendars.find(c => c.id === calendarId));
+	const selectedCalendar = $derived(calendars.find((c) => c.id === calendarId));
 	const echoAvailable = $derived(!!selectedCalendar?.echo_url);
 
 	function toggleConference() {
@@ -169,17 +166,6 @@
 			conferenceUrl = `${selectedCalendar.echo_url.replace(/\/$/, '')}/${roomName(uid)}`;
 			conferenceProvider = 'Echo';
 		}
-	}
-
-	function formatDisplayDate(dateStr: string): string {
-		if (!dateStr) return 'Choisir une date';
-		const d = new Date(dateStr + 'T12:00');
-		return d.toLocaleDateString('fr-FR', {
-			weekday: 'short',
-			day: 'numeric',
-			month: 'long',
-			year: 'numeric'
-		});
 	}
 
 	async function handleSave() {
@@ -221,303 +207,208 @@
 	}
 
 	async function handleDelete() {
-		if (!confirm('Supprimer cet evenement ?')) return;
 		deleting = true;
 		error = '';
 		try {
 			await onDelete();
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Une erreur est survenue.';
+			throw e;
 		} finally {
 			deleting = false;
 		}
 	}
-
-	function handleOpenChange(val: boolean) {
-		if (!val) onClose();
-	}
 </script>
 
-<DialogPrimitive.Root bind:open onOpenChange={handleOpenChange}>
-	<DialogPrimitive.Portal>
-		<DialogPrimitive.Overlay
-			class="data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 fixed inset-0 z-50 bg-black/40 supports-backdrop-filter:backdrop-blur-xs"
-		/>
-		<DialogPrimitive.Content
-			class={cn(
-				'data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95',
-				'fixed top-1/2 left-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2',
-				'rounded-2xl border bg-background p-6 shadow-xl'
-			)}
-		>
-			<!-- Header -->
-			<div class="mb-4 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">
-					{event ? "Modifier l'evenement" : 'Nouvel evenement'}
-				</h2>
-				<DialogPrimitive.Close
-					class="cursor-pointer rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+<Modal
+	bind:open
+	size="lg"
+	showClose
+	{onClose}
+	title={event ? "Modifier l'evenement" : 'Nouvel evenement'}
+>
+	<div class="flex flex-col gap-4">
+		<Field label="Titre">
+			<Input type="text" placeholder="Titre de l'evenement" bind:value={title} autofocus />
+		</Field>
+
+		<Field label="Calendrier">
+			<div class="flex items-center gap-2">
+				{#if selectedCalendar}
+					<span
+						class="size-2.5 shrink-0 rounded-full"
+						style="background-color: {selectedCalendar.color}"
+					></span>
+				{/if}
+				<Select
+					value={String(calendarId)}
+					onchange={(e) => (calendarId = Number(e.currentTarget.value))}
 				>
-					<iconify-icon icon="solar:close-circle-linear" width="18"></iconify-icon>
-				</DialogPrimitive.Close>
+					{#each calendars as cal (cal.id)}
+						<option value={String(cal.id)}>{cal.name}</option>
+					{/each}
+				</Select>
 			</div>
+		</Field>
 
-			<!-- Form -->
-			<div class="flex flex-col gap-4">
-				<!-- Title -->
-				<div class="flex flex-col gap-1.5">
-					<Label for="event-title">Titre</Label>
+		<Checkbox bind:checked={isAllDay} label="Toute la journee" />
+
+		<Field label="Debut">
+			<div class="flex gap-2">
+				<Input
+					type="date"
+					bind:value={startDateStr}
+					onchange={shiftEndToPreserveDuration}
+					class="flex-1"
+				/>
+				{#if !isAllDay}
 					<Input
-						id="event-title"
-						type="text"
-						placeholder="Titre de l'evenement"
-						bind:value={title}
-						autofocus
+						type="time"
+						aria-label="Heure de debut"
+						bind:value={startTimeStr}
+						onchange={shiftEndToPreserveDuration}
+						class="w-32 shrink-0"
 					/>
-				</div>
-
-				<!-- Calendar -->
-				<div class="flex flex-col gap-1.5">
-					<Label>Calendrier</Label>
-					<Select.Root
-						type="single"
-						value={String(calendarId)}
-						onValueChange={(v: string) => { calendarId = Number(v); }}
-					>
-						<Select.Trigger class="w-full">
-							<span class="flex items-center gap-2">
-								{#if calendars.find(c => c.id === calendarId)}
-									<span
-										class="inline-block size-2.5 rounded-full"
-										style="background-color: {calendars.find(c => c.id === calendarId)?.color}"
-									></span>
-								{/if}
-								{calendars.find((c) => c.id === calendarId)?.name ?? 'Choisir un calendrier'}
-							</span>
-						</Select.Trigger>
-						<Select.Content>
-							{#each calendars as cal (cal.id)}
-								<Select.Item value={String(cal.id)}>
-									<span
-										class="mr-2 inline-block size-2.5 rounded-full"
-										style="background-color: {cal.color}"
-									></span>
-									{cal.name}
-								</Select.Item>
-							{/each}
-						</Select.Content>
-					</Select.Root>
-				</div>
-
-				<!-- All day toggle -->
-				<div class="flex items-center gap-2">
-					<Checkbox id="all-day" bind:checked={isAllDay} />
-					<Label for="all-day">Toute la journee</Label>
-				</div>
-
-				<!-- Start date/time -->
-				<div class="flex flex-col gap-1.5">
-					<Label>Debut</Label>
-					<div class="flex gap-2">
-						<Popover.Root bind:open={startPickerOpen}>
-							<Popover.Trigger class="flex-1">
-								<Button
-									variant="outline"
-									class="w-full cursor-pointer justify-start gap-2 text-left font-normal"
-								>
-									<iconify-icon icon="solar:calendar-linear" width="16" class="text-muted-foreground shrink-0"></iconify-icon>
-									<span class="truncate">{formatDisplayDate(startDateStr)}</span>
-								</Button>
-							</Popover.Trigger>
-							<Popover.Content class="w-auto p-0" align="start">
-								<Calendar
-									type="single"
-									value={startDateVal}
-									locale="fr-FR"
-									captionLayout="dropdown"
-									onValueChange={(v: import('@internationalized/date').DateValue | undefined) => {
-										if (v) { startDateStr = v.toString(); startPickerOpen = false; shiftEndToPreserveDuration(); }
-									}}
-								/>
-							</Popover.Content>
-						</Popover.Root>
-						{#if !isAllDay}
-							<Input
-								type="time"
-								bind:value={startTimeStr}
-								onchange={shiftEndToPreserveDuration}
-								class="w-28 cursor-pointer"
-							/>
-						{/if}
-					</div>
-				</div>
-
-				<!-- End date/time -->
-				<div class="flex flex-col gap-1.5">
-					<Label>Fin</Label>
-					<div class="flex gap-2">
-						<Popover.Root bind:open={endPickerOpen}>
-							<Popover.Trigger class="flex-1">
-								<Button
-									variant="outline"
-									class="w-full cursor-pointer justify-start gap-2 text-left font-normal"
-								>
-									<iconify-icon icon="solar:calendar-linear" width="16" class="text-muted-foreground shrink-0"></iconify-icon>
-									<span class="truncate">{formatDisplayDate(endDateStr)}</span>
-								</Button>
-							</Popover.Trigger>
-							<Popover.Content class="w-auto p-0" align="start">
-								<Calendar
-									type="single"
-									value={endDateVal}
-									locale="fr-FR"
-									captionLayout="dropdown"
-									onValueChange={(v: import('@internationalized/date').DateValue | undefined) => {
-										if (v) { endDateStr = v.toString(); endPickerOpen = false; rememberDurationFromEnd(); }
-									}}
-								/>
-							</Popover.Content>
-						</Popover.Root>
-						{#if !isAllDay}
-							<Input
-								type="time"
-								bind:value={endTimeStr}
-								onchange={rememberDurationFromEnd}
-								class="w-28 cursor-pointer"
-							/>
-						{/if}
-					</div>
-				</div>
-
-				<!-- Location -->
-				<div class="flex flex-col gap-1.5">
-					<Label for="location">
-						<span class="flex items-center gap-1.5">
-							<iconify-icon icon="solar:map-point-linear" width="14" class="text-muted-foreground"></iconify-icon>
-							Lieu
-						</span>
-					</Label>
-					<Input
-						id="location"
-						type="text"
-						placeholder="Lieu (optionnel)"
-						bind:value={location}
-					/>
-				</div>
-
-				{#if echoAvailable || conferenceUrl}
-					<div class="flex flex-col gap-1.5">
-						<Label>
-							<span class="flex items-center gap-1.5">
-								<iconify-icon icon="solar:videocamera-record-bold-duotone" width="14" class="text-muted-foreground"></iconify-icon>
-								Visioconference
-							</span>
-						</Label>
-						{#if conferenceUrl}
-							<div class="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
-								<iconify-icon icon="solar:videocamera-record-bold-duotone" width="18" class="shrink-0 text-primary"></iconify-icon>
-								<a href={conferenceUrl} target="_blank" rel="noopener" class="min-w-0 flex-1 truncate text-sm text-primary underline underline-offset-2">
-									{conferenceUrl}
-								</a>
-								<button
-									type="button"
-									onclick={toggleConference}
-									class="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
-									title="Retirer la visioconference"
-								>
-									<iconify-icon icon="solar:close-circle-linear" width="16"></iconify-icon>
-								</button>
-							</div>
-						{:else}
-							<Button variant="outline" onclick={toggleConference} class="w-full cursor-pointer justify-start gap-2">
-								<iconify-icon icon="solar:videocamera-record-bold-duotone" width="16"></iconify-icon>
-								Ajouter une visio Echo
-							</Button>
-						{/if}
-					</div>
-				{/if}
-
-				<!-- Description -->
-				<div class="flex flex-col gap-1.5">
-					<Label for="description">Description</Label>
-					<textarea
-						id="description"
-						class="border-input dark:bg-input/30 focus-visible:border-ring focus-visible:ring-ring/50 min-h-20 w-full rounded-lg border bg-transparent px-2.5 py-1.5 text-sm outline-none transition-colors focus-visible:ring-3 disabled:opacity-50"
-						placeholder="Description (optionnelle)"
-						bind:value={description}
-						rows="3"
-					></textarea>
-				</div>
-
-				<!-- Status -->
-				<div class="flex flex-col gap-1.5">
-					<Label>Statut</Label>
-					<Select.Root
-						type="single"
-						value={status}
-						onValueChange={(v: string) => { status = v; }}
-					>
-						<Select.Trigger class="w-full">
-							{status === 'confirmed' ? 'Confirme' : status === 'tentative' ? 'Provisoire' : 'Annule'}
-						</Select.Trigger>
-						<Select.Content>
-							<Select.Item value="confirmed">Confirme</Select.Item>
-							<Select.Item value="tentative">Provisoire</Select.Item>
-							<Select.Item value="cancelled">Annule</Select.Item>
-						</Select.Content>
-					</Select.Root>
-				</div>
-
-				<!-- Created by (useful for shared calendars) -->
-				{#if event?.created_by}
-					{@const creator = event.created_by}
-					<div class="flex items-center gap-2 border-t border-border pt-3 text-sm text-muted-foreground">
-						{#if creator.avatar_url}
-							<img
-								src={resolveFileUrl(creator.avatar_url)}
-								alt={creator.name || creator.email}
-								class="size-6 shrink-0 rounded-full border border-border object-cover"
-							/>
-						{:else}
-							<span class="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-[10px] font-semibold">
-								{(creator.name || creator.email || '?').trim().slice(0, 2).toUpperCase()}
-							</span>
-						{/if}
-						<span>Cree par <span class="font-medium text-foreground">{creator.name || creator.email}</span></span>
-					</div>
-				{/if}
-
-				<!-- Error -->
-				{#if error}
-					<p class="text-sm text-destructive">{error}</p>
 				{/if}
 			</div>
+		</Field>
 
-			<!-- Footer -->
-			<div class="mt-6 flex items-center justify-between gap-2">
-				<div>
-					{#if event}
-						<Button
-							variant="destructive"
-							onclick={handleDelete}
-							disabled={deleting || saving}
-							class="gap-2"
+		<Field label="Fin">
+			<div class="flex gap-2">
+				<Input
+					type="date"
+					bind:value={endDateStr}
+					onchange={rememberDurationFromEnd}
+					class="flex-1"
+				/>
+				{#if !isAllDay}
+					<Input
+						type="time"
+						aria-label="Heure de fin"
+						bind:value={endTimeStr}
+						onchange={rememberDurationFromEnd}
+						class="w-32 shrink-0"
+					/>
+				{/if}
+			</div>
+		</Field>
+
+		<Field label="Lieu">
+			<Input type="text" placeholder="Lieu (optionnel)" bind:value={location} />
+		</Field>
+
+		{#if echoAvailable || conferenceUrl}
+			<div class="flex flex-col gap-1.5">
+				<span class="text-fc-sm text-fc-fg">Visioconference</span>
+				{#if conferenceUrl}
+					<div class="flex items-center gap-2 rounded-fc-md bg-fc-surface px-3 py-2">
+						<iconify-icon
+							icon="solar:videocamera-record-linear"
+							width="18"
+							height="18"
+							class="block size-4.5 shrink-0 text-fc-fg-muted"
+						></iconify-icon>
+						<a
+							href={conferenceUrl}
+							target="_blank"
+							rel="noopener"
+							class="min-w-0 flex-1 truncate text-fc-sm text-fc-fg underline underline-offset-2"
 						>
-							<iconify-icon icon="solar:trash-bin-2-linear" width="16"></iconify-icon>
-							{deleting ? 'Suppression…' : 'Supprimer'}
-						</Button>
-					{/if}
-				</div>
-				<div class="flex gap-2">
-					<Button variant="outline" onclick={onClose} disabled={saving || deleting} class="cursor-pointer gap-2">
-						Annuler
+							{conferenceUrl}
+						</a>
+						<Button
+							variant="ghost"
+							size="sm"
+							icon={icons.close}
+							aria-label="Retirer la visioconference"
+							onclick={toggleConference}
+						/>
+					</div>
+				{:else}
+					<Button
+						variant="outline"
+						icon="solar:videocamera-record-linear"
+						class="w-full justify-start"
+						onclick={toggleConference}
+					>
+						Ajouter une visio Echo
 					</Button>
-					<Button onclick={handleSave} disabled={saving || deleting} class="cursor-pointer gap-2">
-						<iconify-icon icon="solar:check-circle-linear" width="16"></iconify-icon>
-						{saving ? 'Enregistrement…' : 'Enregistrer'}
-					</Button>
-				</div>
+				{/if}
 			</div>
-		</DialogPrimitive.Content>
-	</DialogPrimitive.Portal>
-</DialogPrimitive.Root>
+		{/if}
+
+		<Field label="Description">
+			<Textarea placeholder="Description (optionnelle)" bind:value={description} rows={3} />
+		</Field>
+
+		<Field label="Statut">
+			<Select bind:value={status}>
+				<option value="confirmed">Confirme</option>
+				<option value="tentative">Provisoire</option>
+				<option value="cancelled">Annule</option>
+			</Select>
+		</Field>
+
+		{#if event?.created_by}
+			{@const creator = event.created_by}
+			<div class="flex items-center gap-2 border-t border-fc-border pt-3 text-fc-sm text-fc-fg-muted">
+				<Avatar
+					size="sm"
+					class="size-6 text-fc-xs"
+					src={creator.avatar_url ? resolveFileUrl(creator.avatar_url) : undefined}
+					name={creator.name || creator.email}
+				/>
+				<span>Cree par <span class="font-medium text-fc-fg">{creator.name || creator.email}</span></span>
+			</div>
+		{/if}
+
+		{#if error}
+			<Alert tone="danger">{error}</Alert>
+		{/if}
+	</div>
+
+	{#snippet footer()}
+		<div class="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+			{#if event}
+				<Button
+					variant="danger"
+					icon={icons.remove}
+					class="w-full sm:w-auto"
+					onclick={() => (confirmDeleteOpen = true)}
+					disabled={deleting || saving}
+				>
+					{deleting ? 'Suppression…' : 'Supprimer'}
+				</Button>
+			{:else}
+				<span class="hidden sm:block"></span>
+			{/if}
+			<div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+				<Button
+					variant="outline"
+					class="w-full sm:w-auto"
+					onclick={() => (open = false)}
+					disabled={saving || deleting}
+				>
+					Annuler
+				</Button>
+				<Button
+					icon={icons.check}
+					class="w-full sm:w-auto"
+					onclick={handleSave}
+					disabled={saving || deleting}
+				>
+					{saving ? 'Enregistrement…' : 'Enregistrer'}
+				</Button>
+			</div>
+		</div>
+	{/snippet}
+</Modal>
+
+<ConfirmModal
+	bind:open={confirmDeleteOpen}
+	tone="danger"
+	title="Supprimer cet evenement ?"
+	description={`« ${title || 'Cet evenement'} » disparaitra de ce calendrier pour tout le monde, et des clients CalDAV deja synchronises. Cette action est irreversible.`}
+	confirmLabel="Supprimer"
+	onConfirm={handleDelete}
+/>
