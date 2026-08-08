@@ -10,40 +10,75 @@ in this repo you must not regenerate blindly.
 | Go | 1.24 | `apps/api/go.mod` declares `go 1.24.0`; `mise.toml` pins `go = "1.24"` |
 | Bun | any recent | Client package manager and dev server |
 | Docker | any recent | Postgres 16 for local development |
+| casier | any recent | The development configuration. `curl -fsSL https://raw.githubusercontent.com/FacileStudio/casier-cli/main/install.sh \| bash`, then `casier login` |
 | mise | optional | Runs the tasks below; each is a one-line shell command you can run by hand |
 
 ## Setup
 
 ```sh
+casier login
 mise run hooks
 mise run install
-docker compose up db -d
+mise run db
 ```
 
-`mise run hooks` points `core.hooksPath` at `.githooks`, which wires up the pre-push
-quality gate. `mise run install` runs `bun install --frozen-lockfile` in `apps/client`.
+`casier login` opens a browser for the SSO round trip and stores the token in the keychain;
+Casier is `SSO_ONLY`, so there is no password path and no token to paste. `mise run hooks`
+points `core.hooksPath` at `.githooks`, which wires up the pre-push quality gate.
+`mise run install` runs `bun install --frozen-lockfile` in `apps/client`.
 
-The `db` service takes `DB_USER` and `DB_PASSWORD` from your `.env`, so copy
-`.env.example` first even for a database-only start.
+`mise run db` is `casier run -- docker compose -f docker-compose.yml -f
+docker-compose.dev.yml up db -d`. Two things are going on there: the `db` service takes
+`POSTGRES_USER`/`POSTGRES_PASSWORD` from `DB_USER`/`DB_PASSWORD`, which live in Casier now
+rather than in a `.env`, and the dev overlay is what publishes a host port — the production
+compose deliberately publishes none. The overlay maps **5442**, not 5432, so it cannot
+collide with a system Postgres or another Facile app's.
 
 ## Running
 
 The API takes configuration from the process environment — **there is no `.env` loading in
-the Go code** and there is no `apps/api/.env.example`. Export what you need:
+the Go code** and there is no `apps/api/.env.example`. That is exactly the shape
+[Casier](https://casier.facile.studio) fits, so it is where this repo's environment lives:
+
+```sh
+mise run dev
+```
+
+`.casier.toml` pins the repo to the `agenda` project, `dev` environment, so `casier run`
+injects the variables straight into the process. It is network-first with a last-known-good
+cache, so a Casier outage degrades to the previous values with a warning rather than to an
+empty environment — `mise run dev-offline` forces the cached path. `mise run secrets` lists
+what is stored, and `mise run check-secrets` (`casier check .env.example`) exits 1 if Casier
+is missing a key the example declares.
+
+The `dev` environment carries both the `DB_*` parts and a `DATABASE_URL`, which looks
+redundant and is not. The `DB_*` values are what `docker-compose.yml` feeds to Postgres, so
+one set configures both sides; `resolveDatabaseURL`, meanwhile, short-circuits on
+`DATABASE_URL`. Storing it too is what stops an unrelated `DATABASE_URL` left in your shell
+— a shell-env manager exports one — from silently winning over Casier and pointing the API
+at a database that is not this one. Both spellings describe the same server,
+`agenda:agenda@localhost:5442/agenda`; change one and change the other.
+
+Change a value with `casier secrets set -p agenda -e dev KEY value`, or push a whole file
+with `casier sync push -p agenda -e dev -f .env`.
+
+Without Casier, export what you need by hand:
 
 ```sh
 cd apps/api
-DB_USER=agenda DB_PASSWORD=change-me DB_HOST=localhost \
+DB_USER=agenda DB_PASSWORD=agenda DB_HOST=localhost DB_PORT=5442 \
   CORS_ALLOWED_ORIGINS=http://localhost:5173 go run .
 ```
 
 The client, in another terminal:
 
 ```sh
-cd apps/client
-cp .env.example .env
-bun run dev
+mise run client
 ```
+
+The client is the half of this repo that *does* read a `.env` — `apps/client/.env.example`
+is real, and `VITE_API_BASE_URL` is read by Vite at build time, not by the Go binary, so it
+stays on disk rather than moving into Casier.
 
 The API listens on `:4000` and the client on `:5173`. There is no Vite proxy here: the
 client calls the API cross-origin at `VITE_API_BASE_URL`, which is why the API needs the
@@ -57,6 +92,12 @@ migration tool and no migration files.
 
 | Task | Command | What it does |
 |---|---|---|
+| `mise run dev` | `casier run -- …go run .` | API with the `dev` environment injected from Casier |
+| `mise run dev-offline` | `casier run --offline -- …` | Same, from the cached secrets only |
+| `mise run client` | `bun run dev` in `apps/client` | Client dev server on `:5173` |
+| `mise run db` | `casier run -- docker compose … up db -d` | Postgres on `:5442`, credentials from Casier |
+| `mise run secrets` | `casier secrets list -p agenda -e dev` | What Casier holds for this project |
+| `mise run check-secrets` | `casier check .env.example` | Exit 1 if Casier lacks a key `.env.example` declares |
 | `mise run install` | `bun install --frozen-lockfile` in `apps/client` | Client dependencies |
 | `mise run check` | `sh ./scripts/check.sh` | The full quality gate: Go, then the client |
 | `mise run check-go` | `sh ./scripts/check.sh --go-only` | Go half only |

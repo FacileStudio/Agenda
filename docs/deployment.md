@@ -104,9 +104,27 @@ Agenda runs on la ruche behind the Dokploy panel at `gare.facile.studio`. Prefer
 dokploy compose --help
 ```
 
-Environment values are set in the Dokploy project, not committed. `.env.example` is the
-template — at minimum `DB_USER` and `DB_PASSWORD`, plus `ENCRYPTION_KEY` if you want OIDC
-tokens encrypted at rest.
+Environment values are not committed. **Casier is the source of truth** — the `prod`
+environment of the `agenda` project mirrors exactly what the compose service receives, and
+that environment is protected, so only an owner or admin can write to it:
+
+```sh
+casier secrets list -p agenda -e prod
+casier push dokploy -p agenda -e prod Jlzb04bePzCOydtIa301c
+```
+
+`casier push dokploy` replaces the compose's environment wholesale with what Casier holds,
+so edit Casier and push — do not edit the panel and let the two drift. It needs `DOKPLOY_URL`
+and `DOKPLOY_API_KEY`. At minimum the set carries `DB_USER` and `DB_PASSWORD`, plus
+`ENCRYPTION_KEY` if you want OIDC tokens encrypted at rest.
+
+### Log shipping
+
+`JOURNAL_URL` and `JOURNAL_TOKEN` wire the slog handler to
+[Journal](https://journal.facile.studio); logs ship only when both are set. On la ruche the
+internal URL is `http://journal-api:4010/api` — **the `/api` suffix is load-bearing.** The
+SDK appends `/ingest`, and Journal moved its routes under `/api`, so the suffixless form
+that several apps shipped for a while posted into a 404 and dropped every line silently.
 
 ## Migrations
 

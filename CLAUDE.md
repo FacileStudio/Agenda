@@ -44,14 +44,25 @@ apps/
 
 ## Commands
 
+```sh
+mise run db                 # Postgres on :5442, credentials injected from Casier
+mise run dev                # API on :4000, secrets injected from Casier
+mise run dev-offline        # the same, from casier's last-known-good cache
+mise run client             # client dev server on :5173
+mise run secrets            # what Casier holds for agenda/dev
+mise run check-secrets      # casier check .env.example
+mise run check              # the quality gate (scripts/check.sh)
+```
+
 ### API (`apps/api/`)
 
 ```sh
-cp .env.example .env
-go run .                    # Dev server on :4000
 go build -mod=vendor -o bin/api .
 go mod vendor               # After changing dependencies
 ```
+
+`go run .` by hand needs the environment exported by hand — the Go code never calls
+`godotenv.Load()` and there is no `apps/api/.env.example`. Prefer `mise run dev`.
 
 ### Client (`apps/client/`)
 
@@ -67,7 +78,6 @@ bun run check
 ```sh
 cp .env.example .env
 docker compose up --build
-docker compose up db -d     # Just PostgreSQL for local dev
 ```
 
 ## CalDAV

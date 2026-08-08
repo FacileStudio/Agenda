@@ -1,6 +1,38 @@
 [tools]
 go = "1.25"
 
+# The API reads its configuration from the process environment, so Casier can
+# supply it directly and no .env has to exist. `casier run` is network-first
+# with a last-known-good cache, so a Casier outage degrades to the previous
+# values with a warning rather than to an empty environment.
+[tasks.dev]
+description = "Run the API with secrets injected from Casier"
+run = "casier run -- sh -c 'cd apps/api && go run .'"
+
+[tasks.dev-offline]
+description = "Run the API from the cached secrets, without contacting Casier"
+run = "casier run --offline -- sh -c 'cd apps/api && go run .'"
+
+[tasks.client]
+description = "Run the client dev server"
+run = "cd apps/client && bun run dev"
+
+# The `db` service takes POSTGRES_USER/POSTGRES_PASSWORD from DB_USER/DB_PASSWORD,
+# which now live in Casier rather than in a .env, so compose is wrapped too. The
+# dev overlay is what publishes a host port: the production compose deliberately
+# publishes none, and the API runs on the host here.
+[tasks.db]
+description = "Start the local Postgres with credentials injected from Casier"
+run = "casier run -- docker compose -f docker-compose.yml -f docker-compose.dev.yml up db -d"
+
+[tasks.secrets]
+description = "List the secrets Casier holds for this project"
+run = "casier secrets list -p agenda -e dev"
+
+[tasks.check-secrets]
+description = "Fail if Casier is missing any key .env.example declares"
+run = "casier check .env.example"
+
 [tasks.install]
 description = "Install client dependencies"
 run = 'cd apps/client && bun install --frozen-lockfile'
