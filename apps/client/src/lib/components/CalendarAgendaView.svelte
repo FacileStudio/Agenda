@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { EmptyState, icons } from '@facile/muse';
 	import type { AgendaEvent, CalendarItem } from '$lib/backend';
+	import { calendarColor } from '$lib/calendar-colors';
 
 	let {
 		events,
@@ -12,7 +14,7 @@
 	} = $props();
 
 	function getCalendarColor(calendarId: number): string {
-		return calendars.find((c) => c.id === calendarId)?.color ?? '#6b7280';
+		return calendarColor(calendars, calendarId);
 	}
 
 	function formatTime(dateStr: string): string {
@@ -54,32 +56,38 @@
 
 <div class="flex h-full flex-col overflow-y-auto">
 	{#if grouped().length === 0}
-		<div class="flex h-full items-center justify-center text-sm text-muted-foreground">
-			Aucun evenement a afficher
+		<div class="flex h-full items-center justify-center p-4">
+			<EmptyState
+				bare
+				icon={icons.calendar}
+				title="Aucun événement à afficher"
+				description="Cliquez sur un créneau pour en créer un."
+			/>
 		</div>
 	{:else}
 		{#each grouped() as group (group.key)}
-			<div class="border-b last:border-b-0">
-				<div class="sticky top-0 z-10 border-b bg-background px-4 py-2">
+			<div class="border-b border-border last:border-b-0">
+				<div class="sticky top-0 z-10 border-b border-border bg-background px-4 py-2">
 					<span class="text-sm font-medium capitalize text-foreground">
 						{formatDate(group.date)}
 					</span>
 				</div>
-				<div class="divide-y">
+				<div class="divide-y divide-border">
 					{#each group.events as event (event.id)}
 						<button
-							class="flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent"
+							type="button"
+							class="flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
 							onclick={() => onEventClick(event)}
 						>
 							<span
-								class="mt-1 size-2.5 flex-shrink-0 rounded-full"
+								class="mt-1 size-2.5 shrink-0 rounded-full"
 								style="background-color: {getCalendarColor(event.calendar_id)}"
 							></span>
 							<div class="min-w-0 flex-1">
-								<p class="truncate text-sm font-medium">{event.title}</p>
+								<p class="truncate text-sm font-medium text-foreground">{event.title}</p>
 								<p class="text-xs text-muted-foreground">
 									{#if event.is_all_day}
-										Toute la journee
+										Toute la journée
 									{:else}
 										{formatTime(event.start_at)} – {formatTime(event.end_at)}
 									{/if}

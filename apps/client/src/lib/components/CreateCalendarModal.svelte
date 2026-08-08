@@ -1,10 +1,6 @@
 <script lang="ts">
-	import { Dialog as DialogPrimitive } from 'bits-ui';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
+	import { Alert, Button, ColorPicker, Field, Input, Modal, icons } from '@facile/muse';
 	import { backend } from '$lib/backend';
-	import { cn } from '$lib/utils';
 	import { spaceId } from '$lib/space-context.svelte';
 
 	let {
@@ -51,84 +47,45 @@
 			saving = false;
 		}
 	}
-
-	function handleOpenChange(val: boolean) {
-		if (!val) onClose();
-	}
 </script>
 
-<DialogPrimitive.Root bind:open onOpenChange={handleOpenChange}>
-	<DialogPrimitive.Portal>
-		<DialogPrimitive.Overlay
-			class="data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 fixed inset-0 z-50 bg-black/40 supports-backdrop-filter:backdrop-blur-xs"
-		/>
-		<DialogPrimitive.Content
-			class={cn(
-				'data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95',
-				'fixed top-1/2 left-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2',
-				'rounded-2xl border bg-background p-6 shadow-xl'
-			)}
-		>
-			<div class="mb-5 flex items-center justify-between">
-				<h2 class="text-lg font-semibold">Nouveau calendrier</h2>
-				<DialogPrimitive.Close
-					class="cursor-pointer rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-				>
-					<iconify-icon icon="solar:close-circle-linear" width="18"></iconify-icon>
-				</DialogPrimitive.Close>
-			</div>
+<Modal bind:open title="Nouveau calendrier" showClose {onClose}>
+	<div class="flex flex-col gap-4">
+		<Field label="Nom">
+			<Input bind:value={name} placeholder="Mon calendrier" autofocus />
+		</Field>
 
-			<div class="flex flex-col gap-4">
-				<div class="flex flex-col gap-1.5">
-					<Label for="cal-name">Nom</Label>
-					<Input id="cal-name" bind:value={name} placeholder="Mon calendrier" autofocus />
-				</div>
+		<div class="flex flex-col gap-1.5">
+			<span class="text-fc-sm text-fc-fg">Couleur</span>
+			<ColorPicker bind:value={color} colors={COLORS} label="Couleur du calendrier" />
+		</div>
 
-				<div class="flex flex-col gap-1.5">
-					<Label>Couleur</Label>
-					<div class="flex items-center gap-2 flex-wrap">
-						{#each COLORS as c}
-							<button
-								type="button"
-								onclick={() => (color = c)}
-								class={cn(
-									'size-7 cursor-pointer rounded-full border-2 transition-transform hover:scale-105',
-									color === c ? 'border-foreground scale-110' : 'border-transparent'
-								)}
-								style="background-color: {c}"
-							></button>
-						{/each}
-					</div>
-				</div>
+		<Field label="Description">
+			<Input bind:value={description} placeholder="Description (optionnelle)" />
+		</Field>
 
-				<div class="flex flex-col gap-1.5">
-					<Label for="cal-desc">Description</Label>
-					<Input id="cal-desc" bind:value={description} placeholder="Description (optionnelle)" />
-				</div>
+		<Field label="Echo (visioconférence)" helper="URL de l'instance Echo pour ce calendrier">
+			<Input bind:value={echoUrl} placeholder="https://echo.facile.studio" />
+		</Field>
 
-				<div class="flex flex-col gap-1.5">
-					<Label for="cal-echo-url">
-						<span class="flex items-center gap-1.5">
-							<iconify-icon icon="solar:videocamera-record-bold-duotone" width="14" class="text-muted-foreground"></iconify-icon>
-							Echo (visioconference)
-						</span>
-					</Label>
-					<Input id="cal-echo-url" bind:value={echoUrl} placeholder="https://echo.facile.studio" />
-					<p class="text-xs text-muted-foreground">URL de l'instance Echo pour ce calendrier</p>
-				</div>
+		{#if error}
+			<Alert tone="danger">{error}</Alert>
+		{/if}
+	</div>
 
-				{#if error}
-					<p class="text-sm text-destructive">{error}</p>
-				{/if}
-			</div>
-
-			<div class="mt-6 flex justify-end gap-2">
-				<Button variant="outline" onclick={onClose} disabled={saving}>Annuler</Button>
-				<Button onclick={handleCreate} disabled={saving} class="gap-2">
-					<iconify-icon icon="mdi:plus" width="16"></iconify-icon>
-					{saving ? 'Creation…' : 'Creer'}
-				</Button>
-			</div>
-		</DialogPrimitive.Content>
-	</DialogPrimitive.Portal>
-</DialogPrimitive.Root>
+	{#snippet footer()}
+		<div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+			<Button variant="outline" class="w-full sm:w-auto" onclick={() => (open = false)} disabled={saving}>
+				Annuler
+			</Button>
+			<Button
+				class="w-full sm:w-auto"
+				icon={icons.plus}
+				onclick={handleCreate}
+				disabled={saving}
+			>
+				{saving ? 'Création…' : 'Créer'}
+			</Button>
+		</div>
+	{/snippet}
+</Modal>

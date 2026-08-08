@@ -9,8 +9,8 @@
 		startOfWeek,
 		endOfWeek
 	} from '@internationalized/date';
+	import { Button, IconButton, Spinner, icons } from '@facile/muse';
 	import { backend, type CalendarItem, type AgendaEvent, type CreateEventRequest } from '$lib/backend';
-	import { Button } from '$lib/components/ui/button';
 	import CalendarMonthView from '$lib/components/CalendarMonthView.svelte';
 	import CalendarWeekView from '$lib/components/CalendarWeekView.svelte';
 	import CalendarDayView from '$lib/components/CalendarDayView.svelte';
@@ -159,7 +159,7 @@
 
 	const viewItems: { id: ViewType; label: string; icon: string }[] = [
 		{ id: 'month', label: 'Mois', icon: 'solar:calendar-minimalistic-linear' },
-		{ id: 'week', label: 'Semaine', icon: 'solar:calendar-linear' },
+		{ id: 'week', label: 'Semaine', icon: icons.calendar },
 		{ id: 'day', label: 'Jour', icon: 'solar:calendar-date-linear' },
 		{ id: 'agenda', label: 'Agenda', icon: 'solar:list-linear' }
 	];
@@ -167,49 +167,49 @@
 
 <div class="flex h-full flex-col">
 	<!-- Top bar -->
-	<div class="flex h-16 flex-shrink-0 items-center gap-2 border-b px-3 sm:gap-3 sm:px-5">
+	<div class="flex h-16 shrink-0 items-center gap-2 border-b border-border px-3 sm:gap-3 sm:px-5">
 		<!-- Left: today + navigation + period title -->
 		<div class="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
 			<Button
 				variant="outline"
 				size="lg"
-				class="hidden cursor-pointer gap-1.5 sm:inline-flex"
+				icon="solar:calendar-minimalistic-linear"
+				class="hidden sm:inline-flex"
 				onclick={goToday}
 			>
-				<iconify-icon icon="solar:calendar-minimalistic-linear" width="16"></iconify-icon>
 				Aujourd'hui
 			</Button>
-			<Button
-				variant="outline"
-				size="icon-lg"
-				class="cursor-pointer sm:hidden"
-				onclick={goToday}
-				aria-label="Aujourd'hui"
-			>
-				<iconify-icon icon="solar:calendar-minimalistic-linear" width="18"></iconify-icon>
-			</Button>
+			<IconButton class="sm:hidden" onclick={goToday} aria-label="Aujourd'hui">
+				<iconify-icon
+					icon="solar:calendar-minimalistic-linear"
+					width="18"
+					height="18"
+					class="block size-4.5"
+				></iconify-icon>
+			</IconButton>
 
-			<div class="flex items-center gap-0.5">
-				<Button variant="ghost" size="icon-lg" class="cursor-pointer" onclick={() => navigate(-1)} aria-label="Précédent">
-					<iconify-icon icon="solar:alt-arrow-left-linear" width="20"></iconify-icon>
-				</Button>
-				<Button variant="ghost" size="icon-lg" class="cursor-pointer" onclick={() => navigate(1)} aria-label="Suivant">
-					<iconify-icon icon="solar:alt-arrow-right-linear" width="20"></iconify-icon>
-				</Button>
+			<div class="flex items-center">
+				<IconButton variant="ghost" onclick={() => navigate(-1)} aria-label="Précédent">
+					<iconify-icon icon={icons.chevronLeft} width="20" height="20" class="block size-5"
+					></iconify-icon>
+				</IconButton>
+				<IconButton variant="ghost" onclick={() => navigate(1)} aria-label="Suivant">
+					<iconify-icon icon={icons.arrow} width="20" height="20" class="block size-5"></iconify-icon>
+				</IconButton>
 			</div>
 
-			<h1 class="min-w-0 truncate text-lg font-semibold capitalize tracking-tight text-foreground sm:text-xl">
+			<h1 class="min-w-0 truncate text-fc-lg font-semibold capitalize text-foreground sm:text-fc-xl">
 				{periodTitle()}
 			</h1>
 
 			{#if loading}
-				<iconify-icon icon="solar:refresh-linear" width="16" class="shrink-0 animate-spin text-muted-foreground" aria-label="Chargement"></iconify-icon>
+				<Spinner size="sm" class="shrink-0" label="Chargement" />
 			{/if}
 		</div>
 
 		<!-- Right: view switcher + new event -->
 		<div class="flex shrink-0 items-center gap-2 sm:gap-3">
-			<div class="flex items-center gap-0.5 rounded-xl bg-muted p-1">
+			<div class="flex min-w-0 items-center gap-1 rounded-fc-pill bg-muted p-1">
 				{#each viewItems as item}
 					{@const active = view === item.id}
 					<button
@@ -217,18 +217,23 @@
 						onclick={() => (view = item.id)}
 						aria-pressed={active}
 						aria-label={item.label}
-						class="flex h-8 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring {active
-							? 'bg-background text-foreground shadow-sm'
+						class="flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-fc-pill px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring {active
+							? 'bg-primary text-primary-foreground'
 							: 'text-muted-foreground hover:text-foreground'}"
 					>
-						<iconify-icon icon={item.icon} width="16"></iconify-icon>
+						<iconify-icon icon={item.icon} width="16" height="16" class="block size-4 shrink-0"
+						></iconify-icon>
 						<span class="hidden md:inline">{item.label}</span>
 					</button>
 				{/each}
 			</div>
 
-			<Button onclick={() => openCreateModal()} size="lg" class="cursor-pointer gap-1.5">
-				<iconify-icon icon="mdi:plus" width="18"></iconify-icon>
+			<Button
+				onclick={() => openCreateModal()}
+				size="lg"
+				icon={icons.plus}
+				aria-label="Nouvel événement"
+			>
 				<span class="hidden sm:inline">Nouveau</span>
 			</Button>
 		</div>
