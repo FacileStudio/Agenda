@@ -33,8 +33,10 @@
 		"vite": "^7.3.1"
 	},
 	"dependencies": {
+		"@facile/muse": "github:FacileStudio/muse#v0.5.0",
 		"@iconify-json/solar": "^1.2.5",
 		"class-variance-authority": "^0.7.1",
+		"iconify-icon": "^3.0.2",
 		"lucide-svelte": "^1.0.1",
 		"svelte-sonner": "^1.1.1"
 	}
