@@ -288,8 +288,8 @@
 	{#if issuedToken}
 		<div class="flex flex-col gap-4">
 			<Alert tone="warning" title="Copiez-le maintenant">
-				Ce token ne sera plus jamais affiché. Agenda n’en conserve qu’un hash : ferme ce tiroir,
-				il est irrécupérable et il faudra en générer un autre.
+				Ce token ne sera plus jamais affiché. Agenda n’en conserve qu’un hash : une fois ce
+				tiroir fermé, il est irrécupérable et il faudra en générer un autre.
 			</Alert>
 			<SecretField
 				value={issuedToken}
