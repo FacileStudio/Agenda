@@ -40,27 +40,22 @@ docker compose up -d --build
 
 ### Local development
 
-Start Postgres, then the API and the client in separate terminals.
-
 ```sh
-mise run install
-docker compose up db -d
+mise run install    # client dependencies
+mise run db         # Postgres, credentials injected from Casier
+mise run dev        # the API on :4000, with secrets injected from Casier
+mise run client     # the client dev server on :5173
 ```
 
-```sh
-cd apps/api
-DB_USER=agenda DB_PASSWORD=change-me DB_HOST=localhost go run .
-```
+Configuration for the developer loop comes from [Casier](https://casier.facile.studio);
+`.casier.toml` pins this repo to the `agenda` project and its `dev` environment. The API
+never reads a `.env` file — there is no `godotenv` call in `env.Load`, so it takes
+configuration from the process environment only, which is exactly what `casier run`
+supplies. `mise run dev-offline` runs from the cached values. See
+[docs/development.md](docs/development.md).
 
-```sh
-cd apps/client
-cp .env.example .env
-bun run dev
-```
-
-The API does not read a `.env` file — it takes everything from the process environment.
-The client runs on <http://localhost:5173> and calls the API at `VITE_API_BASE_URL`, so
-the API needs `CORS_ALLOWED_ORIGINS=http://localhost:5173` for the browser to reach it.
+The client calls the API cross-origin at `VITE_API_BASE_URL`, so `CORS_ALLOWED_ORIGINS`
+carries the dev origin in Casier's `dev` environment.
 
 ## Configuration
 
@@ -73,7 +68,9 @@ the API needs `CORS_ALLOWED_ORIGINS=http://localhost:5173` for the browser to re
 | `CORS_ALLOWED_ORIGINS` | Comma-separated browser origins, only needed for a split deploy |
 | `STORAGE_DIR` | Root for uploaded avatars, served back under `/files/` |
 
-Full reference: [docs/configuration.md](docs/configuration.md).
+Values live in Casier — `dev` for the local loop, `prod` as the source of truth for what
+Dokploy injects into the container. Full reference:
+[docs/configuration.md](docs/configuration.md).
 
 ## Structure
 

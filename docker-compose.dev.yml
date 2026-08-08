@@ -1,0 +1,8 @@
+# Local-development overlay. The production compose deliberately publishes no
+# host port — `mise run dev` runs the API on the host, so it needs one. 5442 and
+# not 5432 so this database does not collide with a Postgres already listening
+# on the default port, whether it is a system one or another Facile app's.
+services:
+  db:
+    ports:
+      - "5442:5432"

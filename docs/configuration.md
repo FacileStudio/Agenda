@@ -5,8 +5,27 @@ Every environment variable the API actually reads, taken from `apps/api/internal
 
 **Agenda does not load a `.env` file.** Unlike most Go apps in the suite, there is no
 `godotenv` call in `env.Load` — configuration comes from the process environment only. In
-Docker that is what `env_file: .env` in `docker-compose.yml` provides; running `go run .`
-by hand means exporting the variables yourself.
+Docker that is what `env_file: .env` in `docker-compose.yml` provides; outside it, that is
+what `casier run` provides.
+
+## Where the values live
+
+[Casier](https://casier.facile.studio) owns them. `.casier.toml` pins this repo to the
+`agenda` project, with two environments:
+
+| Environment | Who reads it |
+|---|---|
+| `dev` | `casier run`, i.e. `mise run dev` and `mise run db` on your machine |
+| `prod` | the source of truth for what Dokploy injects into the deployed container |
+
+The production container reads its environment from Dokploy, **never from Casier at boot**.
+That split is deliberate: an app that fetched its own configuration from Casier at startup
+could not start while Casier was down. Casier owns and versions the values, Dokploy is the
+injector, so rotating a production secret is `casier secrets set -p agenda -e prod KEY
+value`, then `casier push dokploy -p agenda -e prod Jlzb04bePzCOydtIa301c`, then a redeploy.
+
+`casier check .env.example` (`mise run check-secrets`) exits 1 when Casier is missing a key
+the example declares, which is the gate that keeps this file honest.
 
 ## Database
 
@@ -101,7 +120,11 @@ legacy `/auth/oidc/callback` keeps working: that root path is registered as a 30
 
 `DB_NAME`, `DB_USER`, and `DB_PASSWORD` are also consumed by the `db` service in
 `docker-compose.yml` as `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`. They are
-the same variables, deliberately, so one `.env` configures both sides.
+the same variables, deliberately, so one source configures both sides.
+`docker-compose.dev.yml` publishes that container on host port `5442`, and Casier's `dev`
+environment matches: `DB_PORT=5442` for the compose side, plus a `DATABASE_URL` spelling the
+same server so a stray `DATABASE_URL` inherited from your shell cannot short-circuit the
+`DB_*` parts and point the API at someone else's database. Change one, change the other.
 
 ## Client
 
