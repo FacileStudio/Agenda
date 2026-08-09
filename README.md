@@ -48,7 +48,7 @@ mise run client     # the client dev server on :5173
 ```
 
 Configuration for the developer loop comes from [Casier](https://casier.facile.studio);
-`.casier.toml` pins this repo to the `agenda` project and its `dev` environment. The API
+`casier.yml` pins this repo to the `agenda` project and its `dev` environment. The API
 never reads a `.env` file — there is no `godotenv` call in `env.Load`, so it takes
 configuration from the process environment only, which is exactly what `casier run`
 supplies. `mise run dev-offline` runs from the cached values. See

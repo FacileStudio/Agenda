@@ -10,7 +10,7 @@ what `casier run` provides.
 
 ## Where the values live
 
-[Casier](https://casier.facile.studio) owns them. `.casier.toml` pins this repo to the
+[Casier](https://casier.facile.studio) owns them. `casier.yml` pins this repo to the
 `agenda` project, with two environments:
 
 | Environment | Who reads it |
