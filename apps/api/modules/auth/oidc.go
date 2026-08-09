@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	stderrors "errors"
 	"net/http"
@@ -75,7 +76,7 @@ func (h *oidcHandler) login(w http.ResponseWriter, r *http.Request) {
 
 func (h *oidcHandler) callback(w http.ResponseWriter, r *http.Request) {
 	stateCookie, err := r.Cookie(oidcStateCookie)
-	if err != nil || stateCookie.Value != r.URL.Query().Get("state") {
+	if err != nil || subtle.ConstantTimeCompare([]byte(stateCookie.Value), []byte(r.URL.Query().Get("state"))) != 1 {
 		h.fail(w, r, "login session expired, please try again")
 		return
 	}
@@ -85,6 +86,8 @@ func (h *oidcHandler) callback(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   isSecure(r),
 	})
 
 	oauth2Token, err := h.oauth2Cfg.Exchange(r.Context(), r.URL.Query().Get("code"))
