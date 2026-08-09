@@ -11,8 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FacileStudio/Agenda/apps/api/internal/authcrypto"
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
+	"github.com/FacileStudio/porte"
+	"github.com/FacileStudio/porte/session"
 	"github.com/FacileStudio/tronc/errors"
 
 	"gorm.io/gorm"
@@ -21,11 +22,25 @@ import (
 type Service struct {
 	orm        *gorm.DB
 	storageDir string
+	tokens     Auth
 	controller *Controller
 }
 
-func NewService(orm *gorm.DB, storageDir string) *Service {
-	service := &Service{orm: orm, storageDir: storageDir}
+// Auth is the auth service, narrowed to what this module needs of it.
+//
+// A named API token is a porte session with a label on it and no expiry, so
+// there is no second table and no second branch in the authentication path —
+// which is what there used to be, and what made api_tokens a credential store
+// porte's middleware would not have known to read. The password is porte's for
+// the same reason.
+type Auth interface {
+	Issue(ctx context.Context, userID int64, label string) (string, porte.Session, error)
+	Sessions() *session.Manager
+	SetPassword(ctx context.Context, userID int64, email, password string) error
+}
+
+func NewService(orm *gorm.DB, storageDir string, tokens Auth) *Service {
+	service := &Service{orm: orm, storageDir: storageDir, tokens: tokens}
 	service.controller = newController(service)
 	return service
 }
@@ -74,12 +89,41 @@ func (service *Service) updateUser(context context.Context, userID string, name 
 	if email != nil {
 		updates["email"] = *email
 	}
-	if password != nil {
-		hash, err := authcrypto.HashPassword(*password)
-		if err != nil {
-			return nil, errors.Invalid("invalid password")
+
+	// The password is porte's, not a column on this row. Writing
+	// users.password_hash would look like it worked and change nothing:
+	// porte reads the identity table, so the old password would keep
+	// signing in and the new one would never work.
+	//
+	// The address matters twice over, because porte keys a local identity
+	// on it. Changing the email without moving that key leaves the password
+	// login answering "invalid credentials" to the right password — the
+	// same silent failure, reached from the other side — so the identity is
+	// re-keyed first and the password, if there is one, is then set on the
+	// address the account will actually have.
+	if email != nil || password != nil {
+		var current schemas.User
+		if err := service.orm.WithContext(context).Select("email").First(&current, id).Error; err != nil {
+			return nil, errors.Internal("failed to read the account", err)
 		}
-		updates["password_hash"] = hash
+		address := current.Email
+		if email != nil {
+			address = *email
+			if !strings.EqualFold(address, current.Email) {
+				if err := service.orm.WithContext(context).Exec(
+					`UPDATE porte_identities SET subject = ? WHERE provider = 'local' AND subject = ?`,
+					strings.ToLower(strings.TrimSpace(address)),
+					strings.ToLower(strings.TrimSpace(current.Email)),
+				).Error; err != nil {
+					return nil, errors.Internal("failed to move the password to the new address", err)
+				}
+			}
+		}
+		if password != nil {
+			if err := service.tokens.SetPassword(context, id, address, *password); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	result := service.orm.WithContext(context).
@@ -222,56 +266,64 @@ func mapUser(record schemas.User) *User {
 	}
 }
 
-func (service *Service) createApiToken(context context.Context, userID string, name string) (string, *schemas.ApiToken, error) {
+// createApiToken replaces the caller's token, keeping this app's rule that a
+// user holds at most one.
+func (service *Service) createApiToken(ctx context.Context, userID string, name string) (string, *porte.Session, error) {
 	id, err := strconv.ParseInt(userID, 10, 64)
 	if err != nil {
 		return "", nil, errors.Internal("failed to parse user id", err)
 	}
+	if err := service.deleteApiToken(ctx, userID); err != nil {
+		return "", nil, err
+	}
 
-	service.orm.WithContext(context).Where("user_id = ?", id).Delete(&schemas.ApiToken{})
-
-	rawToken, err := authcrypto.NewToken()
+	rawToken, issued, err := service.tokens.Issue(ctx, id, name)
 	if err != nil {
-		return "", nil, errors.Internal("failed to generate token", err)
+		return "", nil, err
 	}
-
-	hasher := authcrypto.HashToken(rawToken)
-	record := &schemas.ApiToken{
-		Token:  hasher,
-		UserID: id,
-		Name:   name,
-	}
-	if err := service.orm.WithContext(context).Create(record).Error; err != nil {
-		return "", nil, errors.Internal("failed to store api token", err)
-	}
-
-	return rawToken, record, nil
+	return rawToken, &issued, nil
 }
 
-func (service *Service) getApiToken(context context.Context, userID string) (*schemas.ApiToken, error) {
+// getApiToken returns the caller's labelled session, or nil.
+//
+// Only labelled sessions are considered: the unlabelled ones are browser
+// logins, and listing those here would show somebody their own laptop as an
+// API token and offer to revoke it.
+func (service *Service) getApiToken(ctx context.Context, userID string) (*porte.Session, error) {
 	id, err := strconv.ParseInt(userID, 10, 64)
 	if err != nil {
 		return nil, errors.Internal("failed to parse user id", err)
 	}
-
-	var record schemas.ApiToken
-	err = service.orm.WithContext(context).Where("user_id = ?", id).First(&record).Error
-	if stderrors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
+	sessions, err := service.tokens.Sessions().List(ctx, id)
 	if err != nil {
-		return nil, errors.Internal("failed to read api token", err)
+		return nil, errors.Internal("failed to read api tokens", err)
 	}
-	return &record, nil
+	for _, candidate := range sessions {
+		if candidate.Label != "" {
+			return &candidate, nil
+		}
+	}
+	return nil, nil
 }
 
-func (service *Service) deleteApiToken(context context.Context, userID string) error {
+func (service *Service) deleteApiToken(ctx context.Context, userID string) error {
 	id, err := strconv.ParseInt(userID, 10, 64)
 	if err != nil {
 		return errors.Internal("failed to parse user id", err)
 	}
-
-	service.orm.WithContext(context).Where("user_id = ?", id).Delete(&schemas.ApiToken{})
+	manager := service.tokens.Sessions()
+	sessions, err := manager.List(ctx, id)
+	if err != nil {
+		return errors.Internal("failed to read api tokens", err)
+	}
+	for _, candidate := range sessions {
+		if candidate.Label == "" {
+			continue
+		}
+		if err := manager.Revoke(ctx, id, candidate.ID); err != nil {
+			return errors.Internal("failed to revoke the api token", err)
+		}
+	}
 	return nil
 }
 
