@@ -44,7 +44,7 @@ the Go code** and there is no `apps/api/.env.example`. That is exactly the shape
 mise run dev
 ```
 
-`.casier.toml` pins the repo to the `agenda` project, `dev` environment, so `casier run`
+`casier.yml` pins the repo to the `agenda` project, `dev` environment, so `casier run`
 injects the variables straight into the process. It is network-first with a last-known-good
 cache, so a Casier outage degrades to the previous values with a warning rather than to an
 empty environment — `mise run dev-offline` forces the cached path. `mise run secrets` lists
