@@ -1,11 +1,18 @@
 package main
 
 import (
+	"context"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/FacileStudio/Agenda/apps/api/internal/env"
+	"github.com/FacileStudio/Agenda/apps/api/modules/auth"
+	"github.com/FacileStudio/porte/oidc"
+	portepg "github.com/FacileStudio/porte/pg"
+	"github.com/FacileStudio/porte/session"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -89,16 +96,46 @@ func stubIssuer(t *testing.T) string {
 
 func testRouter(t *testing.T) chi.Router {
 	t.Helper()
-	router := chi.NewRouter()
-	mountRoutes(router, mounts{env: env.Config{
+	appEnv := env.Config{
 		StorageDir: t.TempDir(),
 		OIDC: &env.OIDCConfig{
 			Issuer:       stubIssuer(t),
 			ClientID:     "agenda",
 			ClientSecret: "secret",
 			RedirectURL:  "https://agenda.example/auth/oidc/callback",
+			SuccessURL:   "https://agenda.example/",
 		},
-	}})
+	}
+	appLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	// The porte pieces are built over a nil database, which is what the
+	// rest of this harness does with the services: these cases stop at
+	// routing, and an unauthenticated request is refused before anything is
+	// read.
+	store := portepg.New(nil)
+	sessions, err := session.New(appEnv.Porte(), session.Deps{Sessions: store.Sessions(), Logger: appLogger})
+	if err != nil {
+		t.Fatalf("session.New: %v", err)
+	}
+	kit, err := oidc.New(context.Background(), appEnv.Porte(), oidc.Deps{
+		Users:      auth.NewUserStore(nil),
+		Identities: store.Identities(),
+		Codes:      store.LoginCodes(),
+		Sessions:   sessions,
+		Logger:     appLogger,
+	})
+	if err != nil {
+		t.Fatalf("oidc.New: %v", err)
+	}
+	authService := auth.NewService(nil, sessions, nil, appLogger)
+
+	router := chi.NewRouter()
+	mountRoutes(router, mounts{
+		env:      appEnv,
+		sessions: sessions,
+		kit:      kit,
+		auth:     authService,
+	})
 	return router
 }
 

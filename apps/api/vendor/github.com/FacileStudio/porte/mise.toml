@@ -1,0 +1,18 @@
+[tools]
+go = "1.25"
+
+[tasks.check]
+description = "Run the full quality gate: gofmt, vet, test, lint"
+run = "sh ./scripts/check.sh"
+
+[tasks.test]
+description = "Run the tests only"
+run = "go test -race ./..."
+
+[tasks.format]
+description = "Format the Go sources in place"
+run = "sh ./scripts/check.sh --format"
+
+[tasks.hooks]
+description = "Enable the tracked git hooks in this clone"
+run = "git config core.hooksPath .githooks"

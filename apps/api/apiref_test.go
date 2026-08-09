@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/FacileStudio/tronc/apiref"
-	"github.com/go-chi/chi/v5"
 )
 
 // TestEveryRouteIsDocumented is the drift guard: it walks the router the binary
@@ -15,8 +14,10 @@ import (
 // URLs are held by external clients, stored rows and Authentik rather than by
 // this API's own contract, and CalDAV speaks WebDAV verbs OpenAPI cannot express.
 func TestEveryRouteIsDocumented(t *testing.T) {
-	router := chi.NewRouter()
-	mountRoutes(router, mounts{})
+	// testRouter and not an empty mounts: porte owns /auth/config,
+	// /auth/logout and the OIDC flow now, so a router without it would let
+	// this guard pass over the routes most likely to move.
+	router := testRouter(t)
 
 	missing := apiref.Undocumented(router, referenceConfig(), "/dav", "/.well-known", "/files", "/auth/oidc/callback")
 	if len(missing) > 0 {

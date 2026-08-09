@@ -3,10 +3,11 @@ package caldav
 import (
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
-	"github.com/FacileStudio/Agenda/apps/api/internal/authcrypto"
 	"github.com/FacileStudio/Agenda/apps/api/internal/middleware"
+	"github.com/FacileStudio/Agenda/apps/api/modules/auth"
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
 
 	gocaldav "github.com/emersion/go-webdav/caldav"
@@ -14,7 +15,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func RegisterRoutes(router chi.Router, db *gorm.DB) {
+func RegisterRoutes(router chi.Router, db *gorm.DB, authService *auth.Service) {
 	// chi only knows standard HTTP methods by default.
 	// WebDAV/CalDAV uses PROPFIND, PROPPATCH, MKCALENDAR, REPORT — register them
 	// so chi includes them in its mALL bitmask and HandleFunc matches them.
@@ -28,7 +29,7 @@ func RegisterRoutes(router chi.Router, db *gorm.DB) {
 		Prefix:  davPrefix,
 	}
 
-	auth := davAuthMiddleware(db)
+	davAuth := davAuthMiddleware(db, authService)
 	// 100 requests/minute per IP — prevents Basic Auth brute force while
 	// allowing normal sync traffic (typical client: <10 req/min).
 	rateLimiter := middleware.RateLimit(100, time.Minute)
@@ -48,14 +49,14 @@ func RegisterRoutes(router chi.Router, db *gorm.DB) {
 		}
 		handler.ServeHTTP(w, r)
 	}
-	router.With(rateLimiter, auth).HandleFunc(davPrefix, davHandler)
-	router.With(rateLimiter, auth).HandleFunc(davPrefix+"/*", davHandler)
+	router.With(rateLimiter, davAuth).HandleFunc(davPrefix, davHandler)
+	router.With(rateLimiter, davAuth).HandleFunc(davPrefix+"/*", davHandler)
 }
 
-func davAuthMiddleware(db *gorm.DB) func(http.Handler) http.Handler {
+func davAuthMiddleware(db *gorm.DB, authService *auth.Service) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			user := resolveUser(r, db)
+			user := resolveUser(w, r, db, authService)
 			if user == nil {
 				w.Header().Set("WWW-Authenticate", `Basic realm="Agenda CalDAV"`)
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -66,44 +67,69 @@ func davAuthMiddleware(db *gorm.DB) func(http.Handler) http.Handler {
 	}
 }
 
-func resolveUser(r *http.Request, db *gorm.DB) *schemas.User {
+// resolveUser authenticates a CalDAV request against porte.
+//
+// Three credentials reach this endpoint and all three are now porte's: the
+// browser's session cookie, an email plus password, and an email plus API
+// token — the last one being how an SSO user, who has no password at all,
+// connects a calendar client.
+//
+// The password check is Verify rather than Login on purpose. A CalDAV client
+// re-sends Basic credentials on every single request, so signing in here would
+// write a session row per PROPFIND.
+func resolveUser(w http.ResponseWriter, r *http.Request, db *gorm.DB, authService *auth.Service) *schemas.User {
 	ctx := r.Context()
 
-	// Session cookie (web UI / browser testing)
-	if cookie, err := r.Cookie("session"); err == nil && cookie.Value != "" {
-		hashed := authcrypto.HashToken(cookie.Value)
-		var sess schemas.Session
-		if db.WithContext(ctx).Where("token = ? AND expires_at > NOW()", hashed).First(&sess).Error == nil {
-			var u schemas.User
-			if db.WithContext(ctx).First(&u, sess.UserID).Error == nil {
-				return &u
-			}
-		}
-	}
-
-	// HTTP Basic Auth — two accepted credential forms:
-	//   1. email + account password  (password-based accounts)
-	//   2. email + API token         (SSO users who have no password)
-	if rawEmail, password, ok := r.BasicAuth(); ok && rawEmail != "" && password != "" {
-		// iOS 18.4+ percent-encodes '@' as '%40' in Basic Auth usernames.
-		email, _ := url.PathUnescape(rawEmail)
-		if email == "" {
-			email = rawEmail
-		}
+	load := func(id int64) *schemas.User {
 		var u schemas.User
-		if db.WithContext(ctx).Where("email = ?", email).First(&u).Error == nil {
-			// Try password first
-			if u.PasswordHash != "" && authcrypto.VerifyPassword(password, u.PasswordHash) {
-				return &u
-			}
-			// Try API token (for SSO users)
-			hashed := authcrypto.HashToken(password)
-			var tok schemas.ApiToken
-			if db.WithContext(ctx).Where("token = ? AND user_id = ?", hashed, u.ID).First(&tok).Error == nil {
-				return &u
-			}
+		if db.WithContext(ctx).First(&u, id).Error != nil {
+			return nil
+		}
+		return &u
+	}
+
+	// The cookie or a bearer header, which is what a browser and the web UI
+	// send. porte reads both, including the legacy `session` cookie this app
+	// issued before it adopted porte.
+	if id, err := authService.AuthenticateRequest(w, r); err == nil {
+		if user := load(id); user != nil {
+			return user
 		}
 	}
 
-	return nil
+	rawEmail, secret, ok := r.BasicAuth()
+	if !ok || rawEmail == "" || secret == "" {
+		return nil
+	}
+	// iOS 18.4+ percent-encodes '@' as '%40' in Basic Auth usernames.
+	email, _ := url.PathUnescape(rawEmail)
+	if email == "" {
+		email = rawEmail
+	}
+
+	if id, err := authService.VerifyPassword(ctx, email, secret); err == nil {
+		if user := load(id); user != nil {
+			return user
+		}
+	}
+
+	// An API token, presented in the password field. It is verified as the
+	// credential it is — a labelled porte session — by handing it to porte
+	// as a bearer token, so the expiry and idle rules are the ones porte
+	// applies everywhere else rather than a second implementation here.
+	//
+	// The address still has to match the account the token belongs to. A
+	// valid token for one user must not authenticate a request that claims
+	// to be another.
+	bearer := r.Clone(ctx)
+	bearer.Header.Set("Authorization", "Bearer "+secret)
+	id, err := authService.AuthenticateRequest(w, bearer)
+	if err != nil {
+		return nil
+	}
+	user := load(id)
+	if user == nil || !strings.EqualFold(user.Email, email) {
+		return nil
+	}
+	return user
 }

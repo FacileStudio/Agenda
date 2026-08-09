@@ -36,6 +36,11 @@ import (
 	troncmiddleware "github.com/FacileStudio/tronc/middleware"
 	"github.com/FacileStudio/tronc/spa"
 
+	"github.com/FacileStudio/porte/local"
+	"github.com/FacileStudio/porte/oidc"
+	portepg "github.com/FacileStudio/porte/pg"
+	"github.com/FacileStudio/porte/session"
+
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 )
@@ -77,7 +82,7 @@ func run() int {
 		return 1
 	}
 
-	if err := schemas.Migrate(db); err != nil {
+	if err := schemas.MigrateWithIssuer(db, appEnv.IssuerForMigration()); err != nil {
 		appLogger.Error("failed to run migrations", slog.Any("error", err))
 		return 1
 	}
@@ -104,11 +109,17 @@ func run() int {
 		}
 	}()
 
-	authService := auth.NewService(db, appEnv.StorageDir, appLogger, appEnv.EncryptionKey)
+	sessions, passwords, kit, err := buildAuth(context.Background(), db, appEnv, appLogger)
+	if err != nil {
+		appLogger.Error("failed to build authentication", slog.Any("error", err))
+		return 1
+	}
+
+	authService := auth.NewService(db, sessions, passwords, appLogger)
 	calendarService := calendars.NewService(db)
 	eventService := events.NewService(db)
 	spaceService := spaces.NewService(db)
-	userService := users.NewService(db, appEnv.StorageDir)
+	userService := users.NewService(db, appEnv.StorageDir, authService)
 	settingsService := settings.NewService(db)
 
 	router := httpx.NewRouter(httpx.Config{
@@ -125,6 +136,8 @@ func run() int {
 		env:       appEnv,
 		db:        db,
 		sqlDB:     sqlDB,
+		sessions:  sessions,
+		kit:       kit,
 		auth:      authService,
 		calendars: calendarService,
 		events:    eventService,
@@ -181,12 +194,63 @@ type mounts struct {
 	env       env.Config
 	db        *gorm.DB
 	sqlDB     *sql.DB
+	sessions  *session.Manager
+	kit       *oidc.Kit
 	auth      *auth.Service
 	calendars *calendars.Service
 	events    *events.Service
 	spaces    *spaces.Service
 	users     *users.Service
 	settings  *settings.Service
+}
+
+// buildAuth constructs porte: one session manager, shared by the OIDC kit and
+// the local login, over the identity tables.
+//
+// One manager and not two: they would each keep their own idea of the clock
+// and of whether the cookie is Secure, and porte refuses a kit whose config
+// disagrees with its manager's for exactly that reason. Discovery runs here,
+// so an unreachable or half-configured issuer fails at boot rather than on
+// somebody's first login — a change from what this app did, where a discovery
+// failure at route-registration time logged an error and left SSO 404ing until
+// the next restart.
+func buildAuth(ctx context.Context, db *gorm.DB, appEnv env.Config, appLogger *slog.Logger) (*session.Manager, *local.Kit, *oidc.Kit, error) {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	store := portepg.New(sqlDB)
+	users := auth.NewUserStore(db)
+	cfg := appEnv.Porte()
+
+	sessions, err := session.New(cfg, session.Deps{Sessions: store.Sessions(), Logger: appLogger})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	kit, err := oidc.New(ctx, cfg, oidc.Deps{
+		Users:      users,
+		Identities: store.Identities(),
+		Sessions:   sessions,
+		Codes:      store.LoginCodes(),
+		Logger:     appLogger,
+	})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	// Agenda's floor has always been eight characters. porte defaults to
+	// twelve, and raising it here would reject a password this app accepted
+	// yesterday — a product decision, not a migration.
+	passwords, err := local.New(local.Config{AllowRegistration: !appEnv.SSOOnly, MinPasswordLength: 8}, local.Deps{
+		Users:      users,
+		Identities: store.Identities(),
+		Sessions:   sessions,
+		Logger:     appLogger,
+		Count:      users.CountUsers,
+	})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return sessions, passwords, kit, nil
 }
 
 // mountRoutes claims every URL the app answers. The whole API lives under /api
@@ -198,12 +262,14 @@ func mountRoutes(router chi.Router, m mounts) {
 	apiref.Mount(router, referenceConfig())
 	router.Handle("/files/*", http.StripPrefix("/files/", http.FileServer(http.Dir(m.env.StorageDir))))
 
-	caldav.RegisterRoutes(router, m.db)
+	caldav.RegisterRoutes(router, m.db, m.auth)
 	if m.env.OIDC != nil {
 		router.Get("/auth/oidc/callback", redirectUnderAPI)
 	}
 
 	router.Route("/api", func(r chi.Router) {
+		m.sessions.Mount(r)
+		m.kit.Mount(r)
 		auth.RegisterRoutes(r, m.auth, m.env)
 		calendars.RegisterRoutes(r, m.calendars, m.auth)
 		events.RegisterRoutes(r, m.events, m.auth)
