@@ -124,6 +124,12 @@
 			{#if !configLoaded}
 				<div class="h-40"></div>
 			{:else}
+				{#if message}
+					<p role="alert" class="mb-4 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+						{message}
+					</p>
+				{/if}
+
 				{#if !ssoOnly}
 					<div class="mb-6 flex gap-1 rounded-lg border border-border bg-muted p-1" role="tablist">
 						<button
@@ -188,12 +194,6 @@
 								class={inputClass}
 							/>
 						</div>
-
-						{#if message}
-							<p role="alert" class="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-								{message}
-							</p>
-						{/if}
 
 						<button type="submit" disabled={busy} aria-busy={busy} class={primaryButtonClass}>
 							{busy
