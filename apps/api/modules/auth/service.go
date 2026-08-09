@@ -222,6 +222,19 @@ func (service *Service) upsertOIDCUser(ctx context.Context, subject string, emai
 		}
 	}
 
+	if !found && !emailTrusted {
+		var taken schemas.User
+		lookupErr := service.orm.WithContext(ctx).Where("email = ?", email).First(&taken).Error
+		if lookupErr == nil {
+			service.logger.Warn("refused to link an OIDC subject to an existing account on an unverified email",
+				slog.String("email", email), slog.String("subject", subject))
+			return "", "", errors.Invalid(email + " already belongs to another account, and your identity provider did not verify the address")
+		}
+		if !stderrors.Is(lookupErr, gorm.ErrRecordNotFound) {
+			return "", "", errors.Internal("failed to look up user", lookupErr)
+		}
+	}
+
 	isNew := !found
 	if isNew {
 		record = schemas.User{Email: email}

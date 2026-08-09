@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	stderrors "errors"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -74,7 +76,7 @@ func (h *oidcHandler) login(w http.ResponseWriter, r *http.Request) {
 func (h *oidcHandler) callback(w http.ResponseWriter, r *http.Request) {
 	stateCookie, err := r.Cookie(oidcStateCookie)
 	if err != nil || stateCookie.Value != r.URL.Query().Get("state") {
-		httpjson.WriteError(w, errors.Invalid("invalid oauth2 state"))
+		h.fail(w, r, "login session expired, please try again")
 		return
 	}
 	http.SetCookie(w, &http.Cookie{
@@ -87,19 +89,19 @@ func (h *oidcHandler) callback(w http.ResponseWriter, r *http.Request) {
 
 	oauth2Token, err := h.oauth2Cfg.Exchange(r.Context(), r.URL.Query().Get("code"))
 	if err != nil {
-		httpjson.WriteError(w, errors.Internal("failed to exchange code", err))
+		h.fail(w, r, "identity provider rejected the login")
 		return
 	}
 
 	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
 	if !ok {
-		httpjson.WriteError(w, errors.Internal("missing id_token in response", nil))
+		h.fail(w, r, "identity provider returned no id_token")
 		return
 	}
 
 	idToken, err := h.verifier.Verify(r.Context(), rawIDToken)
 	if err != nil {
-		httpjson.WriteError(w, errors.Unauthorized("invalid id_token"))
+		h.fail(w, r, "identity provider returned an invalid id_token")
 		return
 	}
 
@@ -113,11 +115,11 @@ func (h *oidcHandler) callback(w http.ResponseWriter, r *http.Request) {
 		Picture           string `json:"picture"`
 	}
 	if err := idToken.Claims(&claims); err != nil {
-		httpjson.WriteError(w, errors.Internal("failed to parse claims", err))
+		h.fail(w, r, "could not read the identity provider response")
 		return
 	}
 	if claims.Email == "" {
-		httpjson.WriteError(w, errors.Invalid("OIDC provider did not return an email"))
+		h.fail(w, r, "identity provider did not return an email")
 		return
 	}
 
@@ -145,7 +147,7 @@ func (h *oidcHandler) callback(w http.ResponseWriter, r *http.Request) {
 	}
 	_, token, err := h.service.upsertOIDCUser(r.Context(), idToken.Subject, claims.Email, emailClaimTrusted(claims.EmailVerified), profile, oauth2Token)
 	if err != nil {
-		httpjson.WriteError(w, err)
+		h.fail(w, r, signInFailure(err))
 		return
 	}
 
@@ -170,6 +172,27 @@ func (h *oidcHandler) syncProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpjson.WriteJSON(w, http.StatusOK, map[string]bool{"synced": synced})
+}
+
+func signInFailure(err error) string {
+	var apiErr *errors.Error
+	if stderrors.As(err, &apiErr) && apiErr.Code == "invalid_argument" {
+		return apiErr.Message
+	}
+	return "could not sign you in"
+}
+
+func (h *oidcHandler) fail(w http.ResponseWriter, r *http.Request, reason string) {
+	dest, err := url.Parse(h.successURL)
+	if err != nil {
+		httpjson.WriteError(w, errors.Invalid(reason))
+		return
+	}
+	dest.Path = strings.TrimSuffix(dest.Path, "/") + "/login"
+	q := dest.Query()
+	q.Set("error", reason)
+	dest.RawQuery = q.Encode()
+	http.Redirect(w, r, dest.String(), http.StatusFound)
 }
 
 func randomState() (string, error) {
