@@ -6,6 +6,8 @@ github.com/FacileStudio/tronc v0.9.0 h1:xfAPypTB4V6bPt7iRl+I7SEedFJzLDRTYfvS/Ciy
 github.com/FacileStudio/tronc v0.9.0/go.mod h1:n+msHH6RQLvhcIQfFzeWaAgwqL8UkNuLPTqbu+C02so=
 github.com/FacileStudio/tronc v0.10.1 h1:CGcSytZC65T3M2ocimaKPSSzO+3Y14gJME9pZSYKK5k=
 github.com/FacileStudio/tronc v0.10.1/go.mod h1:n+msHH6RQLvhcIQfFzeWaAgwqL8UkNuLPTqbu+C02so=
+github.com/FacileStudio/tronc v0.11.0 h1:wWPNh9f3vCYzm7Ekif2XyL6J3BrYjQTqybkWh+9yCNo=
+github.com/FacileStudio/tronc v0.11.0/go.mod h1:n+msHH6RQLvhcIQfFzeWaAgwqL8UkNuLPTqbu+C02so=
 github.com/FacileStudio/tronc/testdb v0.1.1 h1:PTwGRnPcibkhzEdCM+YTxare8L2vneuUrhoGfPO7Iao=
 github.com/FacileStudio/tronc/testdb v0.1.1/go.mod h1:49KIfUnXScKflXJBJM+UiaI3Zvl9d1Z21Cp95mLIUR4=
 github.com/coreos/go-oidc/v3 v3.20.0 h1:EtE0WIBHk03N+DqGkY4+UONzzZHk7amKt6IyNd7OsZE=

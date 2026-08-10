@@ -108,14 +108,33 @@ func loadCore(requireDatabase bool) (Core, error) {
 	}, nil
 }
 
-// TrustedProxies reads TRUSTED_PROXIES as a comma-separated list of CIDR
-// blocks or bare addresses.
+// TrustedProxySets are the names TRUSTED_PROXIES accepts alongside literal
+// CIDR blocks, so a deployment says what it is fronted by instead of pasting
+// two dozen ranges into its environment.
 //
-// Unset returns middleware.DefaultTrustedProxies. The literal "none" returns a
-// non-nil empty slice, which httpx honours as "believe no proxy" — spelling it
-// out is deliberate, because an empty string is what a half-written deployment
-// config produces and that must not silently mean the strictest setting an
-// operator never chose.
+// "cloudflare" is opt-in and belongs here rather than in the default: an app
+// that is not behind Cloudflare gains nothing from it, and a name in a config
+// file is a statement about the deployment that the next person can read.
+// Keeping the ranges in the library rather than in each app's environment is
+// the whole point of a chassis — one bump refreshes every consumer, instead of
+// a dozen copies of a list drifting apart.
+var TrustedProxySets = map[string][]netip.Prefix{
+	"private":    middleware.DefaultTrustedProxies,
+	"cloudflare": middleware.CloudflareProxies,
+}
+
+// TrustedProxies reads TRUSTED_PROXIES as a comma-separated list of CIDR
+// blocks, bare addresses, and the names in TrustedProxySets.
+//
+//	TRUSTED_PROXIES=private,cloudflare
+//	TRUSTED_PROXIES=10.0.0.0/8,192.168.1.7
+//	TRUSTED_PROXIES=none
+//
+// Unset returns middleware.DefaultTrustedProxies, which is "private". The
+// literal "none" returns a non-nil empty slice, which httpx honours as
+// "believe no proxy" — spelling it out is deliberate, because an empty string
+// is what a half-written deployment config produces and that must not silently
+// mean the strictest setting an operator never chose.
 func TrustedProxies() ([]netip.Prefix, error) {
 	raw := strings.TrimSpace(os.Getenv("TRUSTED_PROXIES"))
 	if raw == "" {
@@ -124,11 +143,22 @@ func TrustedProxies() ([]netip.Prefix, error) {
 	if strings.EqualFold(raw, "none") {
 		return []netip.Prefix{}, nil
 	}
-	prefixes, err := middleware.ParseTrustedProxies(List("TRUSTED_PROXIES"))
-	if err != nil {
-		return nil, fmt.Errorf("env: TRUSTED_PROXIES must be CIDR blocks or IP addresses: %w", err)
+
+	var prefixes []netip.Prefix
+	var literals []string
+	for _, entry := range List("TRUSTED_PROXIES") {
+		if set, ok := TrustedProxySets[strings.ToLower(strings.TrimSpace(entry))]; ok {
+			prefixes = append(prefixes, set...)
+			continue
+		}
+		literals = append(literals, entry)
 	}
-	return prefixes, nil
+
+	parsed, err := middleware.ParseTrustedProxies(literals)
+	if err != nil {
+		return nil, fmt.Errorf("env: TRUSTED_PROXIES takes CIDR blocks, IP addresses, or the names private and cloudflare: %w", err)
+	}
+	return append(prefixes, parsed...), nil
 }
 
 // ParseEnvironment maps a name onto an Environment, defaulting to development.

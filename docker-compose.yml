@@ -24,6 +24,7 @@ services:
       - "4000"
     environment:
       APP_ENV: ${APP_ENV:-production}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       PORT: "4000"
       JOURNAL_URL: ${JOURNAL_URL:-}
       JOURNAL_TOKEN: ${JOURNAL_TOKEN:-}
