@@ -13,10 +13,13 @@ package env
 
 import (
 	"fmt"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/FacileStudio/tronc/middleware"
 )
 
 // Environment names the deployment an app is running in.
@@ -50,6 +53,13 @@ type Core struct {
 	CORSAllowedOrigins []string
 	JournalURL         string
 	JournalToken       string
+
+	// TrustedProxies are the peers whose X-Forwarded-For httpx believes.
+	// Unset means middleware.DefaultTrustedProxies: loopback and the
+	// private ranges, which is the shape every app has behind Traefik.
+	// TRUSTED_PROXIES=none trusts nothing and keys everything on the
+	// connection address.
+	TrustedProxies []netip.Prefix
 }
 
 // IsProduction reports whether AppEnv is production.
@@ -76,6 +86,11 @@ func loadCore(requireDatabase bool) (Core, error) {
 		return Core{}, err
 	}
 
+	trustedProxies, err := TrustedProxies()
+	if err != nil {
+		return Core{}, err
+	}
+
 	databaseURL := String("DATABASE_URL", "")
 	if requireDatabase && databaseURL == "" {
 		return Core{}, fmt.Errorf("env: DATABASE_URL is required")
@@ -89,7 +104,31 @@ func loadCore(requireDatabase bool) (Core, error) {
 		CORSAllowedOrigins: CORSOrigins(),
 		JournalURL:         String("JOURNAL_URL", ""),
 		JournalToken:       String("JOURNAL_TOKEN", ""),
+		TrustedProxies:     trustedProxies,
 	}, nil
+}
+
+// TrustedProxies reads TRUSTED_PROXIES as a comma-separated list of CIDR
+// blocks or bare addresses.
+//
+// Unset returns middleware.DefaultTrustedProxies. The literal "none" returns a
+// non-nil empty slice, which httpx honours as "believe no proxy" — spelling it
+// out is deliberate, because an empty string is what a half-written deployment
+// config produces and that must not silently mean the strictest setting an
+// operator never chose.
+func TrustedProxies() ([]netip.Prefix, error) {
+	raw := strings.TrimSpace(os.Getenv("TRUSTED_PROXIES"))
+	if raw == "" {
+		return middleware.DefaultTrustedProxies, nil
+	}
+	if strings.EqualFold(raw, "none") {
+		return []netip.Prefix{}, nil
+	}
+	prefixes, err := middleware.ParseTrustedProxies(List("TRUSTED_PROXIES"))
+	if err != nil {
+		return nil, fmt.Errorf("env: TRUSTED_PROXIES must be CIDR blocks or IP addresses: %w", err)
+	}
+	return prefixes, nil
 }
 
 // ParseEnvironment maps a name onto an Environment, defaulting to development.

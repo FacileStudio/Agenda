@@ -124,7 +124,6 @@ func RequestLoggerWith(logger *slog.Logger, cfg RequestLoggerConfig) func(http.H
 			if kind != KindAPI {
 				level = quiet
 			}
-			// A failure is worth hearing about whatever it was serving.
 			if writer.status >= http.StatusInternalServerError {
 				level = slog.LevelError
 			}
