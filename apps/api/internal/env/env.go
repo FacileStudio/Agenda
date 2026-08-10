@@ -82,7 +82,20 @@ func loadCore() (troncenv.Core, error) {
 		return troncenv.Core{}, err
 	}
 
+	// Every field troncenv.Core grows has to be added here too, because
+	// this function exists precisely to skip troncenv.LoadCore. Forgetting
+	// one leaves it at its zero value, which for TrustedProxies means the
+	// app quietly ignores TRUSTED_PROXIES while the panel shows it set.
+	trustedProxies, err := troncenv.TrustedProxies()
+	if err != nil {
+		return troncenv.Core{}, err
+	}
+	cdnProxies, cdnHeader := troncenv.CDN()
+
 	return troncenv.Core{
+		TrustedProxies:     trustedProxies,
+		CDNProxies:         cdnProxies,
+		CDNHeader:          cdnHeader,
 		AppEnv:             troncenv.ParseEnvironment(troncenv.String("APP_ENV", string(troncenv.Development))),
 		Port:               port,
 		LogLevel:           troncenv.String("LOG_LEVEL", "info"),
