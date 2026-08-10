@@ -106,6 +106,7 @@ func (k *Kit) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get(porte.FlowParam) == porte.FlowCLI {
 		pending.CLI = true
 		pending.Port = loopbackPort(r.URL.Query().Get(porte.PortParam))
+		pending.CLIState = cliState(r.URL.Query().Get(porte.StateParam))
 	}
 
 	encoded, err := pending.encode()
@@ -120,6 +121,27 @@ func (k *Kit) handleLogin(w http.ResponseWriter, r *http.Request) {
 		oauth2.S256ChallengeOption(pending.Verifier),
 		gooidc.Nonce(nonce),
 	), http.StatusFound)
+}
+
+// maxCLIState bounds the echoed nonce. It is opaque to the server, so the only
+// question worth asking is whether it is small enough to be safe to reflect.
+const maxCLIState = 128
+
+// cliState accepts an opaque nonce the caller will recognise and nothing else.
+// The character set is the one a nonce needs, so a value that tries to be a
+// second query parameter or a header never reaches the redirect.
+func cliState(value string) string {
+	if value == "" || len(value) > maxCLIState {
+		return ""
+	}
+	for _, r := range value {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_':
+		default:
+			return ""
+		}
+	}
+	return value
 }
 
 // loopbackPort returns the port a CLI is listening on, or "" if the value is
@@ -163,7 +185,7 @@ func (k *Kit) handleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if pending.CLI {
-		k.issueLoginCode(w, r, userID, pending.Port)
+		k.issueLoginCode(w, r, userID, pending.Port, pending.CLIState)
 		return
 	}
 
@@ -256,7 +278,7 @@ func (k *Kit) syncAvatar(ctx context.Context, claims porte.Claims) string {
 
 // issueLoginCode ends the CLI flow. The code is a bearer credential for sixty
 // seconds, so it is stored hashed exactly like a session token.
-func (k *Kit) issueLoginCode(w http.ResponseWriter, r *http.Request, userID int64, port string) {
+func (k *Kit) issueLoginCode(w http.ResponseWriter, r *http.Request, userID int64, port, cliState string) {
 	code, err := porte.NewToken()
 	if err != nil {
 		k.logger.Error("porte: failed to issue a login code", slog.Any("error", err))
@@ -276,11 +298,15 @@ func (k *Kit) issueLoginCode(w http.ResponseWriter, r *http.Request, userID int6
 	if port != "" {
 		// The host is ours, only the port came from the request, so
 		// this cannot be pointed anywhere but at the local machine.
+		query := url.Values{"code": {code}}
+		if cliState != "" {
+			query.Set("state", cliState)
+		}
 		target := url.URL{
 			Scheme:   "http",
 			Host:     net.JoinHostPort("127.0.0.1", port),
 			Path:     "/",
-			RawQuery: url.Values{"code": {code}}.Encode(),
+			RawQuery: query.Encode(),
 		}
 		http.Redirect(w, r, target.String(), http.StatusFound)
 		return

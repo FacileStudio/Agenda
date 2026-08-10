@@ -23,6 +23,11 @@ type flow struct {
 	Verifier string `json:"v"`
 	CLI      bool   `json:"c,omitempty"`
 	Port     string `json:"p,omitempty"`
+
+	// CLIState is the calling CLI's own nonce, echoed back on the loopback
+	// redirect. It rides in this cookie rather than through the IdP because
+	// the IdP has no business seeing it and would not return it anyway.
+	CLIState string `json:"cs,omitempty"`
 }
 
 func (f flow) encode() (string, error) {

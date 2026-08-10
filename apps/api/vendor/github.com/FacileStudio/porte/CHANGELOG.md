@@ -3,6 +3,55 @@
 Decisions are recorded with their reasoning. The reasoning is the part that stops a future
 session from undoing a deliberate choice.
 
+## v0.2.10 — 2026-08-10
+
+Two things the Plume adoption found, both in the same corner: what happens to a session over time.
+
+**A named API token is issued without an expiry.** The rest of porte already assumed this — the
+store's sweeper documents *"rows with no expiry are API tokens and are never swept"*, the idle
+window does not apply to the bearer transport, and every adoption migrated its old `api_tokens`
+table across with a null `expires_at`. `Issue` was the one place that disagreed, stamping the
+30-day session lifetime onto labelled rows too. The effect was invisible and dated: a token minted
+through an app's UI died a month later, while a token migrated from the same app's old table lived
+forever, and nobody finds out until a nightly job stops. An app that wants named tokens to expire
+owns that policy; it holds the label.
+
+**`Manager.Sweep` deletes what has expired.** `SessionStore.DeleteExpired` has existed since v0.1
+but only on the store, so an app running an hourly cleanup had to keep a second reference to
+`porte/pg` purely to expire rows. It is on the manager now for the same reason `List` and `Revoke`
+are: an app that holds a Manager should not also have to hold the store, because the whole point
+of the manager is that one thing owns the credential.
+
+**Upgrade note for Courrier and Agenda:** both mint named tokens through `Issue`, so any token
+created there between their adoption and this release carries a 30-day expiry. There are none in
+production yet — both were adopted today — but a fork that has been running longer should clear
+the expiry on its labelled rows:
+`UPDATE porte_sessions SET expires_at = NULL WHERE label <> ''`.
+
+## v0.2.9 — 2026-08-10
+
+**The CLI loopback redirect can now carry the caller's nonce.** `/auth/oidc?flow=cli&port=N`
+accepts an optional `cli_state`, keeps it in the flow cookie, and echoes it back as `state`
+alongside `code` on the `127.0.0.1` redirect.
+
+Without it a CLI's listener has no way to tell its own callback from one somebody else sent. Any
+local process — or any web page that can reach `127.0.0.1:<port>` — can race an attacker-chosen
+code into the listener before the real one lands, and the CLI will exchange it and store the
+resulting token. `sablier-cli` accepts any callback bearing a `code` today; `casier-cli`, which
+does not use porte, has validated a nonce since it was written. This closes the gap for every
+porte adopter at once.
+
+**The parameter is optional, and that is deliberate, not laziness.** A CLI that predates this
+release sends no nonce and gets a redirect identical to today's. Requiring it server-side would
+hard-abort every installed binary the moment the server deployed — the lockout is a worse outcome
+than the race it prevents, and one the client can close on its own schedule. A CLI that *sends*
+the nonce must *require* it back; that half is the client's, and it may only ship after this
+release is live.
+
+`cli_state` is bounded at 128 characters and restricted to `[A-Za-z0-9-_]`. The value is opaque to
+the server and reflected into a redirect, so the only question worth asking is whether it can stop
+being a nonce and start being a second query parameter or a header.
+
 ## v0.2.8 — 2026-08-10
 
 **Logging out works when the session is already dead.** `POST /auth/logout` moves from

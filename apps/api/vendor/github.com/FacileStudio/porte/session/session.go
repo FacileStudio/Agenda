@@ -150,19 +150,35 @@ func (m *Manager) handleLogout(w http.ResponseWriter, r *http.Request) {
 
 // Issue mints a session, stores only its hash, and returns the plaintext
 // exactly once. A label makes the row a named API token instead of a login.
+//
+// A labelled session gets no expiry, which is what the rest of porte already
+// assumed: the store's sweeper documents "rows with no expiry are API tokens
+// and are never swept", the idle window does not apply to the bearer
+// transport, and every adoption migrated its old api_tokens table across with
+// a null expires_at. Issue was the one place that disagreed, stamping the
+// 30-day session lifetime onto tokens as well — so a token minted through the
+// UI died a month later while a migrated one lived forever, and the difference
+// was invisible until somebody's nightly job stopped.
+//
+// An app that wants named tokens to expire owns that policy: it holds the
+// label, so it can sweep or rotate them on whatever schedule it means.
 func (m *Manager) Issue(ctx context.Context, userID int64, label string) (string, porte.Session, error) {
 	token, err := porte.NewToken()
 	if err != nil {
 		return "", porte.Session{}, errors.Internal("failed to issue a session", err)
 	}
 	now := m.now()
+	var expiresAt time.Time
+	if label == "" {
+		expiresAt = now.Add(m.cfg.SessionTTL)
+	}
 	session, err := m.store.Create(ctx, porte.Session{
 		TokenHash:  porte.HashToken(token),
 		UserID:     userID,
 		Label:      label,
 		CreatedAt:  now,
 		LastUsedAt: now,
-		ExpiresAt:  now.Add(m.cfg.SessionTTL),
+		ExpiresAt:  expiresAt,
 	})
 	if err != nil {
 		return "", porte.Session{}, errors.Internal("failed to store the session", err)
@@ -216,6 +232,21 @@ func (m *Manager) List(ctx context.Context, userID int64) ([]porte.Session, erro
 // a handler cannot revoke somebody else's session by guessing an integer.
 func (m *Manager) Revoke(ctx context.Context, userID, sessionID int64) error {
 	return m.store.DeleteByID(ctx, userID, sessionID)
+}
+
+// Sweep deletes the sessions that have expired and returns how many went.
+//
+// It is on the manager for the same reason List and Revoke are: an app that
+// holds a Manager should not also have to hold the store, because the whole
+// point of the manager is that one thing owns the credential. Before this, an
+// app running an hourly cleanup had to keep a second reference to porte/pg
+// purely to expire rows.
+//
+// Rows with no expiry are labelled sessions — named API tokens — and the store
+// spares them. A token wired into a nightly job is idle by design and has no
+// expiry to be past.
+func (m *Manager) Sweep(ctx context.Context) (int64, error) {
+	return m.store.DeleteExpired(ctx, m.now())
 }
 
 // RevokeUser drops every session a user holds. It is what back-channel logout
