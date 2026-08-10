@@ -81,10 +81,17 @@ const (
 // The login route's query parameters, frozen because six CLIs will spell them.
 // A CLI asks for the one-time-code flow with ?flow=cli, and adds ?port=N when
 // it is listening on loopback for the code — the pattern gh auth login uses.
+//
+// StateParam carries the CLI's own nonce, which is echoed back on the loopback
+// redirect as `state`. Without it the listener accepts any callback bearing a
+// code, so a local process that guesses the ephemeral port can hand the CLI a
+// credential of its choosing. It is optional only so that CLIs already in the
+// wild keep working; a CLI that sends it must require it back.
 const (
-	FlowParam = "flow"
-	FlowCLI   = "cli"
-	PortParam = "port"
+	FlowParam  = "flow"
+	FlowCLI    = "cli"
+	PortParam  = "port"
+	StateParam = "cli_state"
 )
 
 // SessionCookieName is the browser session cookie. Courrier and Agenda already
