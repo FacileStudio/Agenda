@@ -122,8 +122,24 @@ export class ApiError extends Error {
 	}
 }
 
+// Methods that cannot change anything, and so do not need the CSRF header.
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+// porte authenticates the cookie in preference to the Authorization header,
+// and refuses a cookie-authenticated *mutating* request that does not carry
+// X-Facile-CSRF. Any non-empty value counts: the header's presence is the whole
+// signal, because a browser will not attach a custom header to a cross-site
+// form post. Without this every write returns 403 while every read succeeds,
+// which is a failure mode that looks like "the app is fine, saving is broken".
+function withCSRF(headers: Headers, method: string): Headers {
+	if (!SAFE_METHODS.has(method.toUpperCase())) {
+		headers.set('X-Facile-CSRF', '1');
+	}
+	return headers;
+}
+
 async function apiFetch<T>(path: string, options: RequestInit = {}) {
-	const headers = new Headers(options.headers);
+	const headers = withCSRF(new Headers(options.headers), options.method ?? 'GET');
 	if (!headers.has('Content-Type') && options.body) {
 		headers.set('Content-Type', 'application/json');
 	}

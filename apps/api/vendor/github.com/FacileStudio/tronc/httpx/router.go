@@ -4,6 +4,7 @@ package httpx
 import (
 	"log/slog"
 	"net/http"
+	"net/netip"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -17,6 +18,22 @@ type Config struct {
 	Logger *slog.Logger
 	// CORS is applied when AllowedOrigins is non-empty.
 	CORS middleware.CORSConfig
+	// TrustedProxies are the peers whose X-Forwarded-For is believed.
+	// Leave it nil for middleware.DefaultTrustedProxies — loopback and the
+	// private ranges, which is every Facile deployment behind Traefik.
+	// Pass an explicitly empty, non-nil slice to trust no proxy at all and
+	// key everything on the connection address.
+	TrustedProxies []netip.Prefix
+}
+
+// trustedProxies resolves the configured set, distinguishing "unset" from
+// "deliberately empty". A nil slice means the app said nothing and gets the
+// default; a non-nil empty slice means it said none, and is honoured.
+func (c Config) trustedProxies() []netip.Prefix {
+	if c.TrustedProxies == nil {
+		return middleware.DefaultTrustedProxies
+	}
+	return c.TrustedProxies
 }
 
 // Chain applies the standard middleware stack to any handler, in the same order
@@ -34,7 +51,7 @@ func Chain(cfg Config, next http.Handler) http.Handler {
 	if len(cfg.CORS.AllowedOrigins) > 0 {
 		handler = middleware.CORS(cfg.CORS)(handler)
 	}
-	handler = chimiddleware.RealIP(handler)
+	handler = middleware.RealIP(cfg.trustedProxies())(handler)
 	handler = middleware.Recoverer(logger)(handler)
 	handler = chimiddleware.RequestID(handler)
 	return handler
@@ -44,6 +61,11 @@ func Chain(cfg Config, next http.Handler) http.Handler {
 // in this order:
 //
 //	RequestID -> Recoverer -> RealIP -> CORS -> RequestLogger
+//
+// RealIP is tronc's, not chi's. chi's rewrites RemoteAddr from
+// X-Forwarded-For whatever the peer, which makes every per-IP rate limit
+// downstream bypassable by rotating a header. Ours believes the header only
+// from a trusted peer — see Config.TrustedProxies.
 //
 // Recoverer sits second, not last. The apps currently run it innermost, so a
 // panic raised in CORS or in the request logger escapes to net/http and is
@@ -58,7 +80,7 @@ func NewRouter(cfg Config) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(chimiddleware.RequestID)
 	router.Use(middleware.Recoverer(logger))
-	router.Use(chimiddleware.RealIP)
+	router.Use(middleware.RealIP(cfg.trustedProxies()))
 	if len(cfg.CORS.AllowedOrigins) > 0 {
 		router.Use(middleware.CORS(cfg.CORS))
 	}
