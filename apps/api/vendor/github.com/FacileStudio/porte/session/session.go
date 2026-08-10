@@ -104,15 +104,46 @@ func (m *Manager) Config() porte.Config { return m.cfg }
 // handler answering a second response shape.
 func (m *Manager) Mount(router chi.Router) {
 	router.Group(func(authenticated chi.Router) {
-		authenticated.Use(m.RequireAuth)
+		authenticated.Use(m.Optional)
 		authenticated.Post(porte.RouteLogout, m.handleLogout)
 	})
 }
 
+// handleLogout ends the session and clears the cookie, and answers the same
+// way whether or not the caller had a valid one.
+//
+// Optional rather than RequireAuth, deliberately. Behind RequireAuth an
+// expired or revoked cookie gets a 401 and is *not* cleared, so the one state
+// where a user actually needs to log out — a session the server has already
+// stopped honouring, in a browser that still holds it — is the one state where
+// logging out does not work. They are left pressing a button that fails while
+// the stale cookie keeps being sent.
+//
+// Nothing is protected by demanding auth here: ending a session you already
+// hold is not a privileged act, and for a caller without one this does nothing
+// but expire a cookie in their own browser.
+//
+// The CSRF header is still required from anything presenting a cookie, and it
+// is checked here rather than left to Authenticate, because Optional swallows
+// that refusal along with every other. Without this an attacker's cross-site
+// POST would log the victim out — a nuisance rather than an escalation, but a
+// protection porte already has and should not drop while widening the route. A
+// bearer-only caller sends no cookie and needs no header: there is no ambient
+// credential for a forged request to ride on.
 func (m *Manager) handleLogout(w http.ResponseWriter, r *http.Request) {
-	if err := m.Clear(r.Context(), w, r); err != nil {
-		httpjson.WriteError(w, err)
-		return
+	if _, carriesCookie := m.ReadCookie(r, porte.SessionCookieName); carriesCookie {
+		if r.Header.Get(porte.CSRFHeaderName) == "" {
+			httpjson.WriteError(w, errors.Forbidden("missing "+porte.CSRFHeaderName+" header"))
+			return
+		}
+	}
+	if _, ok := porte.From(r.Context()); ok {
+		if err := m.Clear(r.Context(), w, r); err != nil {
+			httpjson.WriteError(w, err)
+			return
+		}
+	} else {
+		m.ClearCookie(w, r, porte.SessionCookieName)
 	}
 	httpjson.WriteJSON(w, http.StatusOK, porte.LogoutResponse{LoggedOut: true})
 }

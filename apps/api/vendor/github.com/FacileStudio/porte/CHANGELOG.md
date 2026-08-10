@@ -3,6 +3,27 @@
 Decisions are recorded with their reasoning. The reasoning is the part that stops a future
 session from undoing a deliberate choice.
 
+## v0.2.8 — 2026-08-10
+
+**Logging out works when the session is already dead.** `POST /auth/logout` moves from
+`RequireAuth` to `Optional`: it clears the cookie and answers `{"logged_out":true}` whether or not
+the credential was still valid.
+
+Behind `RequireAuth` an expired or revoked cookie got a `401` and was **not cleared**, so the one
+state that makes somebody press the button — a session the server has stopped honouring, in a
+browser that still holds it — was the state where the button did nothing. The stale cookie kept
+being sent and the user had no way out short of clearing site data. Found adopting Courrier and
+Agenda, whose own logout had always answered `ok` regardless; this restores that.
+
+Nothing was protected by demanding auth: ending a session you already hold is not privileged, and
+for a caller without one this only expires a cookie in their own browser.
+
+**The CSRF header is still required from anything presenting a cookie**, and the check is now the
+handler's own, because `Optional` swallows that refusal along with every other error. Without it a
+cross-site `POST` would log the victim out — a nuisance rather than an escalation, but a
+protection porte already had and must not drop while widening the route. A bearer-only caller
+sends no cookie and needs no header: there is no ambient credential for a forged request to ride.
+
 ## v0.2.7 — 2026-08-10
 
 `local.Kit.Verify` — a password check that issues nothing. `Login` is now this plus a session.
