@@ -54,6 +54,13 @@ type Core struct {
 	JournalURL         string
 	JournalToken       string
 
+	// CDNProxies and CDNHeader are set when TRUSTED_PROXIES names a CDN.
+	// They let httpx recover the visitor when the proxy in front replaced
+	// the forwarded chain instead of extending it, which is Traefik's
+	// default and leaves only the CDN's own header carrying the visitor.
+	CDNProxies []netip.Prefix
+	CDNHeader  string
+
 	// TrustedProxies are the peers whose X-Forwarded-For httpx believes.
 	// Unset means middleware.DefaultTrustedProxies: loopback and the
 	// private ranges, which is the shape every app has behind Traefik.
@@ -90,6 +97,7 @@ func loadCore(requireDatabase bool) (Core, error) {
 	if err != nil {
 		return Core{}, err
 	}
+	cdnProxies, cdnHeader := CDN()
 
 	databaseURL := String("DATABASE_URL", "")
 	if requireDatabase && databaseURL == "" {
@@ -105,6 +113,8 @@ func loadCore(requireDatabase bool) (Core, error) {
 		JournalURL:         String("JOURNAL_URL", ""),
 		JournalToken:       String("JOURNAL_TOKEN", ""),
 		TrustedProxies:     trustedProxies,
+		CDNProxies:         cdnProxies,
+		CDNHeader:          cdnHeader,
 	}, nil
 }
 
@@ -121,6 +131,20 @@ func loadCore(requireDatabase bool) (Core, error) {
 var TrustedProxySets = map[string][]netip.Prefix{
 	"private":    middleware.DefaultTrustedProxies,
 	"cloudflare": middleware.CloudflareProxies,
+}
+
+// CDN reports the edge ranges and visitor header implied by TRUSTED_PROXIES.
+//
+// Naming a CDN is what opts into reading its header, because the two are the
+// same statement: "this app is served through Cloudflare" is both why the edge
+// is trusted and why Cf-Connecting-Ip means anything.
+func CDN() ([]netip.Prefix, string) {
+	for _, entry := range List("TRUSTED_PROXIES") {
+		if strings.EqualFold(strings.TrimSpace(entry), "cloudflare") {
+			return middleware.CloudflareProxies, "Cf-Connecting-Ip"
+		}
+	}
+	return nil, ""
 }
 
 // TrustedProxies reads TRUSTED_PROXIES as a comma-separated list of CIDR

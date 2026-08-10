@@ -50,15 +50,77 @@ var DefaultTrustedProxies = mustPrefixes(
 // RemoteAddr stands. Callers that want the default must pass
 // DefaultTrustedProxies explicitly, so a zero value can never widen trust.
 func RealIP(trusted []netip.Prefix) func(http.Handler) http.Handler {
+	return RealIPWith(RealIPConfig{Trusted: trusted})
+}
+
+// RealIPConfig adds the CDN case to RealIP.
+//
+// It exists because Traefik, by default, does not extend an incoming
+// X-Forwarded-For — it **replaces** it with the address it received from. So
+// behind a CDN the app sees a one-entry chain holding the CDN's edge and
+// nothing else, the walk consumes it, and there is no visitor left to find.
+// The visitor survives only in the CDN's own header.
+//
+// Believing that header unconditionally would undo the whole package: anything
+// that can reach the origin could set it, and the origin is usually reachable.
+// So it is believed on one condition — the rightmost forwarded hop is itself a
+// CDN address, which is the proof the request actually entered through the CDN.
+// A request sent straight to the origin carries the sender's own address there
+// instead, fails the check, and is treated as the client it is.
+type RealIPConfig struct {
+	// Trusted are the peers whose X-Forwarded-For is read at all.
+	Trusted []netip.Prefix
+	// CDN are the edge ranges whose Header is believed. Empty disables the
+	// case entirely.
+	CDN []netip.Prefix
+	// Header carries the visitor's address, e.g. Cf-Connecting-Ip.
+	Header string
+}
+
+// RealIPWith is RealIP with the CDN case configured.
+func RealIPWith(cfg RealIPConfig) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-			if client, ok := clientAddr(request, trusted); ok {
+			if client, ok := resolveClient(request, cfg); ok {
 				request = request.Clone(request.Context())
 				request.RemoteAddr = client
 			}
 			next.ServeHTTP(w, request)
 		})
 	}
+}
+
+// resolveClient prefers a forwarded hop, and falls back to the CDN header only
+// when the chain proves the request came through the CDN.
+func resolveClient(request *http.Request, cfg RealIPConfig) (string, bool) {
+	if client, ok := clientAddr(request, cfg.Trusted); ok {
+		return client, true
+	}
+	if len(cfg.CDN) == 0 || cfg.Header == "" || len(cfg.Trusted) == 0 {
+		return "", false
+	}
+	peer, ok := parseAddr(request.RemoteAddr)
+	if !ok || !TrustedBy(peer, cfg.Trusted) {
+		return "", false
+	}
+
+	// The rightmost hop is the one the nearest proxy wrote, so it is the
+	// only entry that says where the request actually came from.
+	forwarded := request.Header.Get("X-Forwarded-For")
+	if forwarded == "" {
+		return "", false
+	}
+	hops := strings.Split(forwarded, ",")
+	edge, ok := parseAddr(hops[len(hops)-1])
+	if !ok || !TrustedBy(edge, cfg.CDN) {
+		return "", false
+	}
+
+	visitor, ok := parseAddr(request.Header.Get(cfg.Header))
+	if !ok {
+		return "", false
+	}
+	return visitor.String(), true
 }
 
 // clientAddr resolves the caller's address, reporting false when the header

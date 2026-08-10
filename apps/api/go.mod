@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/FacileStudio/Journal/sdk/journal v0.0.0-20260708221941-db985ad2b1ba
 	github.com/FacileStudio/porte v0.2.10
-	github.com/FacileStudio/tronc v0.11.0
+	github.com/FacileStudio/tronc v0.12.0
 	github.com/FacileStudio/tronc/testdb v0.1.1
 	github.com/emersion/go-ical v0.0.0-20250609112844-439c63cef608
 	github.com/emersion/go-webdav v0.7.0
