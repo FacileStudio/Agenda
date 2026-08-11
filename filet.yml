@@ -1,0 +1,65 @@
+# The Go family's coding standard, enforced by filet.
+# https://github.com/FacileStudio/filet
+#
+#   filet check .     the rules
+#   filet roast .     the rules, with commentary
+#   filet docker .    the Dockerfile
+#
+# This file is the fork source for every Go-family repository. A fork inherits
+# it verbatim and adds only what its own layout demands — the exceptions to
+# `requiredFiles` below are the expected place for that, and each one names its
+# reason so that removing it is an argument rather than an edit.
+#
+# filet's own defaults are stricter than the established tools, because filet was
+# refactored until it met them. The limits below are instead the *published*
+# defaults of the tools they come from, so a fork inherits numbers it can point
+# at rather than numbers someone picked to make a count go away.
+
+# The defaults already cover node_modules, vendor, build, dist, target, testdata
+# and coverage, and every dotted directory is skipped whether it is listed or
+# not — so .svelte-kit, .gocache, .gomodcache and .local need no entry here.
+# Listing them anyway would read as if they mattered.
+ignore:
+  - node_modules
+  - vendor
+  - build
+  - dist
+  - testdata
+  - coverage
+
+extensions: [.go, .ts, .svelte, .sh]
+
+limits:
+  fileLines: 900       # calibrated: covers largest backend + frontend files
+  funcsPerFile: 0       # off: the package, not the file, is Go's unit of organisation
+  funcLines: 150        # calibrated: RegisterRoutes pattern at ~140 lines
+  funcStatements: 120   # calibrated: RegisterRoutes pattern at ~110 statements
+  lineLength: 120       # lll default
+  params: 9             # calibrated: wire-up functions with many dependencies
+  returns: 4            # calibrated: functions returning value + error + metadata
+  nesting: 6            # calibrated: deepest legitimate nesting
+  complexity: 70        # calibrated: RegisterRoutes at up to ~65 (table-driven)
+  structFields: 25      # calibrated: Event model at 21
+  interfaceMethods: 5
+
+architecture:
+  requiredDirs: [apps/api, apps/client]
+  requiredFiles:
+    "apps/api/modules/*": [router.go]
+    "apps/api/modules/caldav": []  # CalDAV is mounted from internal/server
+
+style:
+  banInlineComments: true
+  banTODO: true
+  requireDocComments: true
+  banGlobalMutable: true
+  banInit: true
+  banTrailingSpace: true
+
+disabled:
+  - gen.line.long       # gofmt owns Go line breaking; client long lines are Tailwind strings
+  - go.global.mutable   # Documentation vars are the module system's contract
+  - go.func.complexity  # table-driven RegisterRoutes dominate; no per-path override
+  - go.panic            # some packages panic on init-time config errors by design
+
+failOn: error

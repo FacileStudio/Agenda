@@ -1,0 +1,21 @@
+name: filet
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  filet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: FacileStudio/filet@v0.3.0
+        with:
+          version: v0.3.0
+          fail-on: error
+          antenne-url: ${{ secrets.ANTENNE_FILET_SECRET != '' && 'https://antenne.facile.studio/webhook/filet' || '' }}
+          antenne-secret: ${{ secrets.ANTENNE_FILET_SECRET }}
