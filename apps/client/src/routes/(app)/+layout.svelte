@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { MobileNav, SideBar, SpaceSwitcher, Topbar, icons } from '@facile/muse';
-	import { backend, type UserProfile, type CalendarItem, type SpaceItem } from '$lib/backend';
+	import { ApiError, backend, type UserProfile, type CalendarItem, type SpaceItem } from '$lib/backend';
 	import { getSpaceContext, setSpaceContext, spaceId } from '$lib/space-context.svelte';
 
 	let { children } = $props();
@@ -51,8 +51,10 @@
 			}).catch(() => {});
 			backend.listSpaces().then((list) => { spaces = list; }).catch(() => { spaces = []; });
 			await refreshCalendars();
-		} catch {
-			goto('/login');
+		} catch (err) {
+			if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+				goto('/login');
+			}
 		}
 	});
 
