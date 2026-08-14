@@ -70,8 +70,8 @@
 					<span class="font-heading text-2xl font-semibold tracking-tight">Agenda</span>
 				</div>
 				<div class="flex items-center gap-2">
-					<Button variant="ghost" href="/login">Log in</Button>
-					<Button href={startHref}>{ssoOnly ? 'Continue with SSO' : 'Get started'}</Button>
+					<Button variant="ghost" href="/login" class="rounded-fc-md">Log in</Button>
+					<Button href={startHref} class="rounded-fc-md">{ssoOnly ? 'Sign in with Facile' : 'Get started'}</Button>
 				</div>
 			</div>
 		</header>
@@ -86,10 +86,10 @@
 					team, and sync it to every device you already use.
 				</p>
 				<div class="mt-10 flex justify-center gap-3">
-					<Button size="lg" href={startHref} iconRight={icons.arrow}>
-						{ssoOnly ? 'Continue with SSO' : 'Start planning'}
+					<Button size="lg" href={startHref} iconRight={icons.arrow} class="rounded-fc-md">
+						{ssoOnly ? 'Sign in with Facile' : 'Start planning'}
 					</Button>
-					<Button size="lg" variant="outline" href="/login">Log in</Button>
+					<Button size="lg" variant="outline" href="/login" class="rounded-fc-md">Log in</Button>
 				</div>
 			</section>
 
@@ -120,12 +120,12 @@
 				</h2>
 				<p class="mt-4 text-muted-foreground">
 					{ssoOnly
-						? 'Use your organization SSO to access Agenda.'
+						? 'Use your Facile SSO to access Agenda.'
 						: 'Free to use. Self-hosted. No credit card required.'}
 				</p>
 				<div class="mt-8 flex justify-center">
-					<Button size="lg" href={startHref}>
-						{ssoOnly ? 'Continue with SSO' : 'Create an account'}
+					<Button size="lg" href={startHref} class="rounded-fc-md">
+						{ssoOnly ? 'Sign in with Facile' : 'Create an account'}
 					</Button>
 				</div>
 			</section>
