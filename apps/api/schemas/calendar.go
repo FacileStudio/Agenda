@@ -2,6 +2,8 @@ package schemas
 
 import "time"
 
+// Calendar is a calendar an owner shares with members. It carries the sync
+// token bumped on every event change.
 type Calendar struct {
 	ID          int64     `gorm:"column:id;primaryKey"`
 	OwnerID     int64     `gorm:"column:owner_id;index"`
@@ -20,11 +22,13 @@ type Calendar struct {
 
 func (Calendar) TableName() string { return "calendars" }
 
+// CalendarMember is a user's grant on a calendar. Role is one of reader,
+// writer or admin.
 type CalendarMember struct {
 	ID         int64     `gorm:"column:id;primaryKey"`
 	CalendarID int64     `gorm:"column:calendar_id;uniqueIndex:idx_calendar_member"`
 	UserID     int64     `gorm:"column:user_id;uniqueIndex:idx_calendar_member"`
-	Role       string    `gorm:"column:role"` // reader, writer, admin
+	Role       string    `gorm:"column:role"`
 	CreatedAt  time.Time `gorm:"column:created_at;autoCreateTime"`
 }
 

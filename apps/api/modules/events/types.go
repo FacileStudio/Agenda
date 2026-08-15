@@ -2,6 +2,7 @@ package events
 
 import "time"
 
+// CreateEventRequest is the payload for creating an event in a calendar.
 type CreateEventRequest struct {
 	Title              string    `json:"title"`
 	Description        string    `json:"description"`
@@ -15,9 +16,10 @@ type CreateEventRequest struct {
 	ConferenceProvider string    `json:"conference_provider"`
 }
 
+// UpdateEventRequest is the payload for editing an event. CalendarID, when set
+// and different from the event's current calendar, moves the event to that
+// calendar (requires write access to it).
 type UpdateEventRequest struct {
-	// CalendarID, when set and different from the event's current calendar,
-	// moves the event to that calendar (requires write access to it).
 	CalendarID         int64     `json:"calendar_id"`
 	Title              string    `json:"title"`
 	Description        string    `json:"description"`
@@ -31,6 +33,7 @@ type UpdateEventRequest struct {
 	ConferenceProvider string    `json:"conference_provider"`
 }
 
+// EventCreator describes the user who created an event.
 type EventCreator struct {
 	ID        int64  `json:"id"`
 	Name      string `json:"name"`
@@ -38,6 +41,7 @@ type EventCreator struct {
 	AvatarURL string `json:"avatar_url"`
 }
 
+// EventResponse describes an event as returned to its calendar's members.
 type EventResponse struct {
 	ID                 int64         `json:"id"`
 	CalendarID         int64         `json:"calendar_id"`

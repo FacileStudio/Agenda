@@ -11,10 +11,12 @@ import (
 	"gorm.io/gorm"
 )
 
+// Service implements space persistence, membership and access control.
 type Service struct {
 	orm *gorm.DB
 }
 
+// NewService builds a space service over the given database.
 func NewService(orm *gorm.DB) *Service {
 	return &Service{orm: orm}
 }

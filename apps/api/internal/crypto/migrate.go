@@ -19,6 +19,8 @@ func isEncrypted(value string) bool {
 	return len(decoded) > 12
 }
 
+// MigrateOIDCTokens encrypts any plaintext OIDC access and refresh tokens stored
+// on users, leaving already-encrypted rows untouched. Idempotent across runs.
 func MigrateOIDCTokens(db *gorm.DB, key []byte, logger *slog.Logger) error {
 	type row struct {
 		ID               int64

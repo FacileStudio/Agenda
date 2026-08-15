@@ -24,6 +24,8 @@ func (g *gzipResponseWriter) Write(b []byte) (int, error) {
 	return g.writer.Write(b)
 }
 
+// Gzip compresses responses with gzip when the client advertises it via
+// Accept-Encoding.
 func Gzip(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {

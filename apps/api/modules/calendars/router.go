@@ -7,6 +7,8 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// RegisterRoutes wires the authenticated calendar CRUD, sharing and member
+// management endpoints.
 func RegisterRoutes(router chi.Router, service *Service, authService *auth.Service) {
 	c := newController(service)
 	router.Route("/calendars", func(r chi.Router) {

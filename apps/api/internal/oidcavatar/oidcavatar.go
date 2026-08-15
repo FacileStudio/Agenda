@@ -10,6 +10,7 @@ package oidcavatar
 
 import "strings"
 
+// Profile carries the identity fields decoded from an OIDC id-token claim set.
 type Profile struct {
 	Name              string
 	PreferredUsername string

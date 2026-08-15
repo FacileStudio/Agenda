@@ -94,6 +94,11 @@ func stubIssuer(t *testing.T) string {
 	return server.URL
 }
 
+// testRouter builds the full router under test from an in-memory configuration.
+//
+// The porte pieces are built over a nil database, which is what the rest of
+// this harness does with the services: these cases stop at routing, and an
+// unauthenticated request is refused before anything is read.
 func testRouter(t *testing.T) chi.Router {
 	t.Helper()
 	appEnv := env.Config{
@@ -108,10 +113,6 @@ func testRouter(t *testing.T) chi.Router {
 	}
 	appLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	// The porte pieces are built over a nil database, which is what the
-	// rest of this harness does with the services: these cases stop at
-	// routing, and an unauthenticated request is refused before anything is
-	// read.
 	store := portepg.New(nil)
 	sessions, err := session.New(appEnv.Porte(), session.Deps{Sessions: store.Sessions(), Logger: appLogger})
 	if err != nil {

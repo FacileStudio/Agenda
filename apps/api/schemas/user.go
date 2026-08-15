@@ -2,6 +2,8 @@ package schemas
 
 import "time"
 
+// User is an account row: profile fields, avatar sources, OIDC bindings and
+// the porte identity linkage.
 type User struct {
 	ID               int64     `gorm:"column:id;primaryKey"`
 	Email            string    `gorm:"column:email;uniqueIndex"`

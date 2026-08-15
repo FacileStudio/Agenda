@@ -2,6 +2,8 @@ package schemas
 
 import "time"
 
+// Event is a calendar entry with both structured columns and the raw ICS
+// CalDAV syncs against. Status is one of confirmed, tentative or cancelled.
 type Event struct {
 	ID                 int64     `gorm:"column:id;primaryKey"`
 	CalendarID         int64     `gorm:"column:calendar_id;index;uniqueIndex:idx_uid_calendar"`
@@ -16,7 +18,7 @@ type Event struct {
 	EndAt              time.Time `gorm:"column:end_at;index"`
 	IsAllDay           bool      `gorm:"column:is_all_day;default:false"`
 	RecurrenceRule     string    `gorm:"column:recurrence_rule"`
-	Status             string    `gorm:"column:status;default:'confirmed'"` // confirmed, tentative, cancelled
+	Status             string    `gorm:"column:status;default:'confirmed'"`
 	ConferenceURL      string    `gorm:"column:conference_url"`
 	ConferenceProvider string    `gorm:"column:conference_provider"`
 	RawICS             string    `gorm:"column:raw_ics;type:text"`
@@ -28,12 +30,14 @@ type Event struct {
 
 func (Event) TableName() string { return "events" }
 
+// EventAttendee is an invitation to an event. Response is one of
+// needs-action, accepted, declined or tentative.
 type EventAttendee struct {
 	ID        int64     `gorm:"column:id;primaryKey"`
 	EventID   int64     `gorm:"column:event_id;index"`
 	UserID    *int64    `gorm:"column:user_id;index"`
 	Email     string    `gorm:"column:email"`
-	Response  string    `gorm:"column:response;default:'needs-action'"` // needs-action, accepted, declined, tentative
+	Response  string    `gorm:"column:response;default:'needs-action'"`
 	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime"`
 }
 

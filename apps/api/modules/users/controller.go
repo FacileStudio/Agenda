@@ -12,6 +12,7 @@ import (
 	"github.com/FacileStudio/tronc/errors"
 )
 
+// Controller adapts user service calls to HTTP handlers.
 type Controller struct {
 	service *Service
 }
