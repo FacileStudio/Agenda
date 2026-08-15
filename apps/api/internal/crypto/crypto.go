@@ -10,11 +10,14 @@ import (
 	"io"
 )
 
+// DeriveKey hashes the raw key material into a 32-byte AES key.
 func DeriveKey(raw string) []byte {
 	h := sha256.Sum256([]byte(raw))
 	return h[:]
 }
 
+// Encrypt seals plaintext with AES-256-GCM and returns the base64-encoded nonce
+// and ciphertext. Empty input returns an empty string unchanged.
 func Encrypt(plaintext string, key []byte) (string, error) {
 	if plaintext == "" {
 		return "", nil
@@ -39,6 +42,8 @@ func Encrypt(plaintext string, key []byte) (string, error) {
 	return base64.RawStdEncoding.EncodeToString(sealed), nil
 }
 
+// Decrypt opens ciphertext previously produced by Encrypt. Empty input returns
+// an empty string unchanged.
 func Decrypt(ciphertext string, key []byte) (string, error) {
 	if ciphertext == "" {
 		return "", nil

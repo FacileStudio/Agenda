@@ -4,6 +4,7 @@ import (
 	"context"
 )
 
+// Controller adapts settings service calls to HTTP handlers.
 type Controller struct {
 	service *Service
 }

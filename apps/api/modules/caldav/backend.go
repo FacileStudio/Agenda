@@ -25,10 +25,12 @@ import (
 
 const davPrefix = "/dav"
 
+// Backend adapts Agenda's calendars and events to go-webdav's caldav interface.
 type Backend struct {
 	db *gorm.DB
 }
 
+// NewBackend builds a CalDAV backend over the given database.
 func NewBackend(db *gorm.DB) *Backend {
 	return &Backend{db: db}
 }
@@ -49,19 +51,20 @@ func (b *Backend) CalendarHomeSetPath(ctx context.Context) (string, error) {
 	return davPrefix + "/" + user.Email + "/calendars", nil
 }
 
+// CreateCalendar makes a calendar owned by the authenticated user. The client-
+// chosen path segment is stored so the calendar stays addressable at the URL
+// the client proposed (Apple sends its own UUID via MKCOL/MKCALENDAR). The row
+// is written directly here rather than through the calendars service because
+// the web layer has no session identity to pass it.
 func (b *Backend) CreateCalendar(ctx context.Context, calendar *caldav.Calendar) error {
 	user := userFromContext(ctx)
 	if user == nil {
 		return webdav.NewHTTPError(http.StatusUnauthorized, fmt.Errorf("not authenticated"))
 	}
-	// Extract the calendar segment from the path. Apple proposes its own path
-	// (a UUID) via MKCOL/MKCALENDAR; store it so the calendar is addressable at
-	// the URL the client chose.
 	_, calSeg, _, _ := parsePath(calendar.Path)
 	if calSeg != "" && b.resolveCalID(ctx, calSeg) != 0 {
 		return webdav.NewHTTPError(http.StatusConflict, fmt.Errorf("calendar already exists"))
 	}
-	// Auto-create via the calendars service would be cleaner, but here we go direct
 	slug := fmt.Sprintf("cal-%d-%d", user.ID, time.Now().UnixMilli())
 	name := calendar.Name
 	if name == "" {
@@ -295,7 +298,6 @@ func (b *Backend) QueryCalendarObjects(ctx context.Context, calPath string, quer
 
 	homeSet, _ := b.CalendarHomeSetPath(ctx)
 
-	// Scope to a specific calendar when the path contains one, otherwise search all.
 	_, calSeg, _, _ := parsePath(calPath)
 	calID := b.resolveCalID(ctx, calSeg)
 	var cals []schemas.Calendar
@@ -344,6 +346,14 @@ func (b *Backend) QueryCalendarObjects(ctx context.Context, calPath string, quer
 	return all, nil
 }
 
+// PutCalendarObject stores an event from a CalDAV client, honouring the RFC
+// 4791 and RFC 2616 preconditions on the UID and ETag.
+//
+// ValidateCalendarObject returns the component type so VTODO/VJOURNAL payloads
+// can be rejected. Per RFC 4791 §5.3.2.1 a PUT is refused when another
+// resource already owns the UID in the calendar; RFC 2616 §14.24 requires
+// If-Match: * to see an existing resource, so a wildcard If-Match on a missing
+// one is a precondition failure.
 func (b *Backend) PutCalendarObject(ctx context.Context, objPath string, calendar *ical.Calendar, opts *caldav.PutCalendarObjectOptions) (*caldav.CalendarObject, error) {
 	if err := b.validatePathUser(ctx, objPath); err != nil {
 		return nil, err
@@ -359,7 +369,6 @@ func (b *Backend) PutCalendarObject(ctx context.Context, objPath string, calenda
 		return nil, err
 	}
 
-	// ValidateCalendarObject also returns the component type so we can reject VTODO/VJOURNAL.
 	eventType, uid, err := caldav.ValidateCalendarObject(calendar)
 	if err != nil {
 		return nil, caldav.NewPreconditionError(caldav.PreconditionValidCalendarData)
@@ -381,7 +390,6 @@ func (b *Backend) PutCalendarObject(ctx context.Context, objPath string, calenda
 		return nil, webdav.NewHTTPError(http.StatusInternalServerError, lookupErr)
 	}
 
-	// RFC 4791 §5.3.2.1: reject if another resource already owns this UID in the calendar.
 	if !notFound && uid != pathUID {
 		return nil, caldav.NewPreconditionError(caldav.PreconditionNoUIDConflict)
 	}
@@ -389,7 +397,6 @@ func (b *Backend) PutCalendarObject(ctx context.Context, objPath string, calenda
 	if opts.IfNoneMatch.IsWildcard() && !notFound {
 		return nil, webdav.NewHTTPError(http.StatusPreconditionFailed, fmt.Errorf("resource already exists"))
 	}
-	// RFC 2616 §14.24: If-Match: * requires the resource to exist.
 	if opts.IfMatch.IsWildcard() && notFound {
 		return nil, webdav.NewHTTPError(http.StatusPreconditionFailed, fmt.Errorf("resource does not exist"))
 	}
@@ -626,17 +633,19 @@ func toCaldavCalendar(c *schemas.Calendar, homeSet string) caldav.Calendar {
 	}
 }
 
+// toCalendarObject renders an event for a CalDAV client. A stored event with
+// empty or corrupt raw_ics must not 500 the request — a single bad row would
+// otherwise break the whole calendar's sync (Apple Calendar: "failed to
+// update... request failed") — so a valid VEVENT is rebuilt from the structured
+// columns and the event still syncs. The ETag is kept as the raw unquoted
+// value because go-webdav wraps it in %q when writing headers, and
+// ContentLength is left 0 because go-webdav re-encodes cal.Data and the byte
+// count may differ.
 func toCalendarObject(e *schemas.Event, objPath string) (*caldav.CalendarObject, error) {
 	cal, err := ical.NewDecoder(strings.NewReader(e.RawICS)).Decode()
 	if err != nil {
-		// A stored event with empty or corrupt raw_ics must not 500 the request:
-		// a single bad row would otherwise break the whole calendar's sync
-		// (Apple Calendar: "failed to update... request failed"). Rebuild a valid
-		// VEVENT from the structured columns so the event still syncs.
 		cal = eventToICS(e)
 	}
-	// ETag must be the raw unquoted value — go-webdav wraps it in %q when writing headers.
-	// ContentLength is 0 because go-webdav re-encodes cal.Data and the byte count may differ.
 	return &caldav.CalendarObject{
 		Path:    objPath,
 		ModTime: e.UpdatedAt,

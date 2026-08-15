@@ -16,10 +16,12 @@ import (
 	"gorm.io/gorm"
 )
 
+// Service implements event persistence, validation and calendar access control.
 type Service struct {
 	orm *gorm.DB
 }
 
+// NewService builds an event service over the given database.
 func NewService(orm *gorm.DB) *Service {
 	return &Service{orm: orm}
 }
@@ -115,6 +117,12 @@ func (s *Service) GetEvent(ctx context.Context, userID int64, eventID int64) (*E
 	return &resp, nil
 }
 
+// UpdateEvent edits an event and bumps its sync token. When the request
+// targets a different calendar the event is moved there, which requires write
+// access to the destination too and bumps both sync tokens: CalDAV clients see
+// a delete from one collection plus an add to the other. The CreatedBy
+// association is omitted on save so the user row is never upserted — the
+// creator is read-only here.
 func (s *Service) UpdateEvent(ctx context.Context, userID int64, eventID int64, req *UpdateEventRequest) (*EventResponse, error) {
 	if err := validateEventFields(req.Title, req.StartAt, req.EndAt); err != nil {
 		return nil, err
@@ -127,9 +135,6 @@ func (s *Service) UpdateEvent(ctx context.Context, userID int64, eventID int64, 
 		return nil, err
 	}
 
-	// Moving the event to another calendar: require write access to the
-	// destination too, and remember the source so we can bump both sync
-	// tokens (CalDAV clients see a delete from one collection + add to the other).
 	sourceCalendarID := evt.CalendarID
 	moved := req.CalendarID != 0 && req.CalendarID != evt.CalendarID
 	if moved {
@@ -158,8 +163,6 @@ func (s *Service) UpdateEvent(ctx context.Context, userID int64, eventID int64, 
 	evt.ConferenceProvider = req.ConferenceProvider
 	evt.RawICS = buildRawICS(evt)
 
-	// Omit the CreatedBy association so saving the event never upserts the
-	// user row; the creator is read-only here.
 	if err := s.orm.WithContext(ctx).Omit("CreatedBy").Save(evt).Error; err != nil {
 		return nil, errors.Internal("failed to update event", err)
 	}
@@ -307,7 +310,7 @@ func statusOrDefault(s string) string {
 // The trailing CRLF is included in the output.
 func foldICSLine(line string) string {
 	const firstMax = 75
-	const contMax = 74 // 1-byte LWSP prefix + 74 = 75 octets per continuation line
+	const contMax = 74
 	b := []byte(line)
 	if len(b) <= firstMax {
 		return line + "\r\n"

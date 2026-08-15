@@ -13,10 +13,11 @@ import (
 // CalDAV, the avatar file server and the legacy OIDC callback are ignored. Their
 // URLs are held by external clients, stored rows and Authentik rather than by
 // this API's own contract, and CalDAV speaks WebDAV verbs OpenAPI cannot express.
+//
+// It walks testRouter and not an empty mounts struct: porte owns /auth/config,
+// /auth/logout and the OIDC flow now, so a router without it would let this
+// guard pass over the routes most likely to move.
 func TestEveryRouteIsDocumented(t *testing.T) {
-	// testRouter and not an empty mounts: porte owns /auth/config,
-	// /auth/logout and the OIDC flow now, so a router without it would let
-	// this guard pass over the routes most likely to move.
 	router := testRouter(t)
 
 	missing := apiref.Undocumented(router, referenceConfig(), "/dav", "/.well-known", "/files", "/auth/oidc/callback")

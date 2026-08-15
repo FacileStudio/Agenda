@@ -2,6 +2,7 @@ package schemas
 
 import "time"
 
+// Space groups users around shared calendars.
 type Space struct {
 	ID          int64         `gorm:"column:id;primaryKey"`
 	Name        string        `gorm:"column:name;not null"`
@@ -13,6 +14,7 @@ type Space struct {
 
 func (Space) TableName() string { return "spaces" }
 
+// SpaceMember is a user's role (owner, admin or member) inside a space.
 type SpaceMember struct {
 	ID       int64     `gorm:"column:id;primaryKey"`
 	SpaceID  int64     `gorm:"column:space_id;not null;index;uniqueIndex:idx_space_member"`

@@ -20,7 +20,7 @@
 
 	const tz = getLocalTimeZone();
 	const HOURS = Array.from({ length: 24 }, (_, i) => i);
-	const SLOT_HEIGHT = 60; // px per hour
+	const SLOT_HEIGHT_PX = 60;
 
 	function getCalendarColor(calendarId: number): string {
 		return calendarColor(calendars, calendarId);
@@ -64,8 +64,8 @@
 		const startMinutes = start.getHours() * 60 + start.getMinutes();
 		const endMinutes = end.getHours() * 60 + end.getMinutes();
 		const duration = Math.max(endMinutes - startMinutes, 30);
-		const top = (startMinutes / 60) * SLOT_HEIGHT;
-		const height = (duration / 60) * SLOT_HEIGHT;
+		const top = (startMinutes / 60) * SLOT_HEIGHT_PX;
+		const height = (duration / 60) * SLOT_HEIGHT_PX;
 		return `top: ${top}px; height: ${height}px;`;
 	}
 
@@ -108,14 +108,14 @@
 
 	<!-- Time grid -->
 	<div class="relative flex-1 overflow-y-auto">
-		<div class="relative" style="height: {24 * SLOT_HEIGHT}px;">
+		<div class="relative" style="height: {24 * SLOT_HEIGHT_PX}px;">
 			<!-- Hour rows -->
 			{#each HOURS as hour}
 				<button
 					type="button"
 					aria-label={`Créer un événement à ${hour}h`}
 					class="absolute right-0 left-0 cursor-pointer border-b border-dashed border-border transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
-					style="top: {hour * SLOT_HEIGHT}px; height: {SLOT_HEIGHT}px;"
+					style="top: {hour * SLOT_HEIGHT_PX}px; height: {SLOT_HEIGHT_PX}px;"
 					onclick={() => onSlotClick(hour)}
 				>
 					<span

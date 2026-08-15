@@ -54,6 +54,13 @@ func main() {
 	}
 }
 
+// run wires the app together and serves until a shutdown signal arrives,
+// returning a process exit code.
+//
+// Behind Traefik and Cloudflare, RemoteAddr is only the visitor if both are
+// trusted: Traefik replaces the forwarded chain rather than extending it, so
+// the visitor survives in Cf-Connecting-Ip alone. TRUSTED_PROXIES=private,
+// cloudflare fills all three.
 func run() int {
 	appEnv, err := env.Load()
 	appLogger := logger.New(logger.Config{})
@@ -123,11 +130,6 @@ func run() int {
 	settingsService := settings.NewService(db)
 
 	router := httpx.NewRouter(httpx.Config{
-		// Behind Traefik and Cloudflare, RemoteAddr is only the
-		// visitor if both are trusted: Traefik replaces the forwarded
-		// chain rather than extending it, so the visitor survives in
-		// Cf-Connecting-Ip alone. TRUSTED_PROXIES=private,cloudflare
-		// fills all three.
 		TrustedProxies: appEnv.TrustedProxies,
 		CDNProxies:     appEnv.CDNProxies,
 		CDNHeader:      appEnv.CDNHeader,
@@ -138,7 +140,7 @@ func run() int {
 		},
 	})
 	router.Use(middleware.SecurityHeaders)
-	router.Use(middleware.MaxBodySize(4 << 20)) // 4 MB
+	router.Use(middleware.MaxBodySize(4 << 20))
 
 	mountRoutes(router, mounts{
 		env:       appEnv,
@@ -222,6 +224,10 @@ type mounts struct {
 // somebody's first login — a change from what this app did, where a discovery
 // failure at route-registration time logged an error and left SSO 404ing until
 // the next restart.
+//
+// It also pins the local password floor at eight characters. Agenda's floor has
+// always been eight; porte defaults to twelve, and raising it here would reject
+// a password this app accepted yesterday — a product decision, not a migration.
 func buildAuth(ctx context.Context, db *gorm.DB, appEnv env.Config, appLogger *slog.Logger) (*session.Manager, *local.Kit, *oidc.Kit, error) {
 	sqlDB, err := db.DB()
 	if err != nil {
@@ -245,9 +251,6 @@ func buildAuth(ctx context.Context, db *gorm.DB, appEnv env.Config, appLogger *s
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	// Agenda's floor has always been eight characters. porte defaults to
-	// twelve, and raising it here would reject a password this app accepted
-	// yesterday — a product decision, not a migration.
 	passwords, err := local.New(local.Config{AllowRegistration: !appEnv.SSOOnly, MinPasswordLength: 8}, local.Deps{
 		Users:      users,
 		Identities: store.Identities(),

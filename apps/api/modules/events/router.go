@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// RegisterRoutes wires the authenticated event CRUD endpoints.
 func RegisterRoutes(router chi.Router, service *Service, authService *auth.Service) {
 	c := newController(service)
 	router.Route("/calendars/{calendarID}/events", func(r chi.Router) {

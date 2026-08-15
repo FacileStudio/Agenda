@@ -15,10 +15,12 @@ import (
 	"gorm.io/gorm"
 )
 
+// Service implements calendar persistence, access control and membership.
 type Service struct {
 	orm *gorm.DB
 }
 
+// NewService builds a calendar service over the given database.
 func NewService(orm *gorm.DB) *Service {
 	return &Service{orm: orm}
 }
@@ -255,12 +257,13 @@ func (s *Service) ShareCalendar(ctx context.Context, ownerID int64, calendarID i
 	return nil
 }
 
+// RemoveMember drops a member from a calendar. Owners and admins may manage any
+// member; everyone else may only remove themselves, which is how leaving works.
 func (s *Service) RemoveMember(ctx context.Context, ownerID int64, calendarID int64, memberID int64) error {
 	_, role, err := s.loadWithAccess(ctx, ownerID, calendarID)
 	if err != nil {
 		return err
 	}
-	// Owners/admins manage members; a member may always remove themselves (leave).
 	if role != "owner" && role != "admin" && ownerID != memberID {
 		return errors.Forbidden("insufficient permissions")
 	}

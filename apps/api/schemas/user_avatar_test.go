@@ -102,6 +102,10 @@ func TestAvatarSelectExprMatchesAvatar(t *testing.T) {
 // picture without a word. Row 5 is the other half: a data: placeholder that the old sync
 // stored verbatim, which under the new rule would masquerade as an SSO photo and suppress
 // the upload fallback for good.
+// TestBackfillAvatarSources runs the avatar backfill over every shape a row can
+// take. The row that carries both sources keeps its file and still renders the
+// Porte photo (SSO wins), and the placeholder is gone so an upload can serve as
+// the fallback again.
 func TestBackfillAvatarSources(t *testing.T) {
 	orm := openTestDatabase(t)
 
@@ -144,7 +148,6 @@ func TestBackfillAvatarSources(t *testing.T) {
 		}
 	}
 
-	// The row that carries both keeps its file, and still renders the Porte photo.
 	var both User
 	if err := orm.Where("email = ?", "upload-and-sso@example.com").First(&both).Error; err != nil {
 		t.Fatalf("read both: %v", err)
@@ -153,7 +156,6 @@ func TestBackfillAvatarSources(t *testing.T) {
 		t.Errorf("SSO photo should win, got %q", both.Avatar())
 	}
 
-	// The placeholder is gone, so an upload can serve as the fallback again.
 	var placeholder User
 	if err := orm.Where("email = ?", "placeholder@example.com").First(&placeholder).Error; err != nil {
 		t.Fatalf("read placeholder: %v", err)

@@ -14,11 +14,13 @@ import (
 
 const appSettingID = 1
 
+// Service persists and reads the app-wide settings.
 type Service struct {
 	orm        *gorm.DB
 	controller *Controller
 }
 
+// NewService builds a settings service over the given database.
 func NewService(orm *gorm.DB) *Service {
 	service := &Service{orm: orm}
 	service.controller = newController(service)

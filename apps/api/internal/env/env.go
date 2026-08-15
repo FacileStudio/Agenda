@@ -11,6 +11,8 @@ import (
 	"github.com/FacileStudio/porte"
 )
 
+// OIDCConfig holds the OpenID Connect provider settings read from the
+// OIDC_* environment variables.
 type OIDCConfig struct {
 	Issuer       string
 	ClientID     string
@@ -19,6 +21,8 @@ type OIDCConfig struct {
 	SuccessURL   string
 }
 
+// Config is the assembled application configuration: shared tronc settings
+// plus Agenda-specific storage, OIDC, SSO-only and encryption settings.
 type Config struct {
 	troncenv.Core
 	StorageDir    string
@@ -27,6 +31,9 @@ type Config struct {
 	EncryptionKey []byte
 }
 
+// Load reads the environment and returns a fully populated Config. It fails
+// when required OIDC fields are missing for a configured issuer, or when the
+// database DSN cannot be resolved.
 func Load() (Config, error) {
 	core, err := loadCore()
 	if err != nil {
@@ -68,6 +75,11 @@ func Load() (Config, error) {
 // loadCore fills troncenv.Core without troncenv.LoadCore, which requires
 // DATABASE_URL. The deployment only sets DB_USER and DB_PASSWORD, so the DSN is
 // still assembled from the DB_* variables when DATABASE_URL is absent.
+//
+// Every field troncenv.Core grows has to be added here too, because this
+// function exists precisely to skip troncenv.LoadCore. Forgetting one leaves it
+// at its zero value, which for TrustedProxies means the app quietly ignores
+// TRUSTED_PROXIES while the panel shows it set.
 func loadCore() (troncenv.Core, error) {
 	port, err := troncenv.Int("PORT", 4000)
 	if err != nil {
@@ -82,10 +94,6 @@ func loadCore() (troncenv.Core, error) {
 		return troncenv.Core{}, err
 	}
 
-	// Every field troncenv.Core grows has to be added here too, because
-	// this function exists precisely to skip troncenv.LoadCore. Forgetting
-	// one leaves it at its zero value, which for TrustedProxies means the
-	// app quietly ignores TRUSTED_PROXIES while the panel shows it set.
 	trustedProxies, err := troncenv.TrustedProxies()
 	if err != nil {
 		return troncenv.Core{}, err

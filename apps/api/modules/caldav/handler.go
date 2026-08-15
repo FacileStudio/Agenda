@@ -15,10 +15,20 @@ import (
 	"gorm.io/gorm"
 )
 
+// RegisterRoutes exposes the CalDAV server under /dav, plus the RFC 6764
+// discovery endpoint.
+//
+// chi only knows standard HTTP methods by default, so the WebDAV/CalDAV verbs
+// (PROPFIND, PROPPATCH, MKCALENDAR, REPORT, …) are registered first or
+// HandleFunc would never match them. /.well-known/caldav must be reachable
+// without auth so clients can bootstrap discovery before they have a session,
+// and it redirects with 302 rather than 308 because iOS has known issues with
+// 308 on well-known redirects. Requests are rate-limited to 100 per minute per
+// IP to blunt Basic Auth brute force while letting normal sync traffic through
+// (a typical client stays under 10 req/min). go-webdav has no MKCALENDAR
+// support, only MKCOL, so Apple Calendar's calendar creation would 405; the
+// davHandler intercepts it and routes it to the backend.
 func RegisterRoutes(router chi.Router, db *gorm.DB, authService *auth.Service) {
-	// chi only knows standard HTTP methods by default.
-	// WebDAV/CalDAV uses PROPFIND, PROPPATCH, MKCALENDAR, REPORT — register them
-	// so chi includes them in its mALL bitmask and HandleFunc matches them.
 	for _, m := range []string{"PROPFIND", "PROPPATCH", "MKCALENDAR", "REPORT", "COPY", "MOVE", "LOCK", "UNLOCK"} {
 		chi.RegisterMethod(m)
 	}
@@ -30,18 +40,11 @@ func RegisterRoutes(router chi.Router, db *gorm.DB, authService *auth.Service) {
 	}
 
 	davAuth := davAuthMiddleware(db, authService)
-	// 100 requests/minute per IP — prevents Basic Auth brute force while
-	// allowing normal sync traffic (typical client: <10 req/min).
 	rateLimiter := middleware.RateLimit(100, time.Minute)
 
-	// RFC 6764: /.well-known/caldav must be reachable without auth so clients
-	// can bootstrap discovery before they have a session.
-	// Use 302 (not 308) — iOS has known issues with 308 on well-known redirects.
 	router.HandleFunc("/.well-known/caldav", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, davPrefix+"/", http.StatusFound)
 	})
-	// go-webdav has no MKCALENDAR support (only MKCOL), so Apple Calendar's
-	// calendar creation 405s. Intercept it and route to the backend.
 	davHandler := func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "MKCALENDAR" {
 			backend.HandleMkcalendar(w, r)
@@ -77,6 +80,15 @@ func davAuthMiddleware(db *gorm.DB, authService *auth.Service) func(http.Handler
 // The password check is Verify rather than Login on purpose. A CalDAV client
 // re-sends Basic credentials on every single request, so signing in here would
 // write a session row per PROPFIND.
+//
+// The cookie path covers both the current cookie and the legacy `session`
+// cookie this app issued before it adopted porte, which porte still reads.
+// The Basic Auth username is percent-decoded because iOS 18.4+ encodes '@' as
+// '%40'. An API token is verified for what it is — a labelled porte session —
+// by handing it to porte as a bearer token, so expiry and idle rules are the
+// ones porte applies everywhere else; the address must still match the account
+// the token belongs to, or a valid token would authenticate a request that
+// claims to be somebody else.
 func resolveUser(w http.ResponseWriter, r *http.Request, db *gorm.DB, authService *auth.Service) *schemas.User {
 	ctx := r.Context()
 
@@ -88,9 +100,6 @@ func resolveUser(w http.ResponseWriter, r *http.Request, db *gorm.DB, authServic
 		return &u
 	}
 
-	// The cookie or a bearer header, which is what a browser and the web UI
-	// send. porte reads both, including the legacy `session` cookie this app
-	// issued before it adopted porte.
 	if id, err := authService.AuthenticateRequest(w, r); err == nil {
 		if user := load(id); user != nil {
 			return user
@@ -101,7 +110,6 @@ func resolveUser(w http.ResponseWriter, r *http.Request, db *gorm.DB, authServic
 	if !ok || rawEmail == "" || secret == "" {
 		return nil
 	}
-	// iOS 18.4+ percent-encodes '@' as '%40' in Basic Auth usernames.
 	email, _ := url.PathUnescape(rawEmail)
 	if email == "" {
 		email = rawEmail
@@ -113,14 +121,6 @@ func resolveUser(w http.ResponseWriter, r *http.Request, db *gorm.DB, authServic
 		}
 	}
 
-	// An API token, presented in the password field. It is verified as the
-	// credential it is — a labelled porte session — by handing it to porte
-	// as a bearer token, so the expiry and idle rules are the ones porte
-	// applies everywhere else rather than a second implementation here.
-	//
-	// The address still has to match the account the token belongs to. A
-	// valid token for one user must not authenticate a request that claims
-	// to be another.
 	bearer := r.Clone(ctx)
 	bearer.Header.Set("Authorization", "Bearer "+secret)
 	id, err := authService.AuthenticateRequest(w, bearer)

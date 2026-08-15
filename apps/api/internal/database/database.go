@@ -6,6 +6,8 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// Open connects to PostgreSQL using the given DSN and returns a GORM handle
+// with silent logging and translated errors.
 func Open(databaseURL string) (*gorm.DB, error) {
 	return gorm.Open(postgres.Open(databaseURL), &gorm.Config{
 		Logger:         logger.Default.LogMode(logger.Silent),
