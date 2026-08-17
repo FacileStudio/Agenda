@@ -366,10 +366,6 @@ func (b *backend) HeadGet(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func normPath(p string) string {
-	return strings.TrimSuffix(p, "/")
-}
-
 func (b *backend) PropFind(r *http.Request, propfind *internal.PropFind, depth internal.Depth) (*internal.MultiStatus, error) {
 	resType := b.resourceTypeAtPath(r.URL.Path)
 
@@ -378,7 +374,7 @@ func (b *backend) PropFind(r *http.Request, propfind *internal.PropFind, depth i
 
 	switch resType {
 	case resourceTypeRoot:
-		resp, err := b.propFindRoot(r.Context(), r.URL.Path, propfind)
+		resp, err := b.propFindRoot(r.Context(), propfind)
 		if err != nil {
 			return nil, err
 		}
@@ -388,7 +384,7 @@ func (b *backend) PropFind(r *http.Request, propfind *internal.PropFind, depth i
 		if err != nil {
 			return nil, err
 		}
-		if normPath(r.URL.Path) == normPath(principalPath) {
+		if r.URL.Path == principalPath {
 			resp, err := b.propFindUserPrincipal(r.Context(), propfind)
 			if err != nil {
 				return nil, err
@@ -414,7 +410,7 @@ func (b *backend) PropFind(r *http.Request, propfind *internal.PropFind, depth i
 		if err != nil {
 			return nil, err
 		}
-		if normPath(r.URL.Path) == normPath(homeSetPath) {
+		if r.URL.Path == homeSetPath {
 			resp, err := b.propFindHomeSet(r.Context(), propfind)
 			if err != nil {
 				return nil, err
@@ -462,7 +458,7 @@ func (b *backend) PropFind(r *http.Request, propfind *internal.PropFind, depth i
 	return internal.NewMultiStatus(resps...), nil
 }
 
-func (b *backend) propFindRoot(ctx context.Context, reqPath string, propfind *internal.PropFind) (*internal.Response, error) {
+func (b *backend) propFindRoot(ctx context.Context, propfind *internal.PropFind) (*internal.Response, error) {
 	principalPath, err := b.Backend.CurrentUserPrincipal(ctx)
 	if err != nil {
 		return nil, err
@@ -474,8 +470,7 @@ func (b *backend) propFindRoot(ctx context.Context, reqPath string, propfind *in
 		}),
 		internal.ResourceTypeName: internal.PropFindValue(internal.NewResourceType(internal.CollectionName)),
 	}
-	// Use the actual request path as the response href so clients can match it.
-	return internal.NewPropFindResponse(reqPath, propfind, props)
+	return internal.NewPropFindResponse(principalPath, propfind, props)
 }
 
 func (b *backend) propFindUserPrincipal(ctx context.Context, propfind *internal.PropFind) (*internal.Response, error) {
@@ -576,13 +571,7 @@ func (b *backend) propFindCalendar(ctx context.Context, propfind *internal.PropF
 		})
 	}
 
-	// cs:getctag — Apple Calendar extension. Returns the calendar's sync token so
-	// iOS/macOS can detect changes without fetching all events.
-	if cal.SyncToken != "" {
-		props[getCTagName] = internal.PropFindValue(&getCTag{Value: cal.SyncToken})
-	}
-
-	// TODO: CALDAV:calendar-timezone, CALDAV:min-date-time, CALDAV:max-date-time, CALDAV:max-instances, CALDAV:max-attendees-per-instance
+	// TODO: CALDAV:calendar-timezone, CALDAV:supported-calendar-component-set, CALDAV:min-date-time, CALDAV:max-date-time, CALDAV:max-instances, CALDAV:max-attendees-per-instance
 
 	return internal.NewPropFindResponse(cal.Path, propfind, props)
 }
@@ -673,29 +662,7 @@ func (b *backend) propFindAllCalendarObjects(ctx context.Context, propfind *inte
 }
 
 func (b *backend) PropPatch(r *http.Request, update *internal.PropertyUpdate) (*internal.Response, error) {
-	// Return a proper 207 Multi-Status with 403 for each property rather than a
-	// bare 501 — iOS treats a non-2xx/207 response as a fatal server error and
-	// may mark the account inactive. 403 in a propstat means "read-only property"
-	// which clients handle gracefully.
-	resp := &internal.Response{
-		Hrefs: []internal.Href{{Path: r.URL.Path}},
-	}
-	rejectProps := func(prop internal.Prop) {
-		for _, raw := range prop.Raw {
-			name, ok := raw.XMLName()
-			if !ok {
-				continue
-			}
-			resp.EncodeProp(http.StatusForbidden, internal.NewRawXMLElement(name, nil, nil))
-		}
-	}
-	for _, set := range update.Set {
-		rejectProps(set.Prop)
-	}
-	for _, remove := range update.Remove {
-		rejectProps(remove.Prop)
-	}
-	return resp, nil
+	return nil, internal.HTTPErrorf(http.StatusNotImplemented, "caldav: PropPatch not implemented")
 }
 
 func (b *backend) Put(w http.ResponseWriter, r *http.Request) error {

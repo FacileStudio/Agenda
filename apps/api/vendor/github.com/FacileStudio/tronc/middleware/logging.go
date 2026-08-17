@@ -77,13 +77,21 @@ const (
 // RequestLoggerConfig tunes how requests are classified and at which level each
 // class is recorded.
 type RequestLoggerConfig struct {
-	// APIPrefix marks API traffic. Defaults to "/api".
-	APIPrefix string
+	// APIPrefix marks API traffic. nil defaults to "/api".
+	//
+	// It is a pointer so that "" can mean "the API is served from the root",
+	// which is a real configuration — an app behind a proxy that strips the
+	// prefix has exactly that — and not the same statement as leaving the
+	// field alone. RootAPI is the value for it.
+	APIPrefix *string
 	// QuietLevel is the level for health probes and static assets. It defaults
 	// to debug, which keeps them out of Journal: the shipping handler only
 	// forwards what the underlying handler admits, and apps run at info.
 	QuietLevel slog.Level
 }
+
+// RootAPI is RequestLoggerConfig.APIPrefix for an API served from the root.
+var RootAPI = new(string)
 
 // RequestLogger logs one record per request with the fields every Facile app
 // agreed on: kind, request_id, method, path, query, remote_addr, client_ip,
@@ -99,9 +107,13 @@ func RequestLogger(logger *slog.Logger) func(http.Handler) http.Handler {
 
 // RequestLoggerWith is RequestLogger with explicit classification rules.
 func RequestLoggerWith(logger *slog.Logger, cfg RequestLoggerConfig) func(http.Handler) http.Handler {
-	prefix := cfg.APIPrefix
-	if prefix == "" {
-		prefix = "/api"
+	// nil is "unset", "" is "the API is at the root". Collapsing the two —
+	// which this did, by rewriting "" to /api — made the root case
+	// unreachable, and an app whose proxy strips the prefix then had every
+	// request classified as static and logged at the quiet level.
+	prefix := "/api"
+	if cfg.APIPrefix != nil {
+		prefix = *cfg.APIPrefix
 	}
 	quiet := cfg.QuietLevel
 	if quiet == 0 {
