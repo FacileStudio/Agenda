@@ -19,6 +19,9 @@
 # and coverage, and every dotted directory is skipped whether it is listed or
 # not — so .svelte-kit, .gocache, .gomodcache and .local need no entry here.
 # Listing them anyway would read as if they mattered.
+
+kind: app
+
 ignore:
   - node_modules
   - vendor
