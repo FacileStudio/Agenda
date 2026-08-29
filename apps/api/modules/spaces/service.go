@@ -156,6 +156,9 @@ func (s *Service) AddMember(ctx context.Context, userID int64, spaceID int64, re
 	if req.Role == "" {
 		return errors.Invalid("role must be owner, admin, or member")
 	}
+	if roleRank(req.Role) > roleRank(role) {
+		return errors.Forbidden("you cannot grant a rank above your own")
+	}
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 	if req.Email == "" {
 		return errors.Invalid("email is required")
@@ -200,8 +203,11 @@ func (s *Service) RemoveMember(ctx context.Context, userID int64, spaceID int64,
 		}
 		return errors.Internal("failed to find member", err)
 	}
-	if target.Role == "owner" && role != "owner" {
-		return errors.Forbidden("cannot remove the owner")
+	if roleRank(target.Role) > roleRank(role) {
+		return errors.Forbidden("you cannot remove a member ranked above you")
+	}
+	if err := s.guardLastOwner(ctx, spaceID, target.Role); err != nil {
+		return err
 	}
 	return s.orm.WithContext(ctx).Delete(&target).Error
 }
@@ -218,6 +224,9 @@ func (s *Service) UpdateMemberRole(ctx context.Context, userID int64, spaceID in
 	if req.Role == "" {
 		return errors.Invalid("role must be owner, admin, or member")
 	}
+	if roleRank(req.Role) > roleRank(role) {
+		return errors.Forbidden("you cannot grant a rank above your own")
+	}
 	return s.orm.WithContext(ctx).
 		Model(&schemas.SpaceMember{}).
 		Where("space_id = ? AND user_id = ?", spaceID, targetUserID).
@@ -232,14 +241,37 @@ func (s *Service) LeaveSpace(ctx context.Context, userID int64, spaceID int64) e
 	if err := s.orm.WithContext(ctx).Where("space_id = ? AND user_id = ?", spaceID, userID).First(&member).Error; err != nil {
 		return errors.Internal("failed to find membership", err)
 	}
-	if member.Role == "owner" {
-		var count int64
-		s.orm.WithContext(ctx).Model(&schemas.SpaceMember{}).Where("space_id = ? AND role = 'owner'", spaceID).Count(&count)
-		if count <= 1 {
-			return errors.Invalid("the sole owner cannot leave — transfer ownership or delete the space")
-		}
+	if err := s.guardLastOwner(ctx, spaceID, member.Role); err != nil {
+		return err
 	}
 	return s.orm.WithContext(ctx).Delete(&member).Error
+}
+
+// guardLastOwner refuses to take the final owner out of a space.
+//
+// Deleting a space and changing its roles are both owner-only, so a space with
+// no owner cannot be administered and cannot be repaired from inside it. The
+// rule is the owner count and not the role: refusing every owner would trap
+// anyone who was ever made one, and refusing none is what let an owner strand
+// the space by removing the only one. Leaving and being removed are the same
+// departure, so they ask the same question here rather than each keeping a
+// count of their own.
+func (s *Service) guardLastOwner(ctx context.Context, spaceID int64, role string) error {
+	if role != "owner" {
+		return nil
+	}
+	var owners int64
+	err := s.orm.WithContext(ctx).
+		Model(&schemas.SpaceMember{}).
+		Where("space_id = ? AND role = 'owner'", spaceID).
+		Count(&owners).Error
+	if err != nil {
+		return errors.Internal("failed to count the owners", err)
+	}
+	if owners <= 1 {
+		return errors.Invalid("the space would be left without an owner — transfer ownership or delete the space")
+	}
+	return nil
 }
 
 func (s *Service) loadWithAccess(ctx context.Context, userID int64, spaceID int64) (*schemas.Space, string, error) {
@@ -269,6 +301,30 @@ func validateSpaceName(name string) error {
 		return errors.Invalid("name must be 255 characters or fewer")
 	}
 	return nil
+}
+
+// roleRank orders the three roles so that "nobody may act above their own
+// rank" is one comparison rather than a table of pairs.
+//
+// AddMember checked only that the actor was an owner or an admin and then
+// wrote whatever role the body named, and its write is an upsert — so an admin
+// could name an existing member and the role "owner" and promote them, walking
+// around UpdateMemberRole, which is owner-only for exactly that reason. The
+// actor's own rank was never in the comparison.
+//
+// An unrecognised role ranks below every real one, so a value that slipped
+// past normalizeRole could never clear a check by being unknown.
+func roleRank(role string) int {
+	switch role {
+	case "owner":
+		return 3
+	case "admin":
+		return 2
+	case "member":
+		return 1
+	default:
+		return 0
+	}
 }
 
 func normalizeRole(role string) string {
