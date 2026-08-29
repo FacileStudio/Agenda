@@ -208,8 +208,12 @@ proof rather than only the code — it runs them against the app's *own* `Store`
    holds the ladder's top rank and is the only member who does. It does *not* refuse an owner with a
    peer, which three apps do — that makes ownership transfer the only exit from a space two people
    own equally.
-4. **No privilege escalation.** `AssignableBy(actor Scope, target Role)` is false when target
-   outranks actor. An admin may appoint a peer admin and may not mint an owner.
+4. **No privilege escalation, in both directions.** `AssignableBy(actor Scope, target Role)` is
+   false when target outranks actor: an admin may appoint a peer admin and may not mint an owner.
+   That is only the grant. `AssignableOver(actor Scope, current, target Role)` adds the role being
+   taken away and is the check for modifying an existing member, so an admin cannot hand "member"
+   to the owner and strand the space. Added in v0.5.1 after review; v0.5.0 shipped `AssignableBy`
+   alone and its godoc oversold it.
 
 **Three signatures answer to the invariants rather than to convenience.**
 
@@ -218,10 +222,13 @@ proof rather than only the code — it runs them against the app's *own* `Store`
   reading the id from different places — `Require(ctx, uid, r.Header.Get("X-Space"), RoleAdmin)`
   with no header, then a handler acting on the id in the body. A handler that genuinely serves both
   shapes calls `Resolve` and branches on `Scope.Personal`.
-- `AssignableBy` takes the resolved `Scope`, not the actor's `Role`. Two plain roles invite passing
-  both straight off the wire, which checks the request against itself. `Scope` carries an unexported
-  marker only `Guard` sets, so `Scope{UserID: "mallory", Role: RoleOwner}` still compiles and grants
-  nothing.
+- `AssignableBy` and `AssignableOver` take the resolved `Scope`, not the actor's `Role`. Two plain
+  roles invite passing both straight off the wire, which checks the request against itself. `Scope`
+  carries an unexported marker only `Guard` sets, so `Scope{UserID: "mallory", Role: RoleOwner}`
+  still compiles and grants nothing. `AssignableOver`'s `current` is a plain `Role` on purpose: it
+  is the row the caller has just read, usually inside the transaction about to update it, and a
+  second lookup through the `Store` would reintroduce `CanLeave`'s time-of-check gap. The godoc
+  carries the obligation that it comes from the app's own row and never from the request.
 - `Resolve` requires the returned row to carry **both** ids and both to equal what was asked for. An
   absent id is not agreement: `SELECT role FROM ... WHERE space_id=$1 AND user_id=$2` is the most
   natural `Store`, and treating its blank ids as a match would disarm the cross-check for exactly
@@ -240,7 +247,11 @@ package without the lock reproduces their bug.
 `Membership` a `Store` returns carries ids populated from the row and matching the arguments, that
 roles come back as they were stored, and that `Memberships` lists the caller's own rows and no
 others. Counting alone certified a store that blanked the ids and one that promoted every listed row
-to owner. `ConformanceWithLadder(t, newStore, ladder)` runs the same suite on an app's own
+to owner. It does **not** catch a store that builds its result out of the arguments it was handed
+rather than the row it read: a correctly scoped lookup returns the same ids either way, and no
+black-box suite can separate them, whatever ids it seeds. What it catches is the half that causes
+harm, a lookup not scoped to the space, and since v0.5.1 `UserCoOwner` holds a different rank in each
+of the two fixture spaces so the *role* pins the scoping too. `ConformanceWithLadder(t, newStore, ladder)` runs the same suite on an app's own
 vocabulary — Vision forced `Ladder` to be configurable, and proving the guard on the default ladder
 would prove nothing about the guard Vision ships. The ladder must rank at least three roles: the
 suite needs a top, a middle and a bottom to tell a refusal from an escalation.
@@ -298,6 +309,8 @@ Authentik → in-house IdP swap a config change rather than a rewrite.
 | `OIDC_CLIENT_SECRET` | with issuer | |
 | `OIDC_REDIRECT_URL` | with issuer | Must match the Authentik application |
 | `OIDC_SUCCESS_URL` | with issuer | Where the browser lands after a successful callback |
+| `OIDC_APP_NAME` | no | The name on the two pages porte renders itself. Empty derives it from `OIDC_SUCCESS_URL`'s first DNS label |
+| `OIDC_LOGO_URL` | no | The logo on those pages. Empty derives `OIDC_SUCCESS_URL`'s origin plus `/logo.svg` |
 | `OIDC_CLAIMS_SCOPE` | no | The scope carrying the `roles` claim (§5c). Its presence enables claims handling |
 | `OIDC_MACHINE_AUDIENCE` | no | This app's own client id. Its presence enables bearer-JWT verification on the header path |
 | `OIDC_CLI_AUDIENCE` | no | The CLI's client id. Its presence mounts `POST /auth/oidc/device/exchange`, and nothing else does |

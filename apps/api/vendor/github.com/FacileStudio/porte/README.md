@@ -31,7 +31,11 @@ reasoning behind both.
   `Bearer` for CLIs and API tokens — with a `database/sql` implementation in `pg/`
 - Retires a browser session nobody has used for a week, inside the thirty-day absolute lifetime,
   and leaves CLI and API tokens alone because a nightly job is idle by design
-- Gives every CLI the same login: browser opens, user signs in, a one-time code comes back
+- Gives every CLI the same login: browser opens, user signs in, a one-time code comes back.
+  The listener is included, in `porte/loopback`, so five CLIs stop each writing their own
+- Draws the two pages it cannot hand back to the app, the code page and a CLI's loopback
+  page, with the app's own name and logo, derived from `OIDC_SUCCESS_URL` and needing no
+  deployment to set them
 - Fetches IdP avatars behind an SSRF guard that checks the address at connect time, closing the
   DNS-rebinding window every existing copy leaves open, and unwraps the IPv6 forms that smuggle
   an IPv4 metadata address past `net.IP`'s own predicates
@@ -48,7 +52,8 @@ reasoning behind both.
 | `porte/local` | Email and password: argon2id, register, login | `porte/session`, `x/crypto`, tronc, chi |
 | `porte/pg` | The identity tables and the stores over them | `database/sql` |
 | `porte/avatarfs` | A filesystem `AvatarStore`: atomic writes, a guarded key, and an `http.Handler` that serves them | the standard library |
-| `porte/spaces` | Space membership authorization: the role ladder, `Resolve`, `Require`, `CanLeave`, `AssignableBy`. No CRUD, no routes, no ORM | the standard library |
+| `porte/loopback` | The CLI's half of the CLI login: the loopback listener, the login URL, the pages a browser lands on | the standard library |
+| `porte/spaces` | Space membership authorization: the role ladder, `Resolve`, `Require`, `CanLeave`, `AssignableBy`/`AssignableOver`. No CRUD, no routes, no ORM | the standard library |
 | `porte/spaces/spacestest` | `Conformance(t, newStore)` and `ConformanceWithLadder`: the invariants, run against an app's own `Store` and its own role vocabulary | `porte/spaces`, `testing` |
 
 The contract package depends on nothing outside the standard library, and that is a constraint

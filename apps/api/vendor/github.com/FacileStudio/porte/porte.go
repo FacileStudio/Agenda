@@ -24,6 +24,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 // ErrNotFound is what a store returns when a row does not exist. Stores are
@@ -162,9 +164,20 @@ const (
 	DefaultSessionIdleTTL = 7 * 24 * time.Hour
 )
 
+// DefaultAppName is what porte's own pages say when Config.AppName is empty
+// and SuccessURL carries no name to derive one from, an IP address or a bare
+// path. It is deliberately generic: inventing "127" out of a loopback address
+// would be worse than admitting the page does not know whose it is.
+const DefaultAppName = "Sign-in"
+
 // Config is the environment contract. The variable names are the existing
 // suite convention and do not change: OIDC_ISSUER, OIDC_CLIENT_ID,
 // OIDC_CLIENT_SECRET, OIDC_REDIRECT_URL, OIDC_SUCCESS_URL, SSO_ONLY.
+//
+// OIDC_APP_NAME and OIDC_LOGO_URL join them and are the only two that need no
+// deployment to set them: both derive from OIDC_SUCCESS_URL, so an app that
+// says nothing still gets its own name and its own logo on the pages porte
+// serves itself.
 type Config struct {
 	// Issuer is the OIDC issuer URL. Its presence is what enables OIDC —
 	// the existing convention, kept.
@@ -182,6 +195,32 @@ type Config struct {
 	// reason in an `error` query parameter. Empty means /login on
 	// SuccessURL's origin, which is where every adopter's login page is.
 	FailureURL string
+
+	// AppName is what porte calls this app on the two pages it renders
+	// itself: the CLI code page, and a CLI's own loopback page. Empty
+	// derives it from SuccessURL's first DNS label, so
+	// https://courrier.facile.studio/inbox reads as Courrier without a
+	// deployment having to say so, and DefaultAppName covers a SuccessURL
+	// with no name in it.
+	//
+	// It exists because those two pages are the only ones porte does not
+	// hand back to the app. Everything else is a redirect to SuccessURL or
+	// to LoginFailure, and an app owns its own chrome there. A page that
+	// names nobody is one a human cannot tell from any other local process
+	// asking them to sign in, which on the loopback page is the whole
+	// question being asked.
+	AppName string
+
+	// LogoURL is the image shown beside that name. Empty means
+	// SuccessURL's origin plus /logo.svg, which every suite app already
+	// serves.
+	//
+	// A wrong guess costs nothing: the page removes an image that fails to
+	// load and keeps the name, so an app that serves no logo shows no gap
+	// and no broken icon. A CLI's loopback page carries no logo at all,
+	// deliberately, because it is served from 127.0.0.1 by a binary that
+	// must not need the network to draw its own page.
+	LogoURL string
 
 	// SSOOnly suppresses local password routes entirely. They are not
 	// registered rather than rejected, so there is no endpoint to probe.
@@ -320,6 +359,58 @@ func (c Config) LoginFailure(reason string) string {
 	query.Set("error", reason)
 	dest.RawQuery = query.Encode()
 	return dest.String()
+}
+
+// AppLabel returns the name to print on the pages porte renders itself.
+//
+// AppName answers it when a deployment set one. When it did not, SuccessURL
+// does: every app in the suite is served from its own subdomain, so the first
+// DNS label of https://courrier.facile.studio/inbox is the app's name already
+// and capitalising it is the whole derivation.
+//
+// The fallback is DefaultAppName rather than something cleverer. A SuccessURL
+// that is an IP address or a relative path holds no name, and a page headed
+// "127" would be a worse answer than a page that admits it.
+func (c Config) AppLabel() string {
+	if name := strings.TrimSpace(c.AppName); name != "" {
+		return name
+	}
+	target, err := url.Parse(c.SuccessURL)
+	if err != nil {
+		return DefaultAppName
+	}
+	label, _, _ := strings.Cut(target.Hostname(), ".")
+	first, size := utf8.DecodeRuneInString(label)
+	if !unicode.IsLetter(first) {
+		return DefaultAppName
+	}
+	return string(unicode.ToUpper(first)) + label[size:]
+}
+
+// Logo returns the image URL for those pages, or empty when there is none to
+// derive.
+//
+// The default is SuccessURL's origin plus /logo.svg, the path every suite app
+// already serves its mark from. Guessing is safe here in a way it usually is
+// not: the page drops an image that fails to load, so an app without that file
+// shows its name alone rather than a broken icon, and no deployment has to
+// opt out of a default that costs it nothing.
+//
+// Like LoginFailure, this replaces SuccessURL's path instead of appending to
+// it. An app landing on /inbox serves its logo at /logo.svg, not at
+// /inbox/logo.svg.
+func (c Config) Logo() string {
+	if logo := strings.TrimSpace(c.LogoURL); logo != "" {
+		return logo
+	}
+	origin, err := url.Parse(c.SuccessURL)
+	if err != nil || origin.Scheme == "" || origin.Host == "" {
+		return ""
+	}
+	origin.Path = "/logo.svg"
+	origin.RawQuery = ""
+	origin.Fragment = ""
+	return origin.String()
 }
 
 // IdleTimeout returns the idle window, or zero when it is disabled.

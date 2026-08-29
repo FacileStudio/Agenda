@@ -3,7 +3,7 @@ package oidc
 import (
 	"context"
 	stderrors "errors"
-	"html/template"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -11,6 +11,7 @@ import (
 	"strconv"
 
 	"github.com/FacileStudio/porte"
+	"github.com/FacileStudio/porte/internal/handoff"
 	"github.com/FacileStudio/tronc/errors"
 	"github.com/FacileStudio/tronc/httpjson"
 
@@ -290,6 +291,16 @@ func (k *Kit) syncAvatar(ctx context.Context, claims porte.Claims) string {
 
 // issueLoginCode ends the CLI flow. The code is a bearer credential for sixty
 // seconds, so it is stored hashed exactly like a session token.
+//
+// A CLI that started a loopback listener gets the code by redirect and never
+// sees a page. The rest get one, and it is one of the two places porte draws
+// HTML rather than redirecting to the app: there is no app page that can show
+// a code porte just minted. It carries the app's name and logo for the same
+// reason Config.LoginFailure lands on the app's own login page, which is that
+// a human reading it should be able to tell whose login this was.
+//
+// The response answers no-store because it carries the credential itself,
+// which is what OAuth 2.1 §7.1 asks of any response that does.
 func (k *Kit) issueLoginCode(w http.ResponseWriter, r *http.Request, userID int64, port, cliState string) {
 	code, err := porte.NewToken()
 	if err != nil {
@@ -324,23 +335,17 @@ func (k *Kit) issueLoginCode(w http.ResponseWriter, r *http.Request, userID int6
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	_ = codePage.Execute(w, struct {
-		Code    string
-		Seconds int
-	}{Code: code, Seconds: int(k.cfg.LoginCodeTTL.Seconds())})
+	handoff.Write(w, http.StatusOK, handoff.Page{
+		AppName: k.cfg.AppLabel(),
+		LogoURL: k.cfg.Logo(),
+		Heading: "Signed in",
+		Body:    "Paste this code into your terminal.",
+		Hint: fmt.Sprintf("The code is valid for %d seconds and works once.",
+			int(k.cfg.LoginCodeTTL.Seconds())),
+		Code: code,
+	})
 }
-
-var codePage = template.Must(template.New("code").Parse(`<!doctype html>
-<meta charset="utf-8">
-<title>Sign-in code</title>
-<style>body{font:16px/1.5 system-ui,sans-serif;margin:4rem auto;max-width:32rem;padding:0 1rem}
-code{display:block;font-size:1.1rem;padding:1rem;margin:1.5rem 0;background:#f4f4f5;border-radius:.5rem;word-break:break-all}</style>
-<h1>Signed in</h1>
-<p>Paste this code into your terminal. It is valid for {{.Seconds}} seconds and works once.</p>
-<code>{{.Code}}</code>
-`))
 
 // handleExchange is the CLI's half: one-time code in, bearer token out. This
 // is porte's token endpoint in everything but name, so it answers under the
