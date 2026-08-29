@@ -99,9 +99,26 @@ func (service *Service) VerifyPassword(ctx context.Context, email, password stri
 	return service.passwords.Verify(ctx, email, password)
 }
 
-// SetPassword is what PATCH /users/me calls when the body carries one.
-func (service *Service) SetPassword(ctx context.Context, userID int64, email, password string) error {
-	return service.passwords.SetPassword(ctx, userID, email, password)
+// SetPassword gives a first password to an account that has none, and refuses
+// with porte.ErrPasswordSet if one is already there.
+//
+// It takes no address: since porte v0.3.0 a password identity is keyed on the
+// account id, so an email change no longer has to drag the credential along
+// with it.
+func (service *Service) SetPassword(ctx context.Context, userID int64, password string) error {
+	return service.passwords.SetPassword(ctx, userID, password)
+}
+
+// ChangePassword replaces an existing password after confirming the current
+// one, ends the account's other logins and rotates the caller's own session.
+// It returns the new session token and how many other logins it ended.
+//
+// It needs w and r because porte writes the rotated cookie itself, which is
+// why no service method holding only a context can reach it.
+func (service *Service) ChangePassword(
+	ctx context.Context, w http.ResponseWriter, r *http.Request, userID int64, current, next string,
+) (string, int64, error) {
+	return service.passwords.ChangePassword(ctx, w, r, userID, current, next)
 }
 
 // Issue mints a named API token: a porte session with a label and no expiry,

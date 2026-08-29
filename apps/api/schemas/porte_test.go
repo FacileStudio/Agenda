@@ -120,9 +120,10 @@ func TestAdoptPorteKeepsEverybodySignedIn(t *testing.T) {
 // the login form answers "invalid credentials" to a correct password, with the
 // hash still sitting in the users table and no error anywhere.
 // TestAdoptPorteMovesThePasswords checks the password-based identity is keyed
-// on the lowercased address on purpose: porte/local normalises before it looks
-// one up, so an identity keyed on the mixed-case address this user registered
-// with would never be found.
+// on the account id, which is what porte/local looks a credential up by since
+// v0.3.0. This assertion used to name the lowercased address, and the version
+// bump turned it into the wrong assertion rather than a failing one — so it is
+// the assertion, not the schema, that has to move first.
 func TestAdoptPorteMovesThePasswords(t *testing.T) {
 	db := openTestDatabase(t)
 	seedPrePorte(t, db)
@@ -136,7 +137,7 @@ func TestAdoptPorteMovesThePasswords(t *testing.T) {
 		PasswordHash string
 	}
 	err := db.Raw(
-		`SELECT user_id, password_hash FROM porte_identities WHERE provider = 'local' AND subject = 'noah@facile.studio'`,
+		`SELECT user_id, password_hash FROM porte_identities WHERE provider = 'local' AND subject = '2'`,
 	).Scan(&identity).Error
 	if err != nil {
 		t.Fatalf("read the local identity: %v", err)
@@ -145,12 +146,65 @@ func TestAdoptPorteMovesThePasswords(t *testing.T) {
 		t.Fatalf("the password did not move: %+v", identity)
 	}
 
+	var addressKeyed int64
+	if err := db.Raw(
+		`SELECT count(*) FROM porte_identities WHERE provider = 'local' AND subject LIKE '%@%'`,
+	).Scan(&addressKeyed).Error; err != nil {
+		t.Fatalf("count address-keyed identities: %v", err)
+	}
+	if addressKeyed != 0 {
+		t.Fatal("a local identity is still keyed on an address, so porte/local will never find it")
+	}
+
 	var withoutPassword int64
 	if err := db.Raw(`SELECT count(*) FROM porte_identities WHERE provider = 'local' AND user_id = 1`).Scan(&withoutPassword).Error; err != nil {
 		t.Fatalf("count: %v", err)
 	}
 	if withoutPassword != 0 {
 		t.Fatal("an account with no password gained a local identity, which is a login that cannot be used and an account that cannot be registered")
+	}
+}
+
+// An account that signed up after the v0.2 adoption has an address-keyed
+// identity and nothing left in users.password_hash to re-adopt from, because
+// porte holds the credential. adoptExistingPasswords filters on that column,
+// so the INSERT cannot see the account at all and the re-key UPDATE is the
+// only statement that can reach it. Fixing only the INSERT resurrects the
+// legacy accounts and locks out everyone who has joined since.
+// TestAdoptPorteRekeysAnAlreadyAdoptedIdentity drags one back onto the address
+// and checks a second migration moves it to the id without touching the hash.
+func TestAdoptPorteRekeysAnAlreadyAdoptedIdentity(t *testing.T) {
+	db := openTestDatabase(t)
+	seedPrePorte(t, db)
+
+	if err := AdoptPorte(db, testIssuer); err != nil {
+		t.Fatalf("adopt: %v", err)
+	}
+	if err := db.Exec(
+		`UPDATE porte_identities SET subject = 'noah@facile.studio' WHERE provider = 'local' AND user_id = 2`,
+	).Error; err != nil {
+		t.Fatalf("re-key onto the address: %v", err)
+	}
+	if err := db.Exec(`UPDATE users SET password_hash = '' WHERE id = 2`).Error; err != nil {
+		t.Fatalf("clear the legacy hash: %v", err)
+	}
+
+	if err := AdoptPorte(db, testIssuer); err != nil {
+		t.Fatalf("re-adopt: %v", err)
+	}
+
+	var identity struct {
+		UserID       int64
+		PasswordHash string
+	}
+	err := db.Raw(
+		`SELECT user_id, password_hash FROM porte_identities WHERE provider = 'local' AND subject = '2'`,
+	).Scan(&identity).Error
+	if err != nil {
+		t.Fatalf("read the local identity: %v", err)
+	}
+	if identity.UserID != 2 || identity.PasswordHash != "$argon2id$fake" {
+		t.Fatalf("the identity was not re-keyed onto the account id: %+v", identity)
 	}
 }
 

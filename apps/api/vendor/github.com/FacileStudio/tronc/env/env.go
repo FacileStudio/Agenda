@@ -80,7 +80,7 @@ func LoadCore() (Core, error) {
 }
 
 // LoadCoreWithout is LoadCore for a service with no database of its own, so
-// DATABASE_URL is read if present and not required. Mycelium is the case that
+// DATABASE_URL is read if present and not required. Jardin is the case that
 // prompted it: it stores its state as files, and requiring a database URL would
 // have kept it off the shared configuration entirely.
 func LoadCoreWithout() (Core, error) {

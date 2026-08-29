@@ -1,0 +1,11 @@
+# porte: shared Go auth kit for the Facile Suite.
+
+kind: lib
+
+ignore: [.git, node_modules, vendor, dist, build, target, testdata, .output, _app, coverage]
+extensions: [.go]
+
+disabled:
+  - gen.line.long   # gofmt owns line width
+
+failOn: error

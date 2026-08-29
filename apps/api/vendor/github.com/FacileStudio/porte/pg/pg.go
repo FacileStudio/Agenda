@@ -29,6 +29,18 @@ import (
 // The app keeps its business columns in its own table, keyed on
 // porte_users(id), so the int64 foreign keys already in place keep pointing at
 // the same thing.
+//
+// The one UPDATE in here is v0.3.0's re-keying of password identities off the
+// email address and onto the account id — see [porte.LocalSubject] for why the
+// address was the wrong key. It is idempotent, since after it runs the
+// predicate is false for every row, and it is deliberately allowed to fail:
+// the only way it can is a user holding two password identities at once, which
+// the old key made reachable and which nothing should paper over by picking
+// one. Refusing to migrate is the right answer to ambiguous credentials.
+//
+// It also makes the constraint free. subject is half the primary key, so once
+// it holds the account id, "one password per account" is enforced by the table
+// rather than by a check somebody has to remember to write.
 const Schema = `
 CREATE TABLE IF NOT EXISTS porte_users (
 	id             bigserial PRIMARY KEY,
@@ -59,6 +71,9 @@ CREATE TABLE IF NOT EXISTS porte_identities (
 CREATE INDEX IF NOT EXISTS porte_identities_user_idx ON porte_identities (user_id);
 ALTER TABLE porte_identities ADD COLUMN IF NOT EXISTS created_at timestamptz;
 ALTER TABLE porte_identities ALTER COLUMN created_at SET DEFAULT now();
+
+UPDATE porte_identities SET subject = user_id::text
+ WHERE provider = 'local' AND subject <> user_id::text;
 
 CREATE TABLE IF NOT EXISTS porte_sessions (
 	id           bigserial PRIMARY KEY,
@@ -436,6 +451,23 @@ func (s *SessionStore) DeleteByUser(ctx context.Context, userID int64) (int64, e
 	result, err := s.db.ExecContext(ctx, `DELETE FROM porte_sessions WHERE user_id = $1`, userID)
 	if err != nil {
 		return 0, fmt.Errorf("porte/pg: delete sessions: %w", err)
+	}
+	return result.RowsAffected()
+}
+
+// DeleteLogins drops a user's logins and spares their named API tokens.
+//
+// The label is the whole discriminator, and it is the same one the sweeper
+// uses: an unlabelled row was minted by signing in, a labelled row was created
+// on purpose from an already authenticated session. except spares one id, so
+// the session performing a password change can be rotated rather than dropped
+// out from under the request making it.
+func (s *SessionStore) DeleteLogins(ctx context.Context, userID, except int64) (int64, error) {
+	result, err := s.db.ExecContext(ctx, `
+		DELETE FROM porte_sessions
+		 WHERE user_id = $1 AND label = '' AND ($2 = 0 OR id <> $2)`, userID, except)
+	if err != nil {
+		return 0, fmt.Errorf("porte/pg: delete logins: %w", err)
 	}
 	return result.RowsAffected()
 }
