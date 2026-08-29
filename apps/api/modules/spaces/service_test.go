@@ -244,3 +244,69 @@ func TestAnOwnerCanLeaveWhenAnotherOwnerRemains(t *testing.T) {
 		t.Fatal("the last owner left, stranding the space")
 	}
 }
+
+// The rank rule first shipped reading only the role being granted, so it
+// stopped an admin minting an owner and left them free to aim the same upsert
+// downward: AddMember with the owner's address and role "member" rewrote the
+// owner's row. That is worse than the promotion it replaced — the space is
+// left with no owner at all, and deleting it and changing its roles are both
+// owner-only, so nothing inside it can undo the demotion.
+// TestAnAdminCannotDemoteTheOwnerThroughAddMember is the regression.
+func TestAnAdminCannotDemoteTheOwnerThroughAddMember(t *testing.T) {
+	db := openTestDatabase(t)
+	service := NewService(db)
+
+	owner := newUser(t, db, "owner@facile.studio")
+	admin := newUser(t, db, "admin@facile.studio")
+	spaceID := spaceWith(t, db, map[int64]string{owner: "owner", admin: "admin"})
+
+	err := service.AddMember(context.Background(), admin, spaceID, &AddMemberRequest{
+		Email: "owner@facile.studio",
+		Role:  "member",
+	})
+	if role := roleOf(t, db, spaceID, owner); role != "owner" {
+		t.Fatalf("the owner's role was rewritten to %q, stranding the space", role)
+	}
+	if err == nil {
+		t.Fatal("an admin demoted the owner through AddMember")
+	}
+}
+
+// UpdateMemberRole is the one role write that never asked guardLastOwner
+// anything, so the sole owner could demote themselves to "member" and get
+// err=nil back. The state is terminal: deleting a space and changing its roles
+// are both owner-only, so no route through the API puts an owner back.
+// TestTheLastOwnerCannotDemoteThemselves is the regression.
+func TestTheLastOwnerCannotDemoteThemselves(t *testing.T) {
+	db := openTestDatabase(t)
+	service := NewService(db)
+
+	owner := newUser(t, db, "owner@facile.studio")
+	member := newUser(t, db, "member@facile.studio")
+	spaceID := spaceWith(t, db, map[int64]string{owner: "owner", member: "member"})
+
+	err := service.UpdateMemberRole(context.Background(), owner, spaceID, owner, &UpdateRoleRequest{Role: "member"})
+	if role := roleOf(t, db, spaceID, owner); role != "owner" {
+		t.Fatalf("the last owner's role became %q, stranding the space", role)
+	}
+	if err == nil {
+		t.Fatal("the last owner demoted themselves")
+	}
+}
+
+// A role write aimed at somebody who is not a member matched no row and
+// answered 200, telling the caller a role had been set on an account that had
+// never joined.
+func TestUpdatingTheRoleOfANonMemberIsRefused(t *testing.T) {
+	db := openTestDatabase(t)
+	service := NewService(db)
+
+	owner := newUser(t, db, "owner@facile.studio")
+	stranger := newUser(t, db, "stranger@facile.studio")
+	spaceID := spaceWith(t, db, map[int64]string{owner: "owner"})
+
+	err := service.UpdateMemberRole(context.Background(), owner, spaceID, stranger, &UpdateRoleRequest{Role: "admin"})
+	if err == nil {
+		t.Fatal("a role was set on somebody who is not a member")
+	}
+}
