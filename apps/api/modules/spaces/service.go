@@ -173,6 +173,10 @@ func (s *Service) AddMember(ctx context.Context, userID int64, spaceID int64, re
 	if target.ID == userID {
 		return errors.Invalid("you are already a member")
 	}
+	if err := s.guardTargetRank(ctx, spaceID, target.ID, role); err != nil {
+		return err
+	}
+
 	member := schemas.SpaceMember{
 		SpaceID: spaceID,
 		UserID:  target.ID,
@@ -212,6 +216,14 @@ func (s *Service) RemoveMember(ctx context.Context, userID int64, spaceID int64,
 	return s.orm.WithContext(ctx).Delete(&target).Error
 }
 
+// UpdateMemberRole rewrites one membership's role.
+//
+// It reads the target's current role before writing, for two reasons. The
+// owner count question belongs to the role being taken away and not the one
+// being granted, and this was the one role write that never asked it: the sole
+// owner could demote themselves and get nil back, into a state no route
+// through the API undoes. And a blind UPDATE matched no row for somebody who
+// had never joined, then reported success.
 func (s *Service) UpdateMemberRole(ctx context.Context, userID int64, spaceID int64, targetUserID int64, req *UpdateRoleRequest) error {
 	_, role, err := s.loadWithAccess(ctx, userID, spaceID)
 	if err != nil {
@@ -227,10 +239,19 @@ func (s *Service) UpdateMemberRole(ctx context.Context, userID int64, spaceID in
 	if roleRank(req.Role) > roleRank(role) {
 		return errors.Forbidden("you cannot grant a rank above your own")
 	}
-	return s.orm.WithContext(ctx).
-		Model(&schemas.SpaceMember{}).
-		Where("space_id = ? AND user_id = ?", spaceID, targetUserID).
-		Update("role", req.Role).Error
+	var target schemas.SpaceMember
+	if err := s.orm.WithContext(ctx).Where("space_id = ? AND user_id = ?", spaceID, targetUserID).First(&target).Error; err != nil {
+		if stderrors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.NotFound("member not found")
+		}
+		return errors.Internal("failed to find member", err)
+	}
+	if req.Role != target.Role {
+		if err := s.guardLastOwner(ctx, spaceID, target.Role); err != nil {
+			return err
+		}
+	}
+	return s.orm.WithContext(ctx).Model(&target).Update("role", req.Role).Error
 }
 
 func (s *Service) LeaveSpace(ctx context.Context, userID int64, spaceID int64) error {
@@ -245,6 +266,33 @@ func (s *Service) LeaveSpace(ctx context.Context, userID int64, spaceID int64) e
 		return err
 	}
 	return s.orm.WithContext(ctx).Delete(&member).Error
+}
+
+// guardTargetRank refuses to let an actor rewrite a membership ranked above
+// their own, and says nothing about somebody who is not a member yet.
+//
+// AddMember writes through an upsert, so aiming it at an existing member
+// rewrites their role. Checking only the role being granted catches an admin
+// minting an owner and misses the same call pointed downward: AddMember with
+// the owner's address and role "member" demoted them. That is the worse half
+// of the pair, because deleting a space and changing its roles are both
+// owner-only, so a space left with no owner cannot be repaired from inside it.
+// RemoveMember already asked this question of its target; AddMember did not.
+func (s *Service) guardTargetRank(ctx context.Context, spaceID int64, targetUserID int64, actorRole string) error {
+	var existing schemas.SpaceMember
+	err := s.orm.WithContext(ctx).
+		Where("space_id = ? AND user_id = ?", spaceID, targetUserID).
+		First(&existing).Error
+	if stderrors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
+	if err != nil {
+		return errors.Internal("failed to read the membership", err)
+	}
+	if roleRank(existing.Role) > roleRank(actorRole) {
+		return errors.Forbidden("you cannot change a member ranked above you")
+	}
+	return nil
 }
 
 // guardLastOwner refuses to take the final owner out of a space.
