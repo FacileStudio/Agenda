@@ -64,10 +64,13 @@ func (controller *Controller) me(context context.Context) (*MeResponse, error) {
 // because a password change rotates the caller's session and porte writes that
 // cookie itself.
 //
-// The password moves before the profile columns. Its failures are the likely
-// ones — a wrong current password, a missing confirmation — and running it
-// first means those answer 4xx with nothing written, instead of leaving a name
-// change behind from a request the caller was told had failed.
+// A body carrying both halves is refused rather than applied. The password
+// ran first and the profile columns second, so a profile failure — a taken
+// address — answered 409 with the password already stored, the account's other
+// logins already ended and the cookie already rotated: a request reported as
+// failed that had changed the credential. porte's session manager writes
+// outside any transaction this app can hold, so there is nothing to roll back,
+// and reordering only moves which half is orphaned.
 func (controller *Controller) updateMe(w http.ResponseWriter, r *http.Request, req *UpdateRequest) (*MeResponse, error) {
 	ctx := r.Context()
 	identity, ok := authcontext.IdentityFromContext(ctx)
@@ -82,6 +85,10 @@ func (controller *Controller) updateMe(w http.ResponseWriter, r *http.Request, r
 
 	if name == nil && email == nil && req.Password == nil {
 		return nil, errors.Invalid("at least one field must be provided")
+	}
+
+	if req.Password != nil && (name != nil || email != nil) {
+		return nil, errors.Invalid("change your password and your profile in separate requests")
 	}
 
 	if req.Password != nil {
@@ -101,7 +108,9 @@ func (controller *Controller) updateMe(w http.ResponseWriter, r *http.Request, r
 // normalizeProfile trims and validates the profile half of an update. The
 // password floor stays here beside them so a too-short password is refused
 // before argon2 is paid for, and matches the eight characters main.go pins on
-// porte's kit.
+// porte's kit. It counts runes because porte's does: counting bytes let
+// "aébcdé" — eight bytes, six characters — clear this check and be refused one
+// layer down.
 func normalizeProfile(req *UpdateRequest) (*string, *string, error) {
 	var name *string
 	if req.Name != nil {
@@ -121,7 +130,7 @@ func normalizeProfile(req *UpdateRequest) (*string, *string, error) {
 		email = &normalized
 	}
 
-	if req.Password != nil && len(*req.Password) < 8 {
+	if req.Password != nil && len([]rune(*req.Password)) < 8 {
 		return nil, nil, errors.Invalid("password must be at least 8 characters")
 	}
 

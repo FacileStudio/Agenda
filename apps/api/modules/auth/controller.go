@@ -22,13 +22,15 @@ func newController(service *Service) *Controller {
 //
 // The eight-character floor stays here rather than moving to porte's
 // MinPasswordLength, so the message an existing user sees does not change on a
-// deploy that was not about passwords.
+// deploy that was not about passwords. It counts runes because porte's does:
+// counting bytes let a six-character password clear this check and be refused
+// one layer down, in porte's wording.
 func (controller *Controller) register(w http.ResponseWriter, r *http.Request, req *RegisterRequest) (*AuthResponse, error) {
 	email := strings.TrimSpace(strings.ToLower(req.Email))
 	if email == "" || !strings.Contains(email, "@") {
 		return nil, errors.Invalid("invalid email")
 	}
-	if len(req.Password) < 8 {
+	if len([]rune(req.Password)) < 8 {
 		return nil, errors.Invalid("password must be at least 8 characters")
 	}
 
