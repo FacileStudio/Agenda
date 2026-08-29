@@ -21,10 +21,16 @@ type ListResponse struct {
 }
 
 // UpdateRequest edits a user's profile. Nil fields are left unchanged.
+//
+// CurrentPassword is what separates adding a first password from replacing
+// one. Sending Password alone against an account that already has a password
+// is refused rather than treated as a change, so a borrowed session cannot
+// take the account over.
 type UpdateRequest struct {
-	Name     *string `json:"name"`
-	Email    *string `json:"email"`
-	Password *string `json:"password"`
+	Name            *string `json:"name"`
+	Email           *string `json:"email"`
+	Password        *string `json:"password"`
+	CurrentPassword *string `json:"current_password"`
 }
 
 // ApiTokenResponse carries a freshly issued API token, shown only once.

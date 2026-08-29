@@ -2,6 +2,7 @@ package porte
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -23,7 +24,14 @@ import (
 // that does not care. They are here because a UserStore fills them in tests
 // and because v0.2's local login has them in hand at the moment it issues.
 type Identity struct {
-	UserID        int64
+	UserID int64
+
+	// Subject is the identity provider's identifier for this principal —
+	// the sub claim, or the provider's subject for a machine token. Empty
+	// on a cookie-authenticated human, where UserID is the matching key;
+	// set on a verified bearer, where there is no user row and (issuer,
+	// subject) is the only identity there is.
+	Subject       string
 	Email         string
 	EmailVerified bool
 	Name          string
@@ -258,3 +266,26 @@ type IdentityStore interface {
 	// what an account settings screen needs and what v0.2 lists.
 	ListByUser(ctx context.Context, userID int64) ([]StoredIdentity, error)
 }
+
+// LocalSubject is the subject a password identity is keyed on: the account's
+// own id, as a string, and never the email address.
+//
+// v0.2 keyed it on the normalised address, and that was the wrong call. The
+// address is mutable, so the key moved every time somebody edited their
+// profile — which the contract offered no way to do, so five of porte's eight
+// adopters wrote the same UPDATE against porte_identities by hand and the
+// other two shipped the bug instead: the old address kept signing in and the
+// new one never did. One of them could reach a state with two password rows on
+// one account, both valid, one on an address the human no longer owned.
+//
+// OpenID Connect Core §5.7 says it outright — "other Claims such as email,
+// phone_number, preferred_username, and name MUST NOT be used as unique
+// identifiers for the End-User" — and every mature implementation agrees:
+// Keycloak's credential table is keyed on user_id, Supabase sets
+// identities.provider_id to the user's uuid for the email provider,
+// better-auth sets account.accountId equal to userId for credential accounts,
+// and Auth0 documents user_id as "unique and immutable".
+//
+// Keying on the id makes changing an address stop touching credentials at all,
+// which deletes the whole failure class rather than defending against it.
+func LocalSubject(userID int64) string { return strconv.FormatInt(userID, 10) }

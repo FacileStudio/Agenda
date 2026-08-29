@@ -32,6 +32,15 @@ const backchannelLogoutEvent = "http://schemas.openid.net/event/backchannel-logo
 // rather than an endpoint that 500s. RouteLogout is not here at all any more —
 // it belongs to porte/session, which owns the credential whether or not this
 // app federates. Mount the manager as well as the kit.
+//
+// RouteDeviceExchange has a second condition on top of that one: it appears
+// only when Config.CLIAudience is set, because without a CLI audience there is
+// no verifier for the CLI's tokens and the route could do nothing but refuse.
+// Config.MachineAudience does not mount it: that field arms the Authorization
+// header path for service-account tokens, which are addressed to a different
+// audience entirely. Its absence is a 404, which is exactly what the CLI reads
+// as "this app has not shipped the exchange" before falling back to the
+// loopback flow.
 func (k *Kit) Mount(router chi.Router) {
 	router.Get(porte.RouteConfig, k.handleConfig)
 	if !k.Enabled() {
@@ -45,6 +54,9 @@ func (k *Kit) Mount(router chi.Router) {
 	router.Get(porte.RouteCallback, k.handleCallback)
 	router.Post(porte.RouteExchange, k.handleExchange)
 	router.Post(porte.RouteBackchannelLogout, k.handleBackchannelLogout)
+	if k.cliTokens != nil {
+		router.Post(porte.RouteDeviceExchange, k.handleDeviceExchange)
+	}
 }
 
 func (k *Kit) handleConfig(w http.ResponseWriter, _ *http.Request) {
@@ -374,6 +386,103 @@ func (k *Kit) handleExchange(w http.ResponseWriter, r *http.Request) {
 	}
 	httpjson.WriteJSON(w, http.StatusOK, porte.ExchangeResponse{
 		UserID: strconv.FormatInt(code.UserID, 10),
+		Token:  token,
+	})
+}
+
+// handleDeviceExchange is the suite's half: an access token the provider's
+// device grant already issued goes in, this app's own session token comes out.
+// It is what makes one `facile login` serve every CLI. The alternative, a CLI
+// storing the provider's token in the slot where it keeps its own session, is
+// a login that stops working when that token expires an hour later.
+//
+// It composes three pieces that already existed and adds no verification of
+// its own: the same bearerVerifier the Authorization header path uses, the
+// same (issuer, sub) lookup the login callback matches on, and the same
+// Manager.Issue that mints every other session. What is new is only that the
+// token arrives in a request body instead of a header.
+//
+// # The audience this trusts, and why it is its own setting
+//
+// The token is verified against Config.CLIAudience (OIDC_CLI_AUDIENCE), which
+// an app running the suite CLI sets to `facile-cli`. Registre issues the CLI's
+// token to that client and the client declares no audiences of its own, so the
+// token carries `aud: ["facile-cli"]`.
+//
+// That is deliberately not Config.MachineAudience, and the two cannot hold the
+// same value. MachineAudience is this app's own client id, because that is
+// what a service account's token is addressed to: Registre's suite-ci account
+// declares `audiences: [courrier]`, so courrier checks `courrier` there. The
+// CLI's token is addressed to the CLI and presented at every tool. One setting
+// would force an app to pick one population, and an app that picked the CLI
+// would start rejecting every service-account token it had been accepting,
+// silently, with nothing in its own configuration having changed meaning.
+//
+// The split is also a boundary, not only a naming fix. Setting CLIAudience
+// verifies tokens for this route and nothing else: it never reaches
+// session.Manager.WithJWT, so a facile-cli token is not a credential on every
+// RequireAuth route. It buys a session here only by being exchanged for one,
+// and that leaves a session row an app can list, expire and revoke, where a
+// verified bearer JWT leaves nothing at all.
+//
+// What the split does not close: a stolen or phished facile-cli token can
+// still be exchanged for a durable session at every app that trusts it, as
+// whoever the token names. facile-cli is a public client, so anyone can start
+// its device grant; what stands between that and a session here is the human
+// approving the code at the provider, and the requirement below that the
+// subject already hold a local account. Containing the rest is back-channel
+// logout's job, and no app in the suite registers a backchannel_logout_uri
+// today, so that containment is not in place yet. Do not read this endpoint as
+// providing it.
+//
+// # Refusals
+//
+// No account is ever created here. A verified subject with no row in
+// porte_identities is refused, because account creation belongs to the login
+// callback, which is the path that holds a verified email. Provisioning from a
+// bearer would let anyone the provider will mint a token for materialise an
+// account in every app at once. Every refusal answers the same 401 with the
+// same message, so the response says nothing about which check failed or
+// whether the subject has an account here, and the identity store is only
+// consulted after the cryptographic and claim checks have passed, so the
+// latency says nothing either.
+//
+// No CSRF header is required, and that is not an omission. The suite's default
+// is the opposite because the default transport is a cookie a browser attaches
+// on its own; here there is no ambient credential to abuse, because the caller
+// must put a token it holds into the request body, which a cross-site form
+// cannot do. Requiring the header would only break the CLI, which is not a browser.
+//
+// The response carries a credential, so it is no-store per OAuth 2.1 §7.1, and
+// the request carries one, so neither the token nor any error quoting it is
+// ever logged.
+func (k *Kit) handleDeviceExchange(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+
+	var request porte.DeviceExchangeRequest
+	if err := httpjson.DecodeJSON(w, r, &request); err != nil {
+		httpjson.WriteError(w, err)
+		return
+	}
+	if request.AccessToken == "" {
+		httpjson.WriteError(w, errors.Invalid("missing access_token"))
+		return
+	}
+
+	identity, err := k.cliTokens.VerifyJWT(r.Context(), request.AccessToken)
+	if err != nil {
+		k.logger.Debug("porte: device exchange refused", slog.Any("error", err))
+		httpjson.WriteError(w, errors.Unauthorized("invalid access token"))
+		return
+	}
+
+	token, _, err := k.sessions.Issue(r.Context(), identity.UserID, "")
+	if err != nil {
+		httpjson.WriteError(w, err)
+		return
+	}
+	httpjson.WriteJSON(w, http.StatusOK, porte.ExchangeResponse{
+		UserID: strconv.FormatInt(identity.UserID, 10),
 		Token:  token,
 	})
 }

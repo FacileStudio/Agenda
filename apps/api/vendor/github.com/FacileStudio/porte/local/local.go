@@ -9,15 +9,28 @@
 // app gets wrong quietly.
 //
 // A password identity is one row of porte_identities under
-// [porte.ProviderLocal], keyed on the normalised email. A human may hold that
-// row and a federated one at the same time and they are the same account:
-// signing in through either lands on the same user id.
+// [porte.ProviderLocal], keyed on [porte.LocalSubject] — the account id, not
+// the address. A human may hold that row and a federated one at the same time
+// and they are the same account: signing in through either lands on the same
+// user id.
+//
+// The address is therefore looked up, not keyed on: a login resolves the email
+// to a user through the app's PasswordUserStore and then reads the credential
+// by id. That indirection is the whole point. It means changing an address
+// touches the user row and nothing else, so none of the ways an app can get
+// that wrong are reachable any more.
 //
 // Holding both is arrived at through [Kit.SetPassword], from a request that is
 // already authenticated — never through [Kit.Register], which refuses an
 // address that already has an account. Registration cannot prove the caller
 // owns the mailbox, so treating it as "the same human adding a password" hands
 // every SSO account to whoever types its address first.
+//
+// Replacing a password that already exists is [Kit.ChangePassword] and not
+// SetPassword, which refuses. Splitting them is what makes the confirmation
+// impossible to skip: four of porte's adopters shipped a settings screen that
+// set a new password without ever asking for the old one, because one method
+// served both and the check was theirs to remember.
 //
 // It depends on porte/session, not on porte/oidc. An app that wants only
 // passwords must not compile an OIDC client, which is the whole reason the
@@ -183,7 +196,7 @@ func (k *Kit) Register(ctx context.Context, w http.ResponseWriter, r *http.Reque
 	if err := k.deps.Identities.Save(ctx, porte.StoredIdentity{
 		UserID:       userID,
 		Provider:     porte.ProviderLocal,
-		Subject:      email,
+		Subject:      porte.LocalSubject(userID),
 		PasswordHash: hash,
 	}); err != nil {
 		return 0, "", errors.Internal("failed to store the identity", err)
@@ -234,7 +247,16 @@ func (k *Kit) Verify(ctx context.Context, email, password string) (int64, error)
 		return 0, carrying(errors.Unauthorized(""), porte.ErrWrongPassword)
 	}
 
-	stored, err := k.deps.Identities.Find(ctx, porte.ProviderLocal, normalized)
+	userID, err := k.deps.Users.FindByEmail(ctx, normalized)
+	if err != nil {
+		if stderrors.Is(err, porte.ErrNotFound) {
+			EqualizeTiming(password)
+			return 0, carrying(errors.Unauthorized(""), porte.ErrWrongPassword)
+		}
+		return 0, errors.Internal("failed to look up the account", err)
+	}
+
+	stored, err := k.deps.Identities.Find(ctx, porte.ProviderLocal, porte.LocalSubject(userID))
 	if err != nil {
 		if stderrors.Is(err, porte.ErrNotFound) {
 			EqualizeTiming(password)
@@ -248,16 +270,24 @@ func (k *Kit) Verify(ctx context.Context, email, password string) (int64, error)
 	return stored.UserID, nil
 }
 
-// SetPassword adds or replaces the password on an existing account. It is what
-// an account settings screen calls, and what an app calls to give a
-// federated-only user a password.
-func (k *Kit) SetPassword(ctx context.Context, userID int64, email, password string) error {
-	normalized, err := normalizeEmail(email)
-	if err != nil {
-		return err
-	}
+// SetPassword gives a first password to an account that has none, and refuses
+// with [porte.ErrPasswordSet] if one is already there. Replacing an existing
+// password is [Kit.ChangePassword].
+//
+// This is what an app calls to let a federated-only user add a password. It
+// asks for no confirmation because there is nothing to confirm — the account
+// has no current password — so the caller's session is the only evidence, and
+// that is why it must not also serve the replace case.
+func (k *Kit) SetPassword(ctx context.Context, userID int64, password string) error {
 	if len([]rune(password)) < k.cfg.MinPasswordLength {
 		return carrying(errors.Invalid(""), fmt.Errorf("%w: it must be at least %d characters", porte.ErrWeakPassword, k.cfg.MinPasswordLength))
+	}
+	subject := porte.LocalSubject(userID)
+	switch _, err := k.deps.Identities.Find(ctx, porte.ProviderLocal, subject); {
+	case err == nil:
+		return carrying(errors.Conflict(""), porte.ErrPasswordSet)
+	case !stderrors.Is(err, porte.ErrNotFound):
+		return errors.Internal("failed to read the identity", err)
 	}
 	hash, err := HashPassword(password)
 	if err != nil {
@@ -266,9 +296,71 @@ func (k *Kit) SetPassword(ctx context.Context, userID int64, email, password str
 	return k.deps.Identities.Save(ctx, porte.StoredIdentity{
 		UserID:       userID,
 		Provider:     porte.ProviderLocal,
-		Subject:      normalized,
+		Subject:      subject,
 		PasswordHash: hash,
 	})
+}
+
+// ChangePassword replaces an existing password after confirming the current
+// one, ends the account's other logins, and rotates the caller's own session.
+// It returns the new session token and how many other logins it ended.
+//
+// The confirmation is the L1 requirement in OWASP ASVS (v4 §2.1.6, v5 §6.2.3):
+// "password change functionality requires the user's current and new
+// password". Without it a borrowed session is a permanent account takeover
+// rather than a temporary one, which is what four adopters shipped.
+//
+// The rotation is the OWASP Session Management Cheat Sheet's rule about
+// renewing the session id after a privilege change, which names password
+// changes specifically and requires the previous id to be destroyed. Doing it
+// here rather than leaving it to the app is what keeps the caller signed in:
+// the old token is dead before this returns and the new one is already in the
+// cookie, so the screen that made the change keeps working.
+//
+// Other logins end because a password's replacement should not leave
+// credentials minted by the old one alive. Named API tokens survive — see
+// [session.Manager.RevokeLogins] for why that is porte's decision rather than
+// a standard's, and for the call to make when the answer really is everything.
+func (k *Kit) ChangePassword(ctx context.Context, w http.ResponseWriter, r *http.Request, userID int64, current, next string) (string, int64, error) {
+	subject := porte.LocalSubject(userID)
+	stored, err := k.deps.Identities.Find(ctx, porte.ProviderLocal, subject)
+	if err != nil {
+		if stderrors.Is(err, porte.ErrNotFound) {
+			return "", 0, carrying(errors.Invalid(""), porte.ErrNoPassword)
+		}
+		return "", 0, errors.Internal("failed to read the identity", err)
+	}
+	if !VerifyPassword(current, stored.PasswordHash) {
+		return "", 0, carrying(errors.Unauthorized(""), porte.ErrWrongPassword)
+	}
+	if len([]rune(next)) < k.cfg.MinPasswordLength {
+		return "", 0, carrying(errors.Invalid(""), fmt.Errorf("%w: it must be at least %d characters", porte.ErrWeakPassword, k.cfg.MinPasswordLength))
+	}
+
+	hash, err := HashPassword(next)
+	if err != nil {
+		return "", 0, errors.Internal("failed to hash the password", err)
+	}
+	stored.PasswordHash = hash
+	if err := k.deps.Identities.Save(ctx, stored); err != nil {
+		return "", 0, errors.Internal("failed to store the identity", err)
+	}
+
+	caller, _ := porte.From(ctx)
+	revoked, err := k.sessions.RevokeLogins(ctx, userID, caller.SessionID)
+	if err != nil {
+		return "", 0, errors.Internal("failed to end the other sessions", err)
+	}
+	if caller.SessionID != 0 {
+		if err := k.sessions.Revoke(ctx, userID, caller.SessionID); err != nil && !stderrors.Is(err, porte.ErrNotFound) {
+			return "", 0, errors.Internal("failed to rotate the session", err)
+		}
+	}
+	token, _, err := k.sessions.IssueCookie(ctx, w, r, userID)
+	if err != nil {
+		return "", 0, err
+	}
+	return token, revoked, nil
 }
 
 func (k *Kit) handleRegister(w http.ResponseWriter, r *http.Request) {

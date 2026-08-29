@@ -31,16 +31,18 @@ var Documentation = documentation.Module{
 			},
 		},
 		{
-			Method:       "PATCH",
-			Path:         "/users/me",
-			Summary:      "Update the current user",
-			Description:  "Updates the authenticated user's name, email, and/or password.",
+			Method:  "PATCH",
+			Path:    "/users/me",
+			Summary: "Update the current user",
+			Description: "Updates the authenticated user's name, email, and/or password. " +
+				"Sending password alone adds a first password to an account that has none; " +
+				"replacing an existing one also requires current_password, and rotates the session.",
 			Auth:         "bearer token required",
 			RequestBody:  "UpdateRequest",
 			ResponseBody: "MeResponse",
 			Errors: []documentation.Error{
-				{Status: 400, Code: "invalid_argument", Description: "Invalid JSON body or invalid update input."},
-				{Status: 401, Code: "unauthenticated", Description: "Authorization header is missing or invalid."},
+				{Status: 400, Code: "invalid_argument", Description: "Invalid JSON body, invalid update input, or current_password missing."},
+				{Status: 401, Code: "unauthenticated", Description: "Auth is missing or invalid, or current_password is wrong."},
 				{Status: 404, Code: "not_found", Description: "The authenticated user no longer exists."},
 				{Status: 409, Code: "already_exists", Description: "A user with the same email already exists."},
 				{Status: 500, Code: "internal", Description: "Unexpected server error."},

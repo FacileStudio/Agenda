@@ -37,7 +37,18 @@ func AdoptPorte(db *gorm.DB, issuer string) error {
 //
 // Kept verbatim from porte otherwise, column for column: pg's queries are
 // written against these names, and a divergence here surfaces as a runtime
-// error on the login path rather than at boot.
+// error on the login path rather than at boot. That includes the one UPDATE,
+// which is porte v0.3.0 re-keying password identities off the email address
+// and onto the account id. Keeping a private copy of this schema is precisely
+// what stops an app from receiving that migration for free, so it is copied
+// rather than assumed: without it every password login answers "invalid email
+// or password" while the build, the vet and the whole suite stay green.
+//
+// It is idempotent — after it runs the predicate is false for every row — and
+// it is deliberately allowed to fail. The only way it can is one account
+// holding two password identities at once, which the address key made
+// reachable, and refusing to migrate is the right answer to ambiguous
+// credentials.
 const porteSchema = `
 CREATE TABLE IF NOT EXISTS porte_identities (
 	user_id         bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -56,6 +67,9 @@ CREATE TABLE IF NOT EXISTS porte_identities (
 CREATE INDEX IF NOT EXISTS porte_identities_user_idx ON porte_identities (user_id);
 ALTER TABLE porte_identities ADD COLUMN IF NOT EXISTS created_at timestamptz;
 ALTER TABLE porte_identities ALTER COLUMN created_at SET DEFAULT now();
+
+UPDATE porte_identities SET subject = user_id::text
+ WHERE provider = 'local' AND subject <> user_id::text;
 
 CREATE TABLE IF NOT EXISTS porte_sessions (
 	id           bigserial PRIMARY KEY,
@@ -139,16 +153,18 @@ $$;
 // uses the parameters this app already used — so the move is a copy and nobody
 // resets anything.
 //
-// The subject is the lowercased address because that is what porte/local
-// normalises to before looking one up; a row keyed on a mixed-case address
-// would simply never be found.
+// The subject is the account id, which is what porte/local looks a credential
+// up by since v0.3.0. It has to move in the same edit as the re-key above:
+// that UPDATE runs earlier in AdoptPorte, so an INSERT still writing
+// lower(btrim(email)) would add a fresh address-keyed row after the migration
+// had already swept past it — a credential nothing can ever find.
 //
 // users.password_hash is deliberately left in place. Blanking it in the same
 // deploy makes the change unrollbackable for the sake of tidiness, and a
 // column nothing reads can be dropped on any later day.
 const adoptExistingPasswords = `
 INSERT INTO porte_identities (user_id, provider, subject, password_hash)
-SELECT id, 'local', lower(btrim(email)), password_hash
+SELECT id, 'local', id::text, password_hash
   FROM users
  WHERE coalesce(password_hash, '') <> ''
 ON CONFLICT (provider, subject) DO NOTHING;

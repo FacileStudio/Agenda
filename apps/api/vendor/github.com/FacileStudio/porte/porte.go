@@ -55,6 +55,20 @@ var (
 	ErrInvalidEmail       = errors.New("porte: a valid email is required")
 )
 
+// ErrNoPassword is returned when a change is asked of an account that has no
+// password to change. It is not an enumeration risk the way ErrWrongPassword
+// would be: reaching it takes an authenticated session for the account in
+// question, so the caller already knows whose account it is.
+var ErrNoPassword = errors.New("porte: this account has no password")
+
+// ErrPasswordSet is returned when a first password is offered to an account
+// that already has one. The two operations are deliberately separate calls:
+// setting a first password cannot ask for the current one, so letting one
+// method do both would make the confirmation optional at exactly the moment it
+// matters — which is how four of porte's adopters shipped a password change
+// that never asked for the old password.
+var ErrPasswordSet = errors.New("porte: this account already has a password")
+
 // ErrCodeConsumed is returned when a login code was already exchanged. It is
 // distinct from ErrNotFound so a replayed code can be logged as an attack
 // rather than as a typo.
@@ -64,10 +78,26 @@ var ErrCodeConsumed = errors.New("porte: login code already consumed")
 // exact paths with these exact response shapes, which is what makes them safe
 // to freeze.
 const (
-	RouteConfig            = "/auth/config"
-	RouteLogin             = "/auth/oidc"
-	RouteCallback          = "/auth/oidc/callback"
-	RouteExchange          = "/auth/oidc/exchange"
+	RouteConfig   = "/auth/config"
+	RouteLogin    = "/auth/oidc"
+	RouteCallback = "/auth/oidc/callback"
+	RouteExchange = "/auth/oidc/exchange"
+
+	// RouteDeviceExchange trades an access token the provider's device
+	// grant already issued for this app's own session token. It is what
+	// lets a CLI run RFC 8628 once and sign in to every tool in the suite,
+	// including from a machine whose browser is somewhere else.
+	//
+	// The path and the wire shape are frozen by the shipped caller
+	// (facile@5483f18), not chosen here. A 404 on this path is that
+	// caller's signal that an app has not shipped the endpoint, and it
+	// falls back to the loopback flow silently, so an app that mounts the
+	// route must answer every bad request on its merits. The caller probes
+	// with a POST carrying an empty body and must get a 400, never a 404.
+	//
+	// CLIAudience is what mounts it. MachineAudience does not.
+	RouteDeviceExchange = "/auth/oidc/device/exchange"
+
 	RouteLogout            = "/auth/logout"
 	RouteSyncProfile       = "/auth/sync-profile"
 	RouteBackchannelLogout = "/auth/backchannel-logout"
@@ -156,6 +186,51 @@ type Config struct {
 	// SSOOnly suppresses local password routes entirely. They are not
 	// registered rather than rejected, so there is no endpoint to probe.
 	SSOOnly bool
+
+	// MachineAudience enables offline verification of bearer tokens shaped
+	// as JWTs against the provider's JWKS — machine tokens minted by another
+	// suite service, keyed to this audience. Empty disables it entirely,
+	// which is every app today.
+	//
+	// It requires OIDC_ISSUER: discovery and the JWKS come from the same
+	// provider the browser flow federates to. A bearer that parses as three
+	// dot-separated segments is verified and never falls through to the
+	// hashed-session lookup; anything else is authenticated exactly as
+	// before.
+	//
+	// Its value is this app's own client id, because that is what a service
+	// account's token is addressed to. Registre's suite-ci account declares
+	// `audiences: [courrier]`, so courrier sets `courrier` here and a token
+	// minted for any other app does not open it. That is the whole point of
+	// the claim, and it is why CLIAudience below is a separate field rather
+	// than a second use of this one.
+	MachineAudience string
+
+	// CLIAudience enables POST /auth/oidc/device/exchange: a CLI trades an
+	// access token the provider's device grant issued for this app's own
+	// session token. Empty means the route is not mounted at all. It
+	// requires OIDC_ISSUER for the same reason MachineAudience does.
+	//
+	// Its value is the CLI's client id, not this app's. Registre issues the
+	// suite CLI's token to `facile-cli` and that client declares no
+	// audiences of its own, so the token carries `aud: ["facile-cli"]` and
+	// every app that wants one login for every terminal sets exactly that.
+	//
+	// It is deliberately not MachineAudience, and the two hold different
+	// values by construction: a service-account token is addressed to one
+	// app, and the CLI's token is addressed to the CLI and presented at all
+	// of them. Folding them into one setting would force an app to choose
+	// between service accounts and CLI login, and an app that chose CLI
+	// login would silently start rejecting every service-account token it
+	// used to accept.
+	//
+	// The separation is also a boundary, not only a naming fix. Setting
+	// this does not put the CLI's token on the bearer path: it verifies
+	// tokens for this route and nothing else, so a facile-cli token cannot
+	// be used directly as a credential on every RequireAuth route. It buys
+	// a session here only by being exchanged for one, which leaves a
+	// session row that an app can list and revoke.
+	CLIAudience string
 
 	// TrustEmailWithoutVerifiedClaim lets a callback whose token carries no
 	// email_verified claim match an existing account by address.
@@ -261,6 +336,22 @@ func (c Config) IdleTimeout() time.Duration {
 // Enabled reports whether OIDC is configured at all.
 func (c Config) Enabled() bool { return c.Issuer != "" }
 
+// validateWithoutIssuer checks the settings that are meaningless without a
+// provider. Both audiences name a claim in a token this app never sees when
+// OIDC is off, and each one enables a different surface, so each says which
+// variable is the one to remove.
+func (c Config) validateWithoutIssuer() error {
+	for name, audience := range map[string]string{
+		"OIDC_MACHINE_AUDIENCE": c.MachineAudience,
+		"OIDC_CLI_AUDIENCE":     c.CLIAudience,
+	} {
+		if audience != "" {
+			return fmt.Errorf("porte: %s is set but OIDC_ISSUER is empty — verifying a token audience needs a provider", name)
+		}
+	}
+	return nil
+}
+
 // ClaimsEnabled reports whether porte should request and verify the roles
 // claim. Off by default: no app reads claims today.
 func (c Config) ClaimsEnabled() bool { return c.ClaimsScope != "" }
@@ -280,7 +371,7 @@ func (c Config) Scopes() []string {
 // secret must not become a 500 on the first login attempt three days later.
 func (c Config) Validate() error {
 	if !c.Enabled() {
-		return nil
+		return c.validateWithoutIssuer()
 	}
 	issuer, err := url.Parse(c.Issuer)
 	switch {
@@ -345,6 +436,16 @@ type CredentialsRequest struct {
 // one-time login code for a bearer token.
 type ExchangeRequest struct {
 	Code string `json:"code"`
+}
+
+// DeviceExchangeRequest is the body of POST /auth/oidc/device/exchange: a CLI
+// trading the access token it already holds from the provider's device grant
+// for this app's own session token.
+//
+// The field name is the shipped caller's, and the token in it is a live
+// credential. Nothing that handles this struct may log it.
+type DeviceExchangeRequest struct {
+	AccessToken string `json:"access_token"`
 }
 
 // ExchangeResponse keeps Plume's existing wire shape, including user_id as a

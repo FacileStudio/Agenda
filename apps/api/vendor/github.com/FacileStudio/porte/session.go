@@ -75,6 +75,23 @@ type SessionStore interface {
 	// opaque, long-lived session of its own.
 	DeleteByUser(ctx context.Context, userID int64) (deleted int64, err error)
 
+	// DeleteLogins drops a user's logins and spares their named API
+	// tokens — the labelled rows. When except is non-zero it also spares
+	// that session id.
+	//
+	// It exists because DeleteByUser is too blunt for a password change.
+	// The two live in one table, but they are not one kind of credential:
+	// a login is minted by typing the password, so it must not outlive it,
+	// while a named token was created deliberately from an already
+	// authenticated session, is visible in a list, and is revocable on its
+	// own. Ending both means rotating a password silently breaks the
+	// CalDAV client on somebody's phone, which is how a routine rotation
+	// becomes an operation people avoid.
+	//
+	// DeleteByUser remains the right call for a leak or an IdP
+	// deactivation, where the answer really is everything.
+	DeleteLogins(ctx context.Context, userID, except int64) (deleted int64, err error)
+
 	// ListByUser backs an active-sessions screen.
 	ListByUser(ctx context.Context, userID int64) ([]Session, error)
 

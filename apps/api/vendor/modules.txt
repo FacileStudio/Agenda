@@ -1,11 +1,12 @@
 # github.com/FacileStudio/Journal/sdk/journal v0.0.0-20260708221941-db985ad2b1ba
 ## explicit; go 1.24.0
 github.com/FacileStudio/Journal/sdk/journal
-# github.com/FacileStudio/porte v0.2.10
+# github.com/FacileStudio/porte v0.5.0
 ## explicit; go 1.25.0
 github.com/FacileStudio/porte
 github.com/FacileStudio/porte/local
 github.com/FacileStudio/porte/oidc
+github.com/FacileStudio/porte/oidc/jwt
 github.com/FacileStudio/porte/pg
 github.com/FacileStudio/porte/session
 # github.com/FacileStudio/tronc v0.12.0

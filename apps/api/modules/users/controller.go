@@ -60,17 +60,54 @@ func (controller *Controller) me(context context.Context) (*MeResponse, error) {
 	return &MeResponse{User: *user}, nil
 }
 
-func (controller *Controller) updateMe(context context.Context, req *UpdateRequest) (*MeResponse, error) {
-	identity, ok := authcontext.IdentityFromContext(context)
+// updateMe applies a profile edit, and takes w and r rather than a context
+// because a password change rotates the caller's session and porte writes that
+// cookie itself.
+//
+// The password moves before the profile columns. Its failures are the likely
+// ones — a wrong current password, a missing confirmation — and running it
+// first means those answer 4xx with nothing written, instead of leaving a name
+// change behind from a request the caller was told had failed.
+func (controller *Controller) updateMe(w http.ResponseWriter, r *http.Request, req *UpdateRequest) (*MeResponse, error) {
+	ctx := r.Context()
+	identity, ok := authcontext.IdentityFromContext(ctx)
 	if !ok {
 		return nil, errors.Unauthorized("missing auth")
 	}
 
+	name, email, err := normalizeProfile(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if name == nil && email == nil && req.Password == nil {
+		return nil, errors.Invalid("at least one field must be provided")
+	}
+
+	if req.Password != nil {
+		if err := controller.service.setPassword(w, r, identity.UserID, req); err != nil {
+			return nil, err
+		}
+	}
+
+	user, err := controller.service.updateUser(ctx, identity.UserID, name, email)
+	if err != nil {
+		return nil, err
+	}
+
+	return &MeResponse{User: *user}, nil
+}
+
+// normalizeProfile trims and validates the profile half of an update. The
+// password floor stays here beside them so a too-short password is refused
+// before argon2 is paid for, and matches the eight characters main.go pins on
+// porte's kit.
+func normalizeProfile(req *UpdateRequest) (*string, *string, error) {
 	var name *string
 	if req.Name != nil {
 		trimmed := strings.TrimSpace(*req.Name)
 		if len(trimmed) > 80 {
-			return nil, errors.Invalid("name must be at most 80 characters")
+			return nil, nil, errors.Invalid("name must be at most 80 characters")
 		}
 		name = &trimmed
 	}
@@ -79,29 +116,16 @@ func (controller *Controller) updateMe(context context.Context, req *UpdateReque
 	if req.Email != nil {
 		normalized := strings.TrimSpace(strings.ToLower(*req.Email))
 		if normalized == "" || !strings.Contains(normalized, "@") {
-			return nil, errors.Invalid("invalid email")
+			return nil, nil, errors.Invalid("invalid email")
 		}
 		email = &normalized
 	}
 
-	var password *string
-	if req.Password != nil {
-		if len(*req.Password) < 8 {
-			return nil, errors.Invalid("password must be at least 8 characters")
-		}
-		password = req.Password
+	if req.Password != nil && len(*req.Password) < 8 {
+		return nil, nil, errors.Invalid("password must be at least 8 characters")
 	}
 
-	if name == nil && email == nil && password == nil {
-		return nil, errors.Invalid("at least one field must be provided")
-	}
-
-	user, err := controller.service.updateUser(context, identity.UserID, name, email, password)
-	if err != nil {
-		return nil, err
-	}
-
-	return &MeResponse{User: *user}, nil
+	return name, email, nil
 }
 
 func (controller *Controller) deleteAvatar(context context.Context) (*MeResponse, error) {

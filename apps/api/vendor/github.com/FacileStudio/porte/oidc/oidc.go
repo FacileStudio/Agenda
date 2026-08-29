@@ -71,6 +71,18 @@ type Kit struct {
 	oauth    oauth2.Config
 	logger   *slog.Logger
 	now      func() time.Time
+
+	// cliTokens verifies the CLI's device-grant tokens offline. It is
+	// non-nil exactly when Config.CLIAudience is set, and its presence is
+	// what mounts RouteDeviceExchange. An app with no CLI audience to check
+	// against has no way to verify such a token, so it does not serve the
+	// route at all rather than serving one that can only refuse.
+	//
+	// It is a second verifier, not the one the session manager holds for
+	// Config.MachineAudience. The two audiences name different token
+	// populations and the kit must never confuse them, so nothing here
+	// reaches session.Manager.WithJWT.
+	cliTokens session.JWTVerifier
 }
 
 // New performs discovery and returns a kit. It is the boot path, so every
@@ -126,6 +138,18 @@ func New(ctx context.Context, cfg porte.Config, deps Deps) (*Kit, error) {
 
 	if err := kit.guardClaimsScope(); err != nil {
 		return nil, err
+	}
+	if cfg.MachineAudience != "" {
+		if err := attachBearerVerifier(ctx, cfg, deps); err != nil {
+			return nil, err
+		}
+	}
+	if cfg.CLIAudience != "" {
+		cliTokens, err := newBearerVerifier(ctx, cfg, cfg.CLIAudience, deps.Identities)
+		if err != nil {
+			return nil, err
+		}
+		kit.cliTokens = cliTokens
 	}
 	// The manager fills Identity.Roles through this kit, and this kit
 	// needs the manager to issue sessions. Something has to be built first.
