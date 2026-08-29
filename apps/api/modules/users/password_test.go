@@ -196,3 +196,110 @@ func TestTheProfileResponseCarriesNoToken(t *testing.T) {
 		t.Fatalf("the profile response grew a token field: %s", body)
 	}
 }
+
+// A combined body ran the password change first and the profile columns
+// second, with no transaction between them. When the profile half failed on a
+// taken address the caller got a 409, but the password was already stored, the
+// account's other logins were already gone and the cookie was already rotated
+// — a request reported as failed that had changed the credential.
+//
+// porte's session manager writes outside any transaction the app can hold, so
+// there is nothing to roll back and reordering only moves which half is
+// orphaned. The request is refused instead.
+// TestACombinedPasswordAndProfileUpdateIsRefused is the regression.
+func TestACombinedPasswordAndProfileUpdateIsRefused(t *testing.T) {
+	h := newHarness(t)
+	h.account("taken@facile.studio")
+	userID := h.account("combined@facile.studio")
+	token := h.login(userID)
+
+	if response := h.do(http.MethodPatch, "/users/me", token, map[string]string{
+		"password": "original secret",
+	}); response.Code != http.StatusOK {
+		t.Fatalf("seed the first password: got %d %s", response.Code, response.Body.String())
+	}
+
+	response := h.do(http.MethodPatch, "/users/me", token, map[string]string{
+		"current_password": "original secret",
+		"password":         "replacement secret",
+		"email":            "taken@facile.studio",
+	})
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("a combined update: got %d %s, want 400", response.Code, response.Body.String())
+	}
+	if code := errorCode(t, response); code != "invalid_argument" {
+		t.Fatalf("error code: got %q want invalid_argument", code)
+	}
+
+	if login := h.do(http.MethodPost, "/auth/login", "", map[string]string{
+		"email":    "combined@facile.studio",
+		"password": "replacement secret",
+	}); login.Code == http.StatusOK {
+		t.Fatal("the refused request changed the password anyway")
+	}
+	if login := h.do(http.MethodPost, "/auth/login", "", map[string]string{
+		"email":    "combined@facile.studio",
+		"password": "original secret",
+	}); login.Code != http.StatusOK {
+		t.Fatalf("the original password stopped working: got %d %s", login.Code, login.Body.String())
+	}
+}
+
+// The refusal is about the combination, not about either half, so a body
+// carrying only profile columns still applies them.
+func TestAProfileOnlyUpdateStillApplies(t *testing.T) {
+	h := newHarness(t)
+	userID := h.account("profile@facile.studio")
+	token := h.login(userID)
+
+	response := h.do(http.MethodPatch, "/users/me", token, map[string]string{"name": "Renamed"})
+	if response.Code != http.StatusOK {
+		t.Fatalf("profile-only update: got %d %s", response.Code, response.Body.String())
+	}
+	if body := response.Body.String(); !strings.Contains(body, "Renamed") {
+		t.Fatalf("the name was not applied: %s", body)
+	}
+}
+
+// porte's sentinels all read "porte: …" and tronc copies an error's message
+// straight into the response envelope, so an unmapped one names a library the
+// API mentions nowhere else. ErrPasswordSet was already remapped by hand;
+// ErrNoPassword was not, and a change offered against an account with no
+// password answered "porte: this account has no password".
+// TestChangingAPasswordOnAnAccountWithNoneSaysNothingAboutPorte is the
+// regression, and it holds for every sentinel because the mapping is one place.
+func TestChangingAPasswordOnAnAccountWithNoneSaysNothingAboutPorte(t *testing.T) {
+	h := newHarness(t)
+	userID := h.account("federated@facile.studio")
+	token := h.login(userID)
+
+	response := h.do(http.MethodPatch, "/users/me", token, map[string]string{
+		"current_password": "there is no password",
+		"password":         "replacement secret",
+	})
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("changing a password that does not exist: got %d %s, want 400",
+			response.Code, response.Body.String())
+	}
+	if body := response.Body.String(); strings.Contains(body, "porte") {
+		t.Fatalf("porte's own error text reached the client: %s", body)
+	}
+}
+
+// A wrong password is the sentinel most callers will ever see, so it is worth
+// pinning beside the one that was reported.
+func TestAWrongPasswordSaysNothingAboutPorte(t *testing.T) {
+	h := newHarness(t)
+	h.account("leak@facile.studio")
+
+	login := h.do(http.MethodPost, "/auth/login", "", map[string]string{
+		"email":    "leak@facile.studio",
+		"password": "not the password",
+	})
+	if login.Code != http.StatusUnauthorized {
+		t.Fatalf("wrong password: got %d %s, want 401", login.Code, login.Body.String())
+	}
+	if body := login.Body.String(); strings.Contains(body, "porte") {
+		t.Fatalf("porte's own error text reached the client: %s", body)
+	}
+}

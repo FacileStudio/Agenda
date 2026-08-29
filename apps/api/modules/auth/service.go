@@ -74,7 +74,7 @@ func (service *Service) IdentityForUser(ctx context.Context, userID int64) (stri
 func (service *Service) Register(ctx context.Context, w http.ResponseWriter, r *http.Request, email, password string) (string, string, error) {
 	userID, token, err := service.passwords.Register(ctx, w, r, email, "", password)
 	if err != nil {
-		return "", "", err
+		return "", "", TranslateError(err)
 	}
 	return strconv.FormatInt(userID, 10), token, nil
 }
@@ -82,7 +82,7 @@ func (service *Service) Register(ctx context.Context, w http.ResponseWriter, r *
 func (service *Service) Login(ctx context.Context, w http.ResponseWriter, r *http.Request, email, password string) (string, string, error) {
 	userID, token, err := service.passwords.Login(ctx, w, r, email, password)
 	if err != nil {
-		return "", "", err
+		return "", "", TranslateError(err)
 	}
 	return strconv.FormatInt(userID, 10), token, nil
 }
@@ -96,7 +96,8 @@ func (service *Service) Login(ctx context.Context, w http.ResponseWriter, r *htt
 // address costs a real hash — instead of the app re-deriving argon2 against
 // the identity table.
 func (service *Service) VerifyPassword(ctx context.Context, email, password string) (int64, error) {
-	return service.passwords.Verify(ctx, email, password)
+	userID, err := service.passwords.Verify(ctx, email, password)
+	return userID, TranslateError(err)
 }
 
 // SetPassword gives a first password to an account that has none, and refuses
@@ -106,7 +107,7 @@ func (service *Service) VerifyPassword(ctx context.Context, email, password stri
 // account id, so an email change no longer has to drag the credential along
 // with it.
 func (service *Service) SetPassword(ctx context.Context, userID int64, password string) error {
-	return service.passwords.SetPassword(ctx, userID, password)
+	return TranslateError(service.passwords.SetPassword(ctx, userID, password))
 }
 
 // ChangePassword replaces an existing password after confirming the current
@@ -118,7 +119,8 @@ func (service *Service) SetPassword(ctx context.Context, userID int64, password 
 func (service *Service) ChangePassword(
 	ctx context.Context, w http.ResponseWriter, r *http.Request, userID int64, current, next string,
 ) (string, int64, error) {
-	return service.passwords.ChangePassword(ctx, w, r, userID, current, next)
+	token, revoked, err := service.passwords.ChangePassword(ctx, w, r, userID, current, next)
+	return token, revoked, TranslateError(err)
 }
 
 // Issue mints a named API token: a porte session with a label and no expiry,
