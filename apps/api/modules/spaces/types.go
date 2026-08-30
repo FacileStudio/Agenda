@@ -44,3 +44,8 @@ type MemberResponse struct {
 	Role      string    `json:"role"`
 	JoinedAt  time.Time `json:"joined_at"`
 }
+
+// OkResponse reports success for mutations returning no data.
+type OkResponse struct {
+	Ok bool `json:"ok"`
+}

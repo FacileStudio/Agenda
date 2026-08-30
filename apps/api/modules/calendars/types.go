@@ -46,3 +46,8 @@ type MemberResponse struct {
 	AvatarURL string `json:"avatar_url"`
 	Role      string `json:"role"`
 }
+
+// OkResponse reports success for mutations returning no data.
+type OkResponse struct {
+	Ok bool `json:"ok"`
+}

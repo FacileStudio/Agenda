@@ -52,3 +52,13 @@ type ApiTokenStatusResponse struct {
 type CreateApiTokenRequest struct {
 	Name string `json:"name"`
 }
+
+// DeletedResponse reports the deletion of a resource.
+type DeletedResponse struct {
+	Deleted bool `json:"deleted"`
+}
+
+// AvatarUploadRequest represents a multipart avatar file upload.
+type AvatarUploadRequest struct {
+	Avatar string `json:"avatar" doc:"Binary avatar image file (PNG, JPEG, GIF, WebP)."`
+}

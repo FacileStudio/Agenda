@@ -1,6 +1,9 @@
 package auth
 
-import documentation "github.com/FacileStudio/Agenda/apps/api/internal/documentation"
+import (
+	documentation "github.com/FacileStudio/Agenda/apps/api/internal/documentation"
+	"github.com/FacileStudio/porte"
+)
 
 var Documentation = documentation.Module{
 	Name:        "auth",
@@ -12,8 +15,8 @@ var Documentation = documentation.Module{
 			Summary:      "Register a new user",
 			Description:  "Creates a user account and returns an auth token.",
 			Auth:         "public",
-			RequestBody:  "RegisterRequest",
-			ResponseBody: "AuthResponse",
+			RequestBody:  RegisterRequest{},
+			ResponseBody: AuthResponse{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "Invalid JSON body or invalid registration input."},
 				{Status: 409, Code: "already_exists", Description: "A user with the same email already exists."},
@@ -26,8 +29,8 @@ var Documentation = documentation.Module{
 			Summary:      "Authenticate a user",
 			Description:  "Authenticates credentials and returns an auth token.",
 			Auth:         "public",
-			RequestBody:  "LoginRequest",
-			ResponseBody: "AuthResponse",
+			RequestBody:  LoginRequest{},
+			ResponseBody: AuthResponse{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "Invalid JSON body or invalid login input."},
 				{Status: 401, Code: "unauthenticated", Description: "Email or password is invalid."},
@@ -39,17 +42,18 @@ var Documentation = documentation.Module{
 			Path:         "/auth/config",
 			Summary:      "Return the auth configuration",
 			Description:  "Reports which sign-in methods this deployment offers, so the client can hide password fields under SSO_ONLY.",
-			ResponseBody: "ConfigResponse",
+			ResponseBody: porte.ConfigResponse{},
 			Errors: []documentation.Error{
 				{Status: 500, Code: "internal", Description: "Unexpected server error."},
 			},
 		},
 		{
-			Method:      "POST",
-			Path:        "/auth/logout",
-			Summary:     "Log out",
-			Description: "Revokes the caller's session token.",
-			Auth:        "bearer token required",
+			Method:       "POST",
+			Path:         "/auth/logout",
+			Summary:      "Log out",
+			Description:  "Revokes the caller's session token.",
+			Auth:         "bearer token required",
+			ResponseBody: porte.LogoutResponse{},
 			Errors: []documentation.Error{
 				{Status: 401, Code: "unauthenticated", Description: "Authorization header is missing or invalid."},
 				{Status: 500, Code: "internal", Description: "Unexpected server error."},
@@ -70,25 +74,30 @@ var Documentation = documentation.Module{
 			Auth:        "public",
 		},
 		{
-			Method:      "POST",
-			Path:        "/auth/oidc/exchange",
-			Summary:     "Exchange a CLI login code for a token",
-			Description: "Consumes the one-time code handed to a ?flow=cli login. The code is single use: a replay finds nothing.",
-			Auth:        "public",
+			Method:       "POST",
+			Path:         "/auth/oidc/exchange",
+			Summary:      "Exchange a CLI login code for a token",
+			Description:  "Consumes the one-time code handed to a ?flow=cli login. The code is single use: a replay finds nothing.",
+			Auth:         "public",
+			RequestBody:  porte.ExchangeRequest{},
+			ResponseBody: porte.ExchangeResponse{},
 		},
 		{
-			Method:      "POST",
-			Path:        "/auth/sync-profile",
-			Summary:     "Refresh the profile from the provider",
-			Description: "Calls UserInfo with the stored refresh token and updates the name and photo. Rate-limited server-side.",
-			Auth:        "session cookie or bearer token required",
+			Method:       "POST",
+			Path:         "/auth/sync-profile",
+			Summary:      "Refresh the profile from the provider",
+			Description:  "Calls UserInfo with the stored refresh token and updates the name and photo. Rate-limited server-side.",
+			Auth:         "session cookie or bearer token required",
+			ResponseBody: porte.SyncProfileResponse{},
 		},
 		{
-			Method:      "POST",
-			Path:        "/auth/backchannel-logout",
-			Summary:     "Revoke sessions on the provider's behalf",
-			Description: "Called by the identity provider, not the client. Validates the logout token and deletes that user's sessions.",
-			Auth:        "signed logout token",
+			Method:       "POST",
+			Path:         "/auth/backchannel-logout",
+			Summary:      "Revoke sessions on the provider's behalf",
+			Description:  "Called by the identity provider, not the client. Validates the logout token and deletes that user's sessions.",
+			Auth:         "signed logout token",
+			RequestBody:  BackchannelLogoutRequest{},
+			ResponseBody: porte.LogoutResponse{},
 		},
 	},
 }

@@ -7,11 +7,18 @@ import (
 	"strings"
 )
 
-// DefaultAllowedMethods and DefaultAllowedHeaders are what an app gets when
-// CORSConfig leaves them empty.
+// DefaultAllowedMethods, DefaultAllowedHeaders and DefaultExposedHeaders are
+// what an app gets when CORSConfig leaves them empty.
+//
+// X-Request-Id is in both header lists on purpose. A cross-origin caller may
+// send one so its own logs and the server's name the same request, and it may
+// read the one that comes back — a response header is invisible to a script
+// unless it is exposed, so without this the echo RequestID writes would reach
+// the browser and be unreadable there, which is the same as not sending it.
 var (
 	DefaultAllowedMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
-	DefaultAllowedHeaders = []string{"Accept", "Authorization", "Content-Type"}
+	DefaultAllowedHeaders = []string{"Accept", "Authorization", "Content-Type", RequestIDHeader}
+	DefaultExposedHeaders = []string{RequestIDHeader}
 )
 
 // CORSConfig describes which cross-origin callers an app accepts.
@@ -28,6 +35,9 @@ type CORSConfig struct {
 	AllowedHeaders []string
 	// AllowedMethods defaults to DefaultAllowedMethods.
 	AllowedMethods []string
+	// ExposedHeaders are the response headers a script may read. It defaults
+	// to DefaultExposedHeaders; pass a non-nil empty slice to expose none.
+	ExposedHeaders []string
 	// MaxAgeSeconds defaults to 600.
 	MaxAgeSeconds int
 }
@@ -48,6 +58,13 @@ func CORS(cfg CORSConfig) func(http.Handler) http.Handler {
 
 	methods := strings.Join(orDefault(cfg.AllowedMethods, DefaultAllowedMethods), ", ")
 	headers := strings.Join(orDefault(cfg.AllowedHeaders, DefaultAllowedHeaders), ", ")
+	// nil is "unset", an empty slice is "expose none" — the same distinction
+	// TrustedProxies and APIPrefix make, for the same reason: a zero value that
+	// stood for both would make one of the two answers unsayable.
+	exposed := strings.Join(DefaultExposedHeaders, ", ")
+	if cfg.ExposedHeaders != nil {
+		exposed = strings.Join(cfg.ExposedHeaders, ", ")
+	}
 	maxAge := cfg.MaxAgeSeconds
 	if maxAge == 0 {
 		maxAge = 600
@@ -82,6 +99,9 @@ func CORS(cfg CORSConfig) func(http.Handler) http.Handler {
 			header.Set("Access-Control-Allow-Methods", methods)
 			header.Set("Access-Control-Allow-Headers", headers)
 			header.Set("Access-Control-Max-Age", fmt.Sprintf("%d", maxAge))
+			if exposed != "" {
+				header.Set("Access-Control-Expose-Headers", exposed)
+			}
 			if cfg.AllowCredentials {
 				header.Set("Access-Control-Allow-Credentials", "true")
 			}

@@ -61,3 +61,8 @@ type EventResponse struct {
 	CreatedAt          time.Time     `json:"created_at"`
 	UpdatedAt          time.Time     `json:"updated_at"`
 }
+
+// OkResponse reports success for mutations returning no data.
+type OkResponse struct {
+	Ok bool `json:"ok"`
+}

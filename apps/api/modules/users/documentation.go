@@ -12,7 +12,7 @@ var Documentation = documentation.Module{
 			Summary:      "List users",
 			Description:  "Returns all authenticated users with profile metadata.",
 			Auth:         "bearer token required",
-			ResponseBody: "ListResponse",
+			ResponseBody: ListResponse{},
 			Errors: []documentation.Error{
 				{Status: 401, Code: "unauthenticated", Description: "Authorization header is missing or invalid."},
 				{Status: 500, Code: "internal", Description: "Unexpected server error."},
@@ -24,7 +24,7 @@ var Documentation = documentation.Module{
 			Summary:      "Return the current user",
 			Description:  "Returns the authenticated user with profile metadata.",
 			Auth:         "bearer token required",
-			ResponseBody: "MeResponse",
+			ResponseBody: MeResponse{},
 			Errors: []documentation.Error{
 				{Status: 401, Code: "unauthenticated", Description: "Authorization header is missing or invalid."},
 				{Status: 500, Code: "internal", Description: "Unexpected server error."},
@@ -38,8 +38,8 @@ var Documentation = documentation.Module{
 				"Sending password alone adds a first password to an account that has none; " +
 				"replacing an existing one also requires current_password, and rotates the session.",
 			Auth:         "bearer token required",
-			RequestBody:  "UpdateRequest",
-			ResponseBody: "MeResponse",
+			RequestBody:  UpdateRequest{},
+			ResponseBody: MeResponse{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "Invalid JSON body, invalid update input, or current_password missing."},
 				{Status: 401, Code: "unauthenticated", Description: "Auth is missing or invalid, or current_password is wrong."},
@@ -57,7 +57,7 @@ var Documentation = documentation.Module{
 			PathParams: []documentation.Field{
 				{Name: "id", Type: "string", Description: "User ID."},
 			},
-			ResponseBody: "MeResponse",
+			ResponseBody: MeResponse{},
 			Errors: []documentation.Error{
 				{Status: 401, Code: "unauthenticated", Description: "Authorization header is missing or invalid."},
 				{Status: 404, Code: "not_found", Description: "No user with that ID."},
@@ -70,8 +70,8 @@ var Documentation = documentation.Module{
 			Summary:      "Upload the current user's avatar",
 			Description:  "Stores a new avatar file for the authenticated user and returns the updated profile.",
 			Auth:         "bearer token required",
-			RequestBody:  "multipart/form-data with avatar file",
-			ResponseBody: "MeResponse",
+			RequestBody:  AvatarUploadRequest{},
+			ResponseBody: MeResponse{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "Missing file or unsupported image type."},
 				{Status: 401, Code: "unauthenticated", Description: "Authorization header is missing or invalid."},
@@ -86,7 +86,7 @@ var Documentation = documentation.Module{
 			Summary:      "Remove the current user's avatar",
 			Description:  "Deletes the stored avatar file and returns the updated profile.",
 			Auth:         "bearer token required",
-			ResponseBody: "MeResponse",
+			ResponseBody: MeResponse{},
 			Errors: []documentation.Error{
 				{Status: 401, Code: "unauthenticated", Description: "Authorization header is missing or invalid."},
 				{Status: 404, Code: "not_found", Description: "The authenticated user no longer exists."},
@@ -99,7 +99,7 @@ var Documentation = documentation.Module{
 			Summary:      "Report whether an API token exists",
 			Description:  "Returns the current token's metadata without ever returning the token itself.",
 			Auth:         "bearer token required",
-			ResponseBody: "ApiTokenStatusResponse",
+			ResponseBody: ApiTokenStatusResponse{},
 			Errors: []documentation.Error{
 				{Status: 401, Code: "unauthenticated", Description: "Authorization header is missing or invalid."},
 				{Status: 500, Code: "internal", Description: "Unexpected server error."},
@@ -111,8 +111,8 @@ var Documentation = documentation.Module{
 			Summary:      "Create an API token",
 			Description:  "Issues a new API token and returns it once — it cannot be read back afterwards.",
 			Auth:         "bearer token required",
-			RequestBody:  "CreateApiTokenRequest",
-			ResponseBody: "ApiTokenResponse",
+			RequestBody:  CreateApiTokenRequest{},
+			ResponseBody: ApiTokenResponse{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "Invalid JSON body or missing token name."},
 				{Status: 401, Code: "unauthenticated", Description: "Authorization header is missing or invalid."},
@@ -125,7 +125,7 @@ var Documentation = documentation.Module{
 			Summary:      "Revoke the current API token",
 			Description:  "Deletes the authenticated user's API token.",
 			Auth:         "bearer token required",
-			ResponseBody: "DeletedResponse",
+			ResponseBody: DeletedResponse{},
 			Errors: []documentation.Error{
 				{Status: 401, Code: "unauthenticated", Description: "Authorization header is missing or invalid."},
 				{Status: 500, Code: "internal", Description: "Unexpected server error."},

@@ -56,6 +56,36 @@ func Undocumented(router chi.Routes, cfg Config, ignore ...string) []string {
 	return sortedUnique(missing)
 }
 
+// Incomplete reports routes in cfg.Registry that lack required documentation
+// fields (such as missing summary, missing request body on POST/PUT/PATCH, or
+// missing response body on non-204 routes).
+//
+// Routes matching prefixes in ignore are skipped.
+func Incomplete(cfg Config, ignore ...string) []string {
+	var issues []string
+	for _, module := range cfg.Registry.Modules {
+		for _, route := range module.Routes {
+			routePath := normalize(route.Path)
+			if skipRoute(routePath, ignore) {
+				continue
+			}
+			method := strings.ToUpper(route.Method)
+			label := method + " " + routePath
+
+			if strings.TrimSpace(route.Summary) == "" {
+				issues = append(issues, label+": missing summary")
+			}
+			if (method == "POST" || method == "PUT" || method == "PATCH") && (route.RequestBody == nil || route.RequestBody == "") {
+				issues = append(issues, label+": missing request body")
+			}
+			if route.Status != http.StatusNoContent && (route.ResponseBody == nil || route.ResponseBody == "") {
+				issues = append(issues, label+": missing response body")
+			}
+		}
+	}
+	return sortedUnique(issues)
+}
+
 func normalize(route string) string {
 	route = paramPattern.ReplaceAllString(route, "{$1}")
 	route = strings.TrimSuffix(route, "/")

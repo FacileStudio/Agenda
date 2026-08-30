@@ -18,6 +18,11 @@ type AuthResponse struct {
 	Token  string `json:"token"`
 }
 
+// BackchannelLogoutRequest is the form payload sent by identity providers.
+type BackchannelLogoutRequest struct {
+	LogoutToken string `json:"logout_token"`
+}
+
 // Data is the identity payload submitted to the local login flow.
 type Data struct {
 	Email string `json:"email"`

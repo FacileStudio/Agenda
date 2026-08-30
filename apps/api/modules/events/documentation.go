@@ -18,7 +18,7 @@ var Documentation = documentation.Module{
 			PathParams: []documentation.Field{
 				{Name: "calendarID", Type: "string", Description: "Calendar ID."},
 			},
-			ResponseBody: "[]Event",
+			ResponseBody: []EventResponse{},
 			Errors: []documentation.Error{
 				unauthenticated,
 				{Status: 404, Code: "not_found", Description: "No calendar with that ID, or it is not shared with the caller."},
@@ -34,8 +34,8 @@ var Documentation = documentation.Module{
 			PathParams: []documentation.Field{
 				{Name: "calendarID", Type: "string", Description: "Calendar ID."},
 			},
-			RequestBody:  "CreateRequest",
-			ResponseBody: "Event",
+			RequestBody:  CreateEventRequest{},
+			ResponseBody: EventResponse{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "Invalid JSON body or an end before the start."},
 				unauthenticated,
@@ -50,7 +50,7 @@ var Documentation = documentation.Module{
 			Summary:      "Return one event",
 			Auth:         "bearer token required",
 			PathParams:   []documentation.Field{{Name: "eventID", Type: "string", Description: "Event ID."}},
-			ResponseBody: "Event",
+			ResponseBody: EventResponse{},
 			Errors: []documentation.Error{
 				unauthenticated,
 				{Status: 404, Code: "not_found", Description: "No event with that ID, or its calendar is not shared with the caller."},
@@ -64,8 +64,8 @@ var Documentation = documentation.Module{
 			Description:  "Updates the event and bumps its calendar's CalDAV sync token.",
 			Auth:         "bearer token required",
 			PathParams:   []documentation.Field{{Name: "eventID", Type: "string", Description: "Event ID."}},
-			RequestBody:  "UpdateRequest",
-			ResponseBody: "Event",
+			RequestBody:  UpdateEventRequest{},
+			ResponseBody: EventResponse{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "Invalid JSON body or an end before the start."},
 				unauthenticated,
@@ -75,12 +75,13 @@ var Documentation = documentation.Module{
 			},
 		},
 		{
-			Method:      "DELETE",
-			Path:        "/events/{eventID}",
-			Summary:     "Delete an event",
-			Description: "Deletes the event and bumps its calendar's CalDAV sync token.",
-			Auth:        "bearer token required",
-			PathParams:  []documentation.Field{{Name: "eventID", Type: "string", Description: "Event ID."}},
+			Method:       "DELETE",
+			Path:         "/events/{eventID}",
+			Summary:      "Delete an event",
+			Description:  "Deletes the event and bumps its calendar's CalDAV sync token.",
+			Auth:         "bearer token required",
+			PathParams:   []documentation.Field{{Name: "eventID", Type: "string", Description: "Event ID."}},
+			ResponseBody: OkResponse{},
 			Errors: []documentation.Error{
 				unauthenticated,
 				{Status: 403, Code: "permission_denied", Description: "The caller may not write to this event's calendar."},

@@ -24,8 +24,10 @@ type Route struct {
 	Description  string  `json:"description"`
 	Auth         string  `json:"auth"`
 	PathParams   []Field `json:"path_params,omitempty"`
-	RequestBody  string  `json:"request_body,omitempty"`
-	ResponseBody string  `json:"response_body,omitempty"`
+	QueryParams  []Field `json:"query_params,omitempty"`
+	RequestBody  any     `json:"request_body,omitempty"`
+	ResponseBody any     `json:"response_body,omitempty"`
+	Status       int     `json:"status,omitempty"`
 	Errors       []Error `json:"errors,omitempty"`
 }
 
