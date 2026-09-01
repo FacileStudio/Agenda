@@ -1,5 +1,5 @@
 [tools]
-go = "1.25"
+go = "1.26"
 
 # The API reads its configuration from the process environment, so Casier can
 # supply it directly and no .env has to exist. `casier run` is network-first
