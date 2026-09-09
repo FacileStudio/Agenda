@@ -33,17 +33,17 @@ ignore:
 extensions: [.go, .ts, .svelte, .sh]
 
 limits:
-  fileLines: 900       # calibrated: covers largest backend + frontend files
-  funcsPerFile: 0       # off: the package, not the file, is Go's unit of organisation
-  funcLines: 150        # calibrated: RegisterRoutes pattern at ~140 lines
-  funcStatements: 120   # calibrated: RegisterRoutes pattern at ~110 statements
+  fileLines: 250        # filet's own default: split the file
+  funcsPerFile: 8
+  funcLines: 30         # filet's own default
+  funcStatements: 25    # filet's own default
   lineLength: 120       # lll default
-  params: 9             # calibrated: wire-up functions with many dependencies
-  returns: 4            # calibrated: functions returning value + error + metadata
-  nesting: 6            # calibrated: deepest legitimate nesting
-  complexity: 70        # calibrated: RegisterRoutes at up to ~65 (table-driven)
-  structFields: 25      # calibrated: Event model at 21
-  interfaceMethods: 5
+  params: 5
+  returns: 3
+  nesting: 4            # filet's own default
+  complexity: 10        # filet's own default
+  structFields: 12      # filet's own default
+  interfaceMethods: 4   # filet's own default
 
 architecture:
   requiredDirs: [apps/api, apps/client]
@@ -60,9 +60,9 @@ style:
   banTrailingSpace: true
 
 disabled:
-  - gen.line.long       # gofmt owns Go line breaking; client long lines are Tailwind strings
-  - go.global.mutable   # Documentation vars are the module system's contract
-  - go.func.complexity  # table-driven RegisterRoutes dominate; no per-path override
-  - go.panic            # some packages panic on init-time config errors by design
-
+  # gofmt/rustfmt/prettier owns line breaking; every survivor is a line no
+  # formatter could have wrapped. Flagging it is noise that teaches people to
+  # stop reading the output. Nothing else is disabled: a rule turned off here
+  # must be an argument, not a habit.
+  - gen.line.long
 failOn: error
