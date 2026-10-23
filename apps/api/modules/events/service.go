@@ -370,7 +370,7 @@ func buildRawICS(e *schemas.Event) string {
 	ics += fold(fmt.Sprintf("SUMMARY:%s", escapeICS(e.Title)))
 	if e.IsAllDay {
 		ics += fold(fmt.Sprintf("DTSTART;VALUE=DATE:%s", e.StartAt.UTC().Format("20060102")))
-		ics += fold(fmt.Sprintf("DTEND;VALUE=DATE:%s", e.EndAt.UTC().Format("20060102")))
+		ics += fold(fmt.Sprintf("DTEND;VALUE=DATE:%s", allDayEnd(e.EndAt).Format("20060102")))
 	} else {
 		ics += fold(fmt.Sprintf("DTSTART:%s", e.StartAt.UTC().Format(dtFmt)))
 		ics += fold(fmt.Sprintf("DTEND:%s", e.EndAt.UTC().Format(dtFmt)))

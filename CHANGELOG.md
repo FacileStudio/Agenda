@@ -4,6 +4,15 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- The Opus task mirror only accepts events whose envelope app is Opus. Sablier task events no longer create, change or delete mirrored events.
+- Replayed and out-of-order task events are dropped using the event version, so an old update cannot overwrite newer state and a deleted task stays deleted. Events with a numeric legacy id are ignored. `task.status_changed` and `task.actor_changed` without a due date leave the mirrored event alone.
+- Mirrored all-day events no longer spill onto the next day in Europe/Paris, and CalDAV `DTEND` is exclusive. A due date with a UTC offset keeps the date as written.
+- The personal calendar list only hides calendars of spaces the user belongs to, so calendars of deleted spaces or created with `space_id` 0 stay visible. `space_id` 0 is stored as NULL.
+- Deleting a calendar deletes its events, attendees and members instead of orphaning them.
+- A panic in a pool event handler is recovered and logged. Stopping the pool client also ends the dial retry loop.
+
 ## [0.1.0] - 2026-10-23
 
 ### Added

@@ -46,3 +46,16 @@ type EventAttendee struct {
 }
 
 func (EventAttendee) TableName() string { return "event_attendees" }
+
+// ExternalVersion records the newest event version applied to a mirrored
+// object, so a replayed or out-of-order event cannot overwrite or resurrect
+// newer state. It also outlives the mirrored event, which is what makes a
+// delete stick.
+type ExternalVersion struct {
+	Source     string    `gorm:"column:source;primaryKey"`
+	ExternalID string    `gorm:"column:external_id;primaryKey"`
+	Version    int64     `gorm:"column:version;not null"`
+	UpdatedAt  time.Time `gorm:"column:updated_at;autoUpdateTime"`
+}
+
+func (ExternalVersion) TableName() string { return "external_versions" }

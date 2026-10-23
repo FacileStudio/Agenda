@@ -60,6 +60,9 @@ func (s *Service) EnsureCalendar(ctx context.Context, userID int64, slug, name, 
 	return cal.ID, nil
 }
 
+const personalScope = `(c.space_id IS NULL OR c.space_id = 0 OR NOT EXISTS (
+	SELECT 1 FROM space_members sm WHERE sm.space_id = c.space_id AND sm.user_id = ?))`
+
 func (s *Service) ListCalendars(ctx context.Context, userID int64, spaceID *int64) ([]CalendarResponse, error) {
 	_ = s.EnsurePersonalCalendar(ctx, userID)
 	type row struct {
@@ -90,13 +93,13 @@ func (s *Service) ListCalendars(ctx context.Context, userID int64, spaceID *int6
 		err = s.orm.WithContext(ctx).Raw(`
 			SELECT c.id, c.owner_id, c.name, c.color, c.description, c.echo_url, c.is_personal, 'owner' AS role
 			FROM calendars c
-			WHERE c.owner_id = ? AND c.space_id IS NULL
+			WHERE c.owner_id = ? AND `+personalScope+`
 			UNION ALL
 			SELECT c.id, c.owner_id, c.name, c.color, c.description, c.echo_url, c.is_personal, cm.role
 			FROM calendars c
 			JOIN calendar_members cm ON cm.calendar_id = c.id
-			WHERE cm.user_id = ? AND c.owner_id != ? AND c.space_id IS NULL
-		`, userID, userID, userID).Scan(&rows).Error
+			WHERE cm.user_id = ? AND c.owner_id != ? AND `+personalScope+`
+		`, userID, userID, userID, userID, userID).Scan(&rows).Error
 	}
 	if err != nil {
 		return nil, errors.Internal("failed to list calendars", err)
@@ -131,6 +134,9 @@ func validateCalendarFields(name string) error {
 func (s *Service) CreateCalendar(ctx context.Context, userID int64, req *CreateCalendarRequest) (*CalendarResponse, error) {
 	if err := validateCalendarFields(req.Name); err != nil {
 		return nil, err
+	}
+	if req.SpaceID != nil && *req.SpaceID == 0 {
+		req.SpaceID = nil
 	}
 	slug := slugify(req.Name) + "-" + strconv.FormatInt(userID, 10) + "-" + strconv.FormatInt(time.Now().UnixMilli(), 36)
 	cal := &schemas.Calendar{
@@ -216,7 +222,19 @@ func (s *Service) DeleteCalendar(ctx context.Context, userID int64, calendarID i
 	if cal.IsPersonal {
 		return errors.Invalid("cannot delete personal calendar")
 	}
-	return s.orm.WithContext(ctx).Delete(cal).Error
+	return s.orm.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		eventIDs := tx.Model(&schemas.Event{}).Select("id").Where("calendar_id = ?", calendarID)
+		if err := tx.Where("event_id IN (?)", eventIDs).Delete(&schemas.EventAttendee{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("calendar_id = ?", calendarID).Delete(&schemas.Event{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("calendar_id = ?", calendarID).Delete(&schemas.CalendarMember{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(cal).Error
+	})
 }
 
 // normalizeRole maps legacy client aliases onto canonical roles.

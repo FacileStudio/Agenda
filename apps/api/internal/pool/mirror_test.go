@@ -5,14 +5,16 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/FacileStudio/Agenda/apps/api/modules/calendars"
 	"github.com/FacileStudio/Agenda/apps/api/modules/events"
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
+	antenne "github.com/FacileStudio/antenne-client/go"
 	"github.com/FacileStudio/tronc/testdb"
 
 	"gorm.io/gorm"
@@ -66,7 +68,13 @@ func newFixture(t *testing.T) *fixture {
 	return f
 }
 
+var clock atomic.Int64
+
 func task(facileID, title, due, email string) json.RawMessage {
+	return taskEvent("Opus", facileID, title, due, email, 1_700_000_000_000+clock.Add(1))
+}
+
+func taskEvent(app, facileID, title, due, email string, version int64) json.RawMessage {
 	payload := map[string]any{"facile_id": facileID, "title": title}
 	if due != "" {
 		payload["due_date"] = due
@@ -74,7 +82,10 @@ func task(facileID, title, due, email string) json.RawMessage {
 	if email != "" {
 		payload["actor_email"] = email
 	}
-	raw, _ := json.Marshal(map[string]any{"version": 1, "app": "Opus", "facile_id": facileID, "payload": payload})
+	raw, _ := json.Marshal(map[string]any{
+		"version": 1, "app": app, "facile_id": facileID, "payload": payload,
+		"idempotency_key": facileID + ":" + strconv.FormatInt(version, 10),
+	})
 	return raw
 }
 
@@ -118,10 +129,10 @@ func TestUpsertCreatesAllDayEventInOpusCalendar(t *testing.T) {
 	if got := evt.StartAt.UTC().Format("2006-01-02"); got != "2026-11-04" {
 		t.Fatalf("start = %s, want 2026-11-04", got)
 	}
-	if !evt.EndAt.Equal(evt.StartAt.Add(24 * time.Hour)) {
-		t.Fatalf("end = %s, want start + 1 day", evt.EndAt)
+	if !evt.EndAt.Equal(evt.StartAt.Add(allDayEndOffset)) {
+		t.Fatalf("end = %s, want start + %s", evt.EndAt, allDayEndOffset)
 	}
-	if !strings.Contains(evt.RawICS, "DTSTART;VALUE=DATE:20261104") || !strings.Contains(evt.RawICS, "SUMMARY:Ship it") {
+	if !strings.Contains(evt.RawICS, "DTSTART;VALUE=DATE:20261104") || !strings.Contains(evt.RawICS, "DTEND;VALUE=DATE:20261105") || !strings.Contains(evt.RawICS, "SUMMARY:Ship it") {
 		t.Fatalf("raw ics not regenerated:\n%s", evt.RawICS)
 	}
 	cal := f.calendarOf(t, evt.CalendarID)
@@ -244,13 +255,84 @@ func TestDueDateAcceptsDateOnlyAndRejectsGarbage(t *testing.T) {
 	}
 }
 
-func TestBarePayloadWithoutEnvelopeIsAccepted(t *testing.T) {
+func TestBarePayloadWithoutEnvelopeIsIgnored(t *testing.T) {
 	f := newFixture(t)
 	raw := json.RawMessage(`{"facile_id":"t9","title":"Bare","due_date":"2026-12-01T00:00:00Z","actor_email":"alice@example.com"}`)
 	f.apply(t, "task.created", raw)
+	if n := len(f.mirrored(t)); n != 0 {
+		t.Fatalf("mirrored events = %d, want 0", n)
+	}
+}
+
+func TestSablierEventsNeverTouchMirroredEvents(t *testing.T) {
+	f := newFixture(t)
+	f.apply(t, "task.created", task("t1", "Ship it", "2026-11-04", f.alice.Email))
+	future := int64(4_000_000_000_000)
+
+	f.apply(t, "task.updated", taskEvent("Sablier", "t1", "Renamed", "", "", future))
+	f.apply(t, "task.deleted", taskEvent("Sablier", "t1", "Renamed", "", "", future+1))
+	f.apply(t, "task.created", taskEvent("Sablier", "t2", "Other", "2026-11-05", f.alice.Email, future))
+
+	evts := f.mirrored(t)
+	if len(evts) != 1 || evts[0].Title != "Ship it" || evts[0].ExternalID != "t1" {
+		t.Fatalf("sablier events changed the mirror: %+v", evts)
+	}
+}
+
+func TestStatusAndActorChannelsWithoutDueDateKeepEvent(t *testing.T) {
+	f := newFixture(t)
+	f.apply(t, "task.created", task("t1", "Ship it", "2026-11-04", f.alice.Email))
+	f.apply(t, "task.status_changed", task("t1", "Ship it", "", f.alice.Email))
+	f.apply(t, "task.actor_changed", task("t1", "Ship it", "", f.alice.Email))
 	if n := len(f.mirrored(t)); n != 1 {
 		t.Fatalf("mirrored events = %d, want 1", n)
 	}
+}
+
+func TestStaleUpdateDoesNotOverwriteNewerState(t *testing.T) {
+	f := newFixture(t)
+	f.apply(t, "task.updated", taskEvent("Opus", "t1", "New", "2026-11-09", f.alice.Email, 2000))
+	f.apply(t, "task.updated", taskEvent("Opus", "t1", "Old", "2026-11-04", f.alice.Email, 1000))
+
+	evts := f.mirrored(t)
+	if len(evts) != 1 || evts[0].Title != "New" || evts[0].StartAt.UTC().Format("2006-01-02") != "2026-11-09" {
+		t.Fatalf("stale event overwrote newer state: %+v", evts)
+	}
+}
+
+func TestDeletedTaskIsNotResurrectedByReplayedCreate(t *testing.T) {
+	f := newFixture(t)
+	f.apply(t, "task.created", taskEvent("Opus", "t1", "Ship it", "2026-11-04", f.alice.Email, 1000))
+	f.apply(t, "task.deleted", taskEvent("Opus", "t1", "Ship it", "2026-11-04", f.alice.Email, 2000))
+	f.apply(t, "task.created", taskEvent("Opus", "t1", "Ship it", "2026-11-04", f.alice.Email, 1000))
+
+	if n := len(f.mirrored(t)); n != 0 {
+		t.Fatalf("replayed create resurrected the task: %d events", n)
+	}
+}
+
+func TestLegacyNumericIdsAreIgnored(t *testing.T) {
+	f := newFixture(t)
+	payload := map[string]any{"id": 42, "facile_id": "42", "title": "Old", "due_date": "2026-11-04T00:00:00Z", "actor_email": f.alice.Email}
+	raw, _ := json.Marshal(map[string]any{"app": "Opus", "facile_id": "42", "payload": payload})
+	f.apply(t, "task.created", raw)
+	if n := len(f.mirrored(t)); n != 0 {
+		t.Fatalf("legacy numeric id mirrored %d events, want 0", n)
+	}
+}
+
+func TestDueDateKeepsWrittenCalendarDate(t *testing.T) {
+	f := newFixture(t)
+	f.apply(t, "task.created", task("t1", "Ship it", "2026-11-04T00:00:00+01:00", f.alice.Email))
+	if got := f.mirrored(t)[0].StartAt.UTC().Format("2006-01-02"); got != "2026-11-04" {
+		t.Fatalf("start = %s, want 2026-11-04", got)
+	}
+}
+
+func TestHandlerRecoversFromPanic(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := handler(&Mirror{logger: logger}, "task.created", logger)
+	h(task("t1", "Ship it", "2026-11-04", "alice@example.com"), antenne.EventMeta{})
 }
 
 func TestMirroredEventsAreReadOnlyThroughService(t *testing.T) {
@@ -263,6 +345,12 @@ func TestMirroredEventsAreReadOnlyThroughService(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "read-only") {
 		t.Fatalf("update error = %v, want read-only", err)
+	}
+	other, err := f.events.UpdateEvent(f.ctx, f.alice.ID, evt.ID, &events.UpdateEventRequest{
+		CalendarID: evt.CalendarID + 1, Title: "Moved", StartAt: evt.StartAt, EndAt: evt.EndAt,
+	})
+	if err == nil || other != nil {
+		t.Fatalf("move was not rejected: %v", err)
 	}
 	err = f.events.DeleteEvent(f.ctx, f.alice.ID, evt.ID)
 	if err == nil || !strings.Contains(err.Error(), "read-only") {

@@ -22,6 +22,7 @@ func MigrateWithIssuer(db *gorm.DB, issuer string) error {
 		&Calendar{},
 		&CalendarMember{},
 		&Event{},
+		&ExternalVersion{},
 		&EventAttendee{},
 	); err != nil {
 		return err

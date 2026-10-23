@@ -3,6 +3,7 @@ package events
 import (
 	"context"
 	stderrors "errors"
+	"time"
 
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
 	"github.com/FacileStudio/tronc/errors"
@@ -59,4 +60,12 @@ func (s *Service) DeleteExternal(ctx context.Context, source, externalID string)
 	}
 	s.bumpSyncToken(ctx, evt.CalendarID)
 	return nil
+}
+
+func allDayEnd(end time.Time) time.Time {
+	end = end.UTC()
+	if end.Equal(end.Truncate(24 * time.Hour)) {
+		return end
+	}
+	return end.Truncate(24*time.Hour).AddDate(0, 0, 1)
 }

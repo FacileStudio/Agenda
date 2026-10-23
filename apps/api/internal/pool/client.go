@@ -21,6 +21,7 @@ const appName = "Agenda"
 type Client struct {
 	client *antenne.Client
 	logger *slog.Logger
+	cancel context.CancelFunc
 }
 
 // NewClient subscribes the mirror to the Opus task channels. Call Start to
@@ -46,18 +47,32 @@ func NewClient(cfg env.AntenneConfig, mirror *Mirror, logger *slog.Logger) *Clie
 	)
 	for _, channel := range TaskChannels {
 		channel := channel
-		client.Listen(channel, func(payload json.RawMessage, meta antenne.EventMeta) {
-			if err := mirror.Apply(context.Background(), channel, payload); err != nil {
-				logger.Error("pool: apply failed", slog.String("channel", channel), slog.Int64("offset", meta.Offset), slog.Any("error", err))
-			}
-		})
+		client.Listen(channel, handler(mirror, channel, logger))
 	}
 	return &Client{client: client, logger: logger}
+}
+
+const applyTimeout = 30 * time.Second
+
+func handler(mirror *Mirror, channel string, logger *slog.Logger) antenne.EventHandler {
+	return func(payload json.RawMessage, meta antenne.EventMeta) {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Error("pool: handler panic", slog.String("channel", channel), slog.Int64("offset", meta.Offset), slog.Any("panic", r))
+			}
+		}()
+		ctx, cancel := context.WithTimeout(context.Background(), applyTimeout)
+		defer cancel()
+		if err := mirror.Apply(ctx, channel, payload); err != nil {
+			logger.Error("pool: apply failed", slog.String("channel", channel), slog.Int64("offset", meta.Offset), slog.Any("error", err))
+		}
+	}
 }
 
 // Start dials the pool in the background, retrying with backoff until the
 // first connection succeeds. The antenne client reconnects by itself after that.
 func (c *Client) Start(ctx context.Context) {
+	ctx, c.cancel = context.WithCancel(ctx)
 	go func() {
 		backoff := 5 * time.Second
 		for {
@@ -85,5 +100,8 @@ func (c *Client) Start(ctx context.Context) {
 
 // Stop closes the pool connection.
 func (c *Client) Stop() {
+	if c.cancel != nil {
+		c.cancel()
+	}
 	c.client.Disconnect()
 }

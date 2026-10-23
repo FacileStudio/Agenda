@@ -502,7 +502,10 @@ func (b *Backend) DeleteCalendarObject(ctx context.Context, objPath string) erro
 
 	uid = strings.TrimSuffix(uid, ".ics")
 	var mirrored int64
-	b.db.WithContext(ctx).Model(&schemas.Event{}).Where("uid = ? AND calendar_id = ? AND source <> ''", uid, calID).Count(&mirrored)
+	countErr := b.db.WithContext(ctx).Model(&schemas.Event{}).Where("uid = ? AND calendar_id = ? AND source <> ''", uid, calID).Count(&mirrored).Error
+	if countErr != nil {
+		return webdav.NewHTTPError(http.StatusInternalServerError, countErr)
+	}
 	if mirrored > 0 {
 		return webdav.NewHTTPError(http.StatusForbidden, errMirrored)
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
@@ -24,63 +25,17 @@ const (
 	calendarName  = "Opus tasks"
 	calendarColor = "#8b5cf6"
 
+	channelTaskCreated = "task.created"
+	channelTaskUpdated = "task.updated"
 	channelTaskDeleted = "task.deleted"
 )
 
 var TaskChannels = []string{
-	"task.created",
-	"task.updated",
+	channelTaskCreated,
+	channelTaskUpdated,
 	channelTaskDeleted,
 	"task.status_changed",
 	"task.actor_changed",
-}
-
-type taskPayload struct {
-	ID         int64  `json:"id"`
-	FacileID   string `json:"facile_id"`
-	Title      string `json:"title"`
-	Name       string `json:"name"`
-	DueDate    string `json:"due_date"`
-	ActorEmail string `json:"actor_email"`
-}
-
-type envelope struct {
-	FacileID string       `json:"facile_id"`
-	Payload  *taskPayload `json:"payload"`
-}
-
-func decodeTask(raw json.RawMessage) (taskPayload, error) {
-	var env envelope
-	if err := json.Unmarshal(raw, &env); err != nil {
-		return taskPayload{}, err
-	}
-	var task taskPayload
-	if env.Payload != nil {
-		task = *env.Payload
-		if task.FacileID == "" {
-			task.FacileID = env.FacileID
-		}
-	} else if err := json.Unmarshal(raw, &task); err != nil {
-		return taskPayload{}, err
-	}
-	if task.FacileID == "" && task.ID != 0 {
-		task.FacileID = strconv.FormatInt(task.ID, 10)
-	}
-	return task, nil
-}
-
-func parseDueDate(value string) (time.Time, bool) {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return time.Time{}, false
-	}
-	for _, layout := range []string{time.RFC3339, "2006-01-02"} {
-		if t, err := time.Parse(layout, value); err == nil {
-			t = t.UTC()
-			return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC), true
-		}
-	}
-	return time.Time{}, false
 }
 
 // Mirror turns Opus task events into read-only all-day events.
@@ -96,26 +51,45 @@ func NewMirror(db *gorm.DB, eventService *events.Service, calendarService *calen
 	return &Mirror{db: db, events: eventService, calendars: calendarService, logger: logger}
 }
 
-// Apply handles one task event. It is idempotent: replaying the same event
-// leaves a single mirrored event.
+// Apply handles one task event. Only events whose envelope app is Opus are
+// mirrored. An event older than the newest one already applied to the same
+// task is dropped, so replays and out-of-order delivery cannot overwrite or
+// resurrect newer state. Replaying the same event is idempotent.
 func (m *Mirror) Apply(ctx context.Context, channel string, raw json.RawMessage) error {
-	task, err := decodeTask(raw)
+	evt, err := decodeTask(raw)
 	if err != nil {
 		return fmt.Errorf("decode task event: %w", err)
 	}
-	if task.FacileID == "" {
-		m.logger.Debug("pool: task event without id, skipping", slog.String("channel", channel))
+	task := evt.task
+	if evt.app != appOpus || task.FacileID == "" || isLegacyID(task) {
+		m.logger.Debug("pool: task event ignored", slog.String("channel", channel), slog.String("app", evt.app))
 		return nil
 	}
+	stale, err := m.isStale(ctx, task.FacileID, evt.version)
+	if err != nil || stale {
+		return err
+	}
+	if err := m.apply(ctx, channel, task); err != nil {
+		return err
+	}
+	return m.recordVersion(ctx, task.FacileID, evt.version)
+}
+
+func (m *Mirror) apply(ctx context.Context, channel string, task taskPayload) error {
 	if channel == channelTaskDeleted {
 		return m.events.DeleteExternal(ctx, SourceOpus, task.FacileID)
 	}
-
 	due, hasDue := parseDueDate(task.DueDate)
 	if !hasDue {
-		return m.events.DeleteExternal(ctx, SourceOpus, task.FacileID)
+		if channel == channelTaskCreated || channel == channelTaskUpdated {
+			return m.events.DeleteExternal(ctx, SourceOpus, task.FacileID)
+		}
+		return nil
 	}
+	return m.mirrorTask(ctx, task, due)
+}
 
+func (m *Mirror) mirrorTask(ctx context.Context, task taskPayload, due time.Time) error {
 	userID, found, err := m.findUser(ctx, task.ActorEmail)
 	if err != nil {
 		return err
@@ -124,7 +98,6 @@ func (m *Mirror) Apply(ctx context.Context, channel string, raw json.RawMessage)
 		m.logger.Debug("pool: task has no known assignee, skipping", slog.String("task", task.FacileID))
 		return m.events.DeleteExternal(ctx, SourceOpus, task.FacileID)
 	}
-
 	title := task.Title
 	if strings.TrimSpace(title) == "" {
 		title = task.Name
@@ -136,9 +109,30 @@ func (m *Mirror) Apply(ctx context.Context, channel string, raw json.RawMessage)
 	return m.events.UpsertExternal(ctx, calendarID, SourceOpus, task.FacileID, &events.CreateEventRequest{
 		Title:    title,
 		StartAt:  due,
-		EndAt:    due.AddDate(0, 0, 1),
+		EndAt:    due.Add(allDayEndOffset),
 		IsAllDay: true,
 	})
+}
+
+func (m *Mirror) isStale(ctx context.Context, externalID string, version int64) (bool, error) {
+	var stored schemas.ExternalVersion
+	err := m.db.WithContext(ctx).Where("source = ? AND external_id = ?", SourceOpus, externalID).Limit(1).Find(&stored).Error
+	if err != nil {
+		return false, fmt.Errorf("look up event version: %w", err)
+	}
+	return stored.Version > version, nil
+}
+
+func (m *Mirror) recordVersion(ctx context.Context, externalID string, version int64) error {
+	row := schemas.ExternalVersion{Source: SourceOpus, ExternalID: externalID, Version: version}
+	err := m.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "source"}, {Name: "external_id"}},
+		DoUpdates: clause.Assignments(map[string]any{"version": gorm.Expr("GREATEST(external_versions.version, EXCLUDED.version)")}),
+	}).Create(&row).Error
+	if err != nil {
+		return fmt.Errorf("record event version: %w", err)
+	}
+	return nil
 }
 
 func (m *Mirror) findUser(ctx context.Context, email string) (int64, bool, error) {
