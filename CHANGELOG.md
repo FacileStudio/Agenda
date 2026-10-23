@@ -4,6 +4,8 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-23
+
 ### Fixed
 
 - The Opus task mirror only accepts events whose envelope app is Opus. Sablier task events no longer create, change or delete mirrored events.
