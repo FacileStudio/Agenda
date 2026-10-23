@@ -124,6 +124,7 @@ the root because their URLs are held outside this repo:
 - `CORS_ALLOWED_ORIGINS` — Comma-separated origins, scheme included (only needed for a
   separate client deploy). `ALLOWED_ORIGINS`, `DOMAINS`, `DOMAIN`, `CORS_ORIGINS`,
   `TRUSTED_ORIGINS` and `CLIENT_ORIGIN` are read as fallbacks.
+- `ANTENNE_URL`, `ANTENNE_SECRET`, `ANTENNE_INSTANCE_ID` — Optional Antenne Pool; mirrors Opus tasks with a due date into a read-only "Opus tasks" calendar (`internal/pool`)
 - `OIDC_*` — OpenID Connect config (optional)
 - `SSO_ONLY` — Hide password auth when `true`
 
@@ -135,4 +136,5 @@ the root because their URLs are held outside this repo:
 - **Svelte 5 runes** enforced (`$state`, `$props`, `$derived`, `$effect`)
 - **shadcn-svelte** for UI primitives in `src/lib/components/ui/`
 - **CalDAV sync token** — stored per calendar, bumped on every event create/update/delete
+- **Mirrored events** — `events.source` / `events.external_id` mark events owned by another app (Opus tasks); user edits and CalDAV PUT/DELETE are rejected
 - **Event raw ICS** — stored in `events.raw_ics` for round-trip fidelity with CalDAV clients

@@ -42,6 +42,24 @@ func (s *Service) EnsurePersonalCalendar(ctx context.Context, userID int64) erro
 	return s.orm.WithContext(ctx).Create(cal).Error
 }
 
+// EnsureCalendar returns the id of the user's calendar with the given slug,
+// creating it with the given name and color on first use.
+func (s *Service) EnsureCalendar(ctx context.Context, userID int64, slug, name, color string) (int64, error) {
+	var cal schemas.Calendar
+	err := s.orm.WithContext(ctx).Where("owner_id = ? AND slug = ?", userID, slug).First(&cal).Error
+	if err == nil {
+		return cal.ID, nil
+	}
+	if !stderrors.Is(err, gorm.ErrRecordNotFound) {
+		return 0, errors.Internal("failed to look up calendar", err)
+	}
+	cal = schemas.Calendar{OwnerID: userID, Slug: slug, Name: name, Color: color, SyncToken: syncToken()}
+	if err := s.orm.WithContext(ctx).Create(&cal).Error; err != nil {
+		return 0, errors.Internal("failed to create calendar", err)
+	}
+	return cal.ID, nil
+}
+
 func (s *Service) ListCalendars(ctx context.Context, userID int64, spaceID *int64) ([]CalendarResponse, error) {
 	_ = s.EnsurePersonalCalendar(ctx, userID)
 	type row struct {
@@ -72,12 +90,12 @@ func (s *Service) ListCalendars(ctx context.Context, userID int64, spaceID *int6
 		err = s.orm.WithContext(ctx).Raw(`
 			SELECT c.id, c.owner_id, c.name, c.color, c.description, c.echo_url, c.is_personal, 'owner' AS role
 			FROM calendars c
-			WHERE c.owner_id = ?
+			WHERE c.owner_id = ? AND c.space_id IS NULL
 			UNION ALL
 			SELECT c.id, c.owner_id, c.name, c.color, c.description, c.echo_url, c.is_personal, cm.role
 			FROM calendars c
 			JOIN calendar_members cm ON cm.calendar_id = c.id
-			WHERE cm.user_id = ? AND c.owner_id != ?
+			WHERE cm.user_id = ? AND c.owner_id != ? AND c.space_id IS NULL
 		`, userID, userID, userID).Scan(&rows).Error
 	}
 	if err != nil {

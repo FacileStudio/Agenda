@@ -21,6 +21,19 @@ type OIDCConfig struct {
 	SuccessURL   string
 }
 
+// AntenneConfig holds the optional Antenne Pool settings. The pool is enabled
+// only when URL and Secret are both set.
+type AntenneConfig struct {
+	URL        string
+	Secret     string
+	InstanceID string
+}
+
+// Enabled reports whether the pool connection is configured.
+func (c AntenneConfig) Enabled() bool {
+	return c.URL != "" && c.Secret != ""
+}
+
 // Config is the assembled application configuration: shared tronc settings
 // plus Agenda-specific storage, OIDC, SSO-only and encryption settings.
 type Config struct {
@@ -29,6 +42,7 @@ type Config struct {
 	OIDC          *OIDCConfig
 	SSOOnly       bool
 	EncryptionKey []byte
+	Antenne       AntenneConfig
 }
 
 // Load reads the environment and returns a fully populated Config. It fails
@@ -42,6 +56,11 @@ func Load() (Config, error) {
 	cfg := Config{
 		Core:       core,
 		StorageDir: troncenv.String("STORAGE_DIR", "./data"),
+		Antenne: AntenneConfig{
+			URL:        troncenv.String("ANTENNE_URL", ""),
+			Secret:     troncenv.String("ANTENNE_SECRET", ""),
+			InstanceID: troncenv.String("ANTENNE_INSTANCE_ID", ""),
+		},
 	}
 
 	if cfg.SSOOnly, err = troncenv.Bool("SSO_ONLY", false); err != nil {

@@ -67,6 +67,7 @@ carries the dev origin in Casier's `dev` environment.
 | `PORT` | HTTP listen port, `4000` by default in this repo |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated browser origins, only needed for a split deploy |
 | `STORAGE_DIR` | Root for uploaded avatars, served back under `/files/` |
+| `ANTENNE_URL`, `ANTENNE_SECRET`, `ANTENNE_INSTANCE_ID` | Optional Antenne Pool. With URL and secret set, Opus tasks that have a due date appear as read-only all-day events in an "Opus tasks" calendar for the assignee |
 
 Values live in Casier — `dev` for the local loop, `prod` as the source of truth for what
 Dokploy injects into the container. Full reference:

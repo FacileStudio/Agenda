@@ -346,6 +346,8 @@ func (b *Backend) QueryCalendarObjects(ctx context.Context, calPath string, quer
 	return all, nil
 }
 
+var errMirrored = fmt.Errorf("this event is mirrored from another app and is read-only")
+
 // PutCalendarObject stores an event from a CalDAV client, honouring the RFC
 // 4791 and RFC 2616 preconditions on the UID and ETag.
 //
@@ -388,6 +390,10 @@ func (b *Backend) PutCalendarObject(ctx context.Context, objPath string, calenda
 	notFound := stderrors.Is(lookupErr, gorm.ErrRecordNotFound)
 	if lookupErr != nil && !notFound {
 		return nil, webdav.NewHTTPError(http.StatusInternalServerError, lookupErr)
+	}
+
+	if !notFound && evt.Source != "" {
+		return nil, webdav.NewHTTPError(http.StatusForbidden, errMirrored)
 	}
 
 	if !notFound && uid != pathUID {
@@ -495,6 +501,11 @@ func (b *Backend) DeleteCalendarObject(ctx context.Context, objPath string) erro
 	}
 
 	uid = strings.TrimSuffix(uid, ".ics")
+	var mirrored int64
+	b.db.WithContext(ctx).Model(&schemas.Event{}).Where("uid = ? AND calendar_id = ? AND source <> ''", uid, calID).Count(&mirrored)
+	if mirrored > 0 {
+		return webdav.NewHTTPError(http.StatusForbidden, errMirrored)
+	}
 	result := b.db.WithContext(ctx).Where("uid = ? AND calendar_id = ?", uid, calID).Delete(&schemas.Event{})
 	if result.Error != nil {
 		return webdav.NewHTTPError(http.StatusInternalServerError, result.Error)

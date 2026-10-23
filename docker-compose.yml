@@ -27,6 +27,9 @@ services:
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       PORT: "4000"
       JOURNAL_URL: ${JOURNAL_URL:-}
+      ANTENNE_URL: ${ANTENNE_URL:-}
+      ANTENNE_SECRET: ${ANTENNE_SECRET:-}
+      ANTENNE_INSTANCE_ID: ${ANTENNE_INSTANCE_ID:-}
       JOURNAL_TOKEN: ${JOURNAL_TOKEN:-}
     healthcheck:
       test: ["CMD", "/agenda", "healthcheck"]

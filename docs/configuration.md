@@ -116,6 +116,22 @@ The callback is served at `/api/auth/oidc/callback`. A registration pointing at 
 legacy `/auth/oidc/callback` keeps working: that root path is registered as a 302 to its
 `/api` twin whenever OIDC is configured.
 
+## Antenne Pool
+
+| Variable | Required | Default | What it does |
+|---|---|---|---|
+| `ANTENNE_URL` | no | — | Base URL of the Antenne instance |
+| `ANTENNE_SECRET` | no | — | Pool shared secret. The pool is enabled only when this and `ANTENNE_URL` are set |
+| `ANTENNE_INSTANCE_ID` | no | — | Distinguishes this Agenda from another one on the same pool |
+
+Agenda registers as `Agenda` and listens to `task.created`, `task.updated`, `task.deleted`,
+`task.status_changed` and `task.actor_changed`. A task with a `due_date` and an `actor_email`
+matching an Agenda user becomes an all-day event in that user's "Opus tasks" calendar,
+keyed by the task `facile_id` (`events.source = 'opus'`, `events.external_id`). Clearing the
+date, deleting the task or unassigning it removes the event; reassigning moves it. Mirrored
+events are read-only over the HTTP API and CalDAV (403). The pool keeps the acked offset per
+app, so a restart resumes where it stopped, and replays are idempotent.
+
 ## Compose-only
 
 `DB_NAME`, `DB_USER`, and `DB_PASSWORD` are also consumed by the `db` service in

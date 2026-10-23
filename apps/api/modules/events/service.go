@@ -16,6 +16,8 @@ import (
 	"gorm.io/gorm"
 )
 
+var errReadOnly = errors.Forbidden("this event is mirrored from another app and is read-only")
+
 // Service implements event persistence, validation and calendar access control.
 type Service struct {
 	orm *gorm.DB
@@ -71,18 +73,19 @@ func (s *Service) CreateEvent(ctx context.Context, userID int64, calendarID int6
 	if err := s.checkCalendarWriteAccess(ctx, userID, calendarID); err != nil {
 		return nil, err
 	}
+	return s.insertEvent(ctx, calendarID, &userID, req, "", "")
+}
 
+func (s *Service) insertEvent(ctx context.Context, calendarID int64, creatorID *int64, req *CreateEventRequest, source, externalID string) (*EventResponse, error) {
 	var cal schemas.Calendar
 	if err := s.orm.WithContext(ctx).Select("space_id").First(&cal, calendarID).Error; err != nil {
 		return nil, errors.Internal("failed to load calendar", err)
 	}
 
-	uid := newUID()
-	creatorID := userID
 	evt := &schemas.Event{
 		CalendarID:         calendarID,
 		SpaceID:            cal.SpaceID,
-		UID:                uid,
+		UID:                newUID(),
 		ETag:               newETag(),
 		Title:              req.Title,
 		Description:        req.Description,
@@ -94,7 +97,9 @@ func (s *Service) CreateEvent(ctx context.Context, userID int64, calendarID int6
 		Status:             statusOrDefault(req.Status),
 		ConferenceURL:      req.ConferenceURL,
 		ConferenceProvider: req.ConferenceProvider,
-		CreatedByID:        &creatorID,
+		Source:             source,
+		ExternalID:         externalID,
+		CreatedByID:        creatorID,
 	}
 	evt.RawICS = buildRawICS(evt)
 
@@ -134,13 +139,21 @@ func (s *Service) UpdateEvent(ctx context.Context, userID int64, eventID int64, 
 	if err := s.checkCalendarWriteAccess(ctx, userID, evt.CalendarID); err != nil {
 		return nil, err
 	}
-
-	sourceCalendarID := evt.CalendarID
-	moved := req.CalendarID != 0 && req.CalendarID != evt.CalendarID
-	if moved {
+	if evt.Source != "" {
+		return nil, errReadOnly
+	}
+	if req.CalendarID != 0 && req.CalendarID != evt.CalendarID {
 		if err := s.checkCalendarWriteAccess(ctx, userID, req.CalendarID); err != nil {
 			return nil, err
 		}
+	}
+	return s.applyUpdate(ctx, evt, req)
+}
+
+func (s *Service) applyUpdate(ctx context.Context, evt *schemas.Event, req *UpdateEventRequest) (*EventResponse, error) {
+	sourceCalendarID := evt.CalendarID
+	moved := req.CalendarID != 0 && req.CalendarID != evt.CalendarID
+	if moved {
 		evt.CalendarID = req.CalendarID
 		var destCal schemas.Calendar
 		if err := s.orm.WithContext(ctx).Select("space_id").First(&destCal, req.CalendarID).Error; err != nil {
@@ -182,6 +195,9 @@ func (s *Service) DeleteEvent(ctx context.Context, userID int64, eventID int64) 
 	}
 	if err := s.checkCalendarWriteAccess(ctx, userID, evt.CalendarID); err != nil {
 		return err
+	}
+	if evt.Source != "" {
+		return errReadOnly
 	}
 	if err := s.orm.WithContext(ctx).Delete(evt).Error; err != nil {
 		return errors.Internal("failed to delete event", err)
@@ -278,6 +294,8 @@ func toResponse(e *schemas.Event) EventResponse {
 		Status:             e.Status,
 		ConferenceURL:      e.ConferenceURL,
 		ConferenceProvider: e.ConferenceProvider,
+		Source:             e.Source,
+		ExternalID:         e.ExternalID,
 		CreatedBy:          creator,
 		CreatedAt:          e.CreatedAt,
 		UpdatedAt:          e.UpdatedAt,

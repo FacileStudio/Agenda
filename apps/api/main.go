@@ -18,6 +18,7 @@ import (
 	docs "github.com/FacileStudio/Agenda/apps/api/internal/documentation"
 	"github.com/FacileStudio/Agenda/apps/api/internal/env"
 	"github.com/FacileStudio/Agenda/apps/api/internal/middleware"
+	"github.com/FacileStudio/Agenda/apps/api/internal/pool"
 	"github.com/FacileStudio/Agenda/apps/api/modules/auth"
 	"github.com/FacileStudio/Agenda/apps/api/modules/caldav"
 	"github.com/FacileStudio/Agenda/apps/api/modules/calendars"
@@ -128,6 +129,12 @@ func run() int {
 	spaceService := spaces.NewService(db)
 	userService := users.NewService(db, appEnv.StorageDir, authService)
 	settingsService := settings.NewService(db)
+
+	if appEnv.Antenne.Enabled() {
+		poolClient := pool.NewClient(appEnv.Antenne, pool.NewMirror(db, eventService, calendarService, appLogger), appLogger)
+		poolClient.Start(context.Background())
+		defer poolClient.Stop()
+	}
 
 	router := httpx.NewRouter(httpx.Config{
 		TrustedProxies: appEnv.TrustedProxies,

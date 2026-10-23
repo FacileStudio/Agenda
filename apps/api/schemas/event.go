@@ -4,6 +4,8 @@ import "time"
 
 // Event is a calendar entry with both structured columns and the raw ICS
 // CalDAV syncs against. Status is one of confirmed, tentative or cancelled.
+// Source and ExternalID mark an event mirrored from another app (for example
+// "opus" and a task id); such events are read-only for users.
 type Event struct {
 	ID                 int64     `gorm:"column:id;primaryKey"`
 	CalendarID         int64     `gorm:"column:calendar_id;index;uniqueIndex:idx_uid_calendar"`
@@ -22,6 +24,8 @@ type Event struct {
 	ConferenceURL      string    `gorm:"column:conference_url"`
 	ConferenceProvider string    `gorm:"column:conference_provider"`
 	RawICS             string    `gorm:"column:raw_ics;type:text"`
+	Source             string    `gorm:"column:source;not null;default:'';uniqueIndex:idx_event_source_external,where:source <> ''"`
+	ExternalID         string    `gorm:"column:external_id;not null;default:'';uniqueIndex:idx_event_source_external,where:source <> ''"`
 	CreatedByID        *int64    `gorm:"column:created_by_id;index"`
 	CreatedBy          *User     `gorm:"foreignKey:CreatedByID"`
 	CreatedAt          time.Time `gorm:"column:created_at;autoCreateTime"`
