@@ -365,3 +365,21 @@ func TestMirroredEventsAreReadOnlyThroughService(t *testing.T) {
 		t.Fatalf("source marker missing from response: %+v, %v", got, err)
 	}
 }
+
+func TestUnassignedTaskFallsBackToOwnerEmail(t *testing.T) {
+	f := newFixture(t)
+	raw, _ := json.Marshal(map[string]any{
+		"version": 1, "app": "Opus", "facile_id": "t9",
+		"payload":         map[string]any{"facile_id": "t9", "title": "Unassigned", "due_date": "2026-11-04T00:00:00Z", "owner_email": f.bob.Email},
+		"idempotency_key": "t9:" + strconv.FormatInt(1_700_000_000_000+clock.Add(1), 10),
+	})
+	f.apply(t, "task.updated", raw)
+
+	evts := f.mirrored(t)
+	if len(evts) != 1 {
+		t.Fatalf("mirrored events = %d, want 1", len(evts))
+	}
+	if cal := f.calendarOf(t, evts[0].CalendarID); cal.OwnerID != f.bob.ID {
+		t.Fatalf("calendar owner = %d, want %d", cal.OwnerID, f.bob.ID)
+	}
+}

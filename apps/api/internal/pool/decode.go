@@ -16,6 +16,7 @@ type taskPayload struct {
 	Name       string `json:"name"`
 	DueDate    string `json:"due_date"`
 	ActorEmail string `json:"actor_email"`
+	OwnerEmail string `json:"owner_email"`
 }
 
 type envelope struct {

@@ -4,6 +4,12 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-23
+
+### Fixed
+
+- A task with no assignee is mirrored into the calendar of the user who set its due date (`owner_email`), instead of being skipped silently. Skipped tasks are now logged at info level.
+
 ## [0.1.1] - 2026-10-23
 
 ### Fixed

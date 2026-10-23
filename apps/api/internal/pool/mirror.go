@@ -90,12 +90,16 @@ func (m *Mirror) apply(ctx context.Context, channel string, task taskPayload) er
 }
 
 func (m *Mirror) mirrorTask(ctx context.Context, task taskPayload, due time.Time) error {
-	userID, found, err := m.findUser(ctx, task.ActorEmail)
+	email := strings.TrimSpace(task.ActorEmail)
+	if email == "" {
+		email = task.OwnerEmail
+	}
+	userID, found, err := m.findUser(ctx, email)
 	if err != nil {
 		return err
 	}
 	if !found {
-		m.logger.Debug("pool: task has no known assignee, skipping", slog.String("task", task.FacileID))
+		m.logger.Info("pool: no Agenda user for task, skipping", slog.String("task", task.FacileID), slog.Bool("assigned", task.ActorEmail != ""))
 		return m.events.DeleteExternal(ctx, SourceOpus, task.FacileID)
 	}
 	title := task.Title
