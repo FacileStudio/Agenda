@@ -64,18 +64,25 @@
 		}
 	}
 
+	let loadSeq = 0;
+
 	async function loadEvents() {
+		const seq = ++loadSeq;
 		const cals = app.calendars;
-		if (!cals.length) return;
+		if (!cals.length) {
+			events = [];
+			loading = false;
+			return;
+		}
 		loading = true;
 		try {
 			const { from, to } = getDateRange();
 			const results = await Promise.all(cals.map((cal) => backend.listEvents(cal.id, from, to)));
-			events = results.flat();
+			if (seq === loadSeq) events = results.flat();
 		} catch {
-			events = [];
+			if (seq === loadSeq) events = [];
 		} finally {
-			loading = false;
+			if (seq === loadSeq) loading = false;
 		}
 	}
 
