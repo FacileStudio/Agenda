@@ -16,7 +16,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var errReadOnly = errors.Forbidden("this event is mirrored from another app and is read-only")
+var errReadOnly = errors.Forbidden("this event comes from an Opus task and is read-only: edit or delete the task in Opus")
 
 // Service implements event persistence, validation and calendar access control.
 type Service struct {

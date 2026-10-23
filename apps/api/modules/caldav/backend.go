@@ -346,7 +346,7 @@ func (b *Backend) QueryCalendarObjects(ctx context.Context, calPath string, quer
 	return all, nil
 }
 
-var errMirrored = fmt.Errorf("this event is mirrored from another app and is read-only")
+var errMirrored = fmt.Errorf("this event comes from an Opus task and is read-only: edit or delete the task in Opus")
 
 // PutCalendarObject stores an event from a CalDAV client, honouring the RFC
 // 4791 and RFC 2616 preconditions on the UID and ETag.

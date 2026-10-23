@@ -130,7 +130,7 @@ Agenda registers as `Agenda` and listens to `task.created`, `task.updated`, `tas
 matching an Agenda user becomes an all-day event in that user's "Opus tasks" calendar,
 keyed by the task `facile_id` (`events.source = 'opus'`, `events.external_id`). Clearing the
 date, deleting the task or unassigning it removes the event; reassigning moves it. Mirrored
-events are read-only over the HTTP API and CalDAV (403). The pool keeps the acked offset per
+events are read-only over the HTTP API and CalDAV (403, "this event comes from an Opus task and is read-only: edit or delete the task in Opus"). The pool keeps the acked offset per
 app, so a restart resumes where it stopped, and replays are idempotent.
 
 ## Compose-only

@@ -4,6 +4,16 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-10-23
+
+### Changed
+
+- Editing or deleting a mirrored Opus event now says the event comes from an Opus task and must be changed in Opus, over the HTTP API and CalDAV.
+
+### Added
+
+- A contract test feeds Agenda the exact envelope Opus publishes and checks create, replay, stale update, cleared due date and delete.
+
 ## [0.1.3] - 2026-10-23
 
 ### Fixed
