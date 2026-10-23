@@ -4,6 +4,12 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-10-23
+
+### Fixed
+
+- An Opus due date set on the 27th no longer shows on the 26th. Opus stores local midnight as a UTC instant, so Agenda now reads the date in `DUE_DATE_TIMEZONE` (default `Europe/Paris`).
+
 ## [0.1.2] - 2026-10-23
 
 ### Fixed

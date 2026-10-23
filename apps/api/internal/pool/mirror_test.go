@@ -383,3 +383,17 @@ func TestUnassignedTaskFallsBackToOwnerEmail(t *testing.T) {
 		t.Fatalf("calendar owner = %d, want %d", cal.OwnerID, f.bob.ID)
 	}
 }
+
+func TestUTCInstantOfParisMidnightKeepsTheParisDate(t *testing.T) {
+	cases := map[string]string{
+		"2026-10-26T23:00:00.000Z": "2026-10-27",
+		"2026-07-14T22:00:00Z":     "2026-07-15",
+		"2026-11-04T00:00:00Z":     "2026-11-04",
+	}
+	for value, want := range cases {
+		got, ok := parseDueDate(value)
+		if !ok || got.Format("2006-01-02") != want {
+			t.Fatalf("parseDueDate(%q) = %s, want %s", value, got.Format("2006-01-02"), want)
+		}
+	}
+}

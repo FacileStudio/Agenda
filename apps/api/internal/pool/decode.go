@@ -2,9 +2,11 @@ package pool
 
 import (
 	"encoding/json"
+	"os"
 	"strconv"
 	"strings"
 	"time"
+	_ "time/tzdata"
 )
 
 const appOpus = "Opus"
@@ -74,8 +76,25 @@ func parseDueDate(value string) (time.Time, bool) {
 	}
 	for _, layout := range []string{time.RFC3339, "2006-01-02"} {
 		if t, err := time.Parse(layout, value); err == nil {
+			if _, offset := t.Zone(); offset == 0 && layout == time.RFC3339 {
+				t = t.In(dueLocation)
+			}
 			return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC), true
 		}
 	}
 	return time.Time{}, false
+}
+
+var dueLocation = loadDueLocation()
+
+func loadDueLocation() *time.Location {
+	name := strings.TrimSpace(os.Getenv("DUE_DATE_TIMEZONE"))
+	if name == "" {
+		name = "Europe/Paris"
+	}
+	location, err := time.LoadLocation(name)
+	if err != nil {
+		return time.UTC
+	}
+	return location
 }

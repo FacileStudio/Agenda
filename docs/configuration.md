@@ -123,6 +123,7 @@ legacy `/auth/oidc/callback` keeps working: that root path is registered as a 30
 | `ANTENNE_URL` | no | — | Base URL of the Antenne instance |
 | `ANTENNE_SECRET` | no | — | Pool shared secret. The pool is enabled only when this and `ANTENNE_URL` are set |
 | `ANTENNE_INSTANCE_ID` | no | — | Distinguishes this Agenda from another one on the same pool |
+| `DUE_DATE_TIMEZONE` | no | `Europe/Paris` | Zone used to read the date of an Opus due date sent as a UTC instant, since Opus stores local midnight as UTC |
 
 Agenda registers as `Agenda` and listens to `task.created`, `task.updated`, `task.deleted`,
 `task.status_changed` and `task.actor_changed`. A task with a `due_date` and an `actor_email`
