@@ -14,6 +14,8 @@
 	} from '@facile/muse';
 	import { resolveFileUrl, type AgendaEvent, type CalendarItem, type CreateEventRequest } from '$lib/backend';
 	import { roomName } from '$lib/room-name';
+	import { buildRule, parseRule, type Recurrence } from '$lib/recurrence';
+	import RecurrenceField from '$lib/components/RecurrenceField.svelte';
 
 	let {
 		open = $bindable(false),
@@ -83,6 +85,13 @@
 	let endDateStr = $state('');
 	let endTimeStr = $state('');
 	let durationMs = $state(60 * 60 * 1000);
+	let recurrence = $state<Recurrence>(parseRule('', new Date()));
+
+	const startDate = $derived.by(() => {
+		const d = new Date(`${startDateStr}T${isAllDay ? '00:00' : startTimeStr || '00:00'}`);
+		return isNaN(d.getTime()) ? new Date() : d;
+	});
+	const isSeries = $derived(!!event?.recurrence_rule);
 
 	$effect(() => {
 		if (open) {
@@ -102,6 +111,7 @@
 			startTimeStr = s.time;
 			endDateStr = e.date;
 			endTimeStr = e.time;
+			recurrence = parseRule(event?.recurrence_rule ?? '', new Date(`${s.date}T${s.time || '00:00'}`));
 			const allDay = event?.is_all_day ?? false;
 			const startAnchor = new Date(`${s.date}T${allDay ? '00:00' : (s.time || '00:00')}`);
 			const endAnchor = new Date(`${e.date}T${allDay ? '00:00' : (e.time || '00:00')}`);
@@ -194,6 +204,8 @@
 				start_at: new Date(startISO).toISOString(),
 				end_at: new Date(endISO).toISOString(),
 				is_all_day: isAllDay,
+				recurrence_rule: buildRule(recurrence, startDate, isAllDay),
+				timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 				status: status || undefined,
 				conference_url: conferenceUrl || undefined,
 				conference_provider: conferenceProvider || undefined
@@ -293,6 +305,8 @@
 			</div>
 		</Field>
 
+		<RecurrenceField bind:recurrence start={startDate} allDay={isAllDay} />
+
 		<Field label="Lieu">
 			<Input type="text" placeholder="Lieu (optionnel)" bind:value={location} />
 		</Field>
@@ -362,6 +376,10 @@
 			</div>
 		{/if}
 
+		{#if isSeries}
+			<Alert tone="info">Les modifications s'appliquent à toutes les occurrences de la série.</Alert>
+		{/if}
+
 		{#if error}
 			<Alert tone="danger">{error}</Alert>
 		{/if}
@@ -407,8 +425,10 @@
 <ConfirmModal
 	bind:open={confirmDeleteOpen}
 	tone="danger"
-	title="Supprimer cet evenement ?"
-	description={`« ${title || 'Cet evenement'} » disparaitra de ce calendrier pour tout le monde, et des clients CalDAV deja synchronises. Cette action est irreversible.`}
+	title={isSeries ? 'Supprimer toute la série ?' : 'Supprimer cet evenement ?'}
+	description={isSeries
+		? `Toutes les occurrences de « ${title || 'cet evenement'} » disparaitront de ce calendrier pour tout le monde, et des clients CalDAV deja synchronises. Cette action est irreversible.`
+		: `« ${title || 'Cet evenement'} » disparaitra de ce calendrier pour tout le monde, et des clients CalDAV deja synchronises. Cette action est irreversible.`}
 	confirmLabel="Supprimer"
 	onConfirm={handleDelete}
 />

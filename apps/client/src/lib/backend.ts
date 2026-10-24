@@ -76,6 +76,7 @@ export type CreateEventRequest = {
 	status?: string;
 	conference_url?: string;
 	conference_provider?: string;
+	timezone?: string;
 };
 
 export type SpaceItem = {
@@ -237,6 +238,7 @@ export const backend = {
 		const params = new URLSearchParams();
 		if (from) params.set('from', from);
 		if (to) params.set('to', to);
+		params.set('tz', Intl.DateTimeFormat().resolvedOptions().timeZone);
 		const qs = params.toString();
 		return apiFetch<AgendaEvent[]>(`/calendars/${calendarId}/events/${qs ? `?${qs}` : ''}`);
 	},

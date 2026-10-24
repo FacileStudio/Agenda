@@ -136,8 +136,8 @@
 		modalOpen = true;
 	}
 
-	function openEditModal(ev: AgendaEvent) {
-		selectedEvent = ev;
+	async function openEditModal(ev: AgendaEvent) {
+		selectedEvent = ev.recurrence_rule ? await backend.getEvent(ev.id).catch(() => ev) : ev;
 		modalInitialDate = null;
 		modalOpen = true;
 	}
