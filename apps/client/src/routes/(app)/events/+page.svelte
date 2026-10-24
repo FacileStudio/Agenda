@@ -4,6 +4,8 @@
 	import { EmptyState, Spinner, icons } from '@facile/muse';
 	import { backend, type AgendaEvent, type CalendarItem } from '$lib/backend';
 	import { spaceId } from '$lib/space-context.svelte';
+	import { eventKey } from '$lib/recurrence';
+	import EventAvatar from '$lib/components/EventAvatar.svelte';
 
 	let events = $state<(AgendaEvent & { calendar_name?: string })[]>([]);
 	let loading = $state(true);
@@ -69,7 +71,7 @@
 			</div>
 		{:else}
 			<div class="mx-auto flex max-w-2xl flex-col gap-2">
-				{#each events as event (event.id)}
+				{#each events as event (eventKey(event))}
 					<button
 						type="button"
 						onclick={() => goto(`/calendar?event=${event.id}`)}
@@ -93,6 +95,7 @@
 								{/if}
 							</div>
 						</div>
+						<EventAvatar creator={event.created_by} class="size-7 text-fc-xs! ring-0" />
 						<iconify-icon
 							icon={icons.arrow}
 							width="16"

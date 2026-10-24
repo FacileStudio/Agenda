@@ -2,6 +2,8 @@
 	import { EmptyState, icons } from '@facile/muse';
 	import type { AgendaEvent, CalendarItem } from '$lib/backend';
 	import { calendarColor } from '$lib/calendar-colors';
+	import { describeRule, eventKey } from '$lib/recurrence';
+	import EventAvatar from '$lib/components/EventAvatar.svelte';
 
 	let {
 		events,
@@ -73,7 +75,7 @@
 					</span>
 				</div>
 				<div class="divide-y divide-border">
-					{#each group.events as event (event.id)}
+					{#each group.events as event (eventKey(event))}
 						<button
 							type="button"
 							class="flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
@@ -95,7 +97,21 @@
 										· {event.location}
 									{/if}
 								</p>
+								{#if event.recurrence_rule}
+									<p class="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+										<iconify-icon icon="solar:repeat-linear" width="12" height="12" class="block size-3 shrink-0"></iconify-icon>
+										<span class="truncate">{describeRule(event.recurrence_rule, new Date(event.start_at))}</span>
+									</p>
+								{/if}
 							</div>
+							{#if event.created_by}
+								<div class="flex shrink-0 items-center gap-2 self-center">
+									<span class="hidden max-w-32 truncate text-xs text-muted-foreground sm:block">
+										{event.created_by.name || event.created_by.email}
+									</span>
+									<EventAvatar creator={event.created_by} class="size-7 text-fc-xs! ring-0" />
+								</div>
+							{/if}
 						</button>
 					{/each}
 				</div>

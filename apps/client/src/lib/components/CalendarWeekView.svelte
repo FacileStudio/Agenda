@@ -6,6 +6,8 @@
 		startOfWeek
 	} from '@internationalized/date';
 	import type { AgendaEvent, CalendarItem } from '$lib/backend';
+	import { eventKey } from '$lib/recurrence';
+	import EventAvatar from '$lib/components/EventAvatar.svelte';
 	import { calendarColor, inkOn } from '$lib/calendar-colors';
 
 	let {
@@ -212,7 +214,8 @@
 							"
 							onclick={() => onEventClick(seg.event)}
 						>
-							{seg.event.title}
+							<EventAvatar creator={seg.event.created_by} class="mr-1 size-3.5" />
+							<span class="min-w-0 truncate">{seg.event.title}</span>
 						</button>
 					{/each}
 				</div>
@@ -245,7 +248,7 @@
 						></button>
 					{/each}
 
-					{#each eventsForDay(day) as event (event.id)}
+					{#each eventsForDay(day) as event (eventKey(event))}
 						{@const fill = getCalendarColor(event.calendar_id)}
 						<button
 							type="button"
@@ -253,7 +256,11 @@
 							style="{getEventStyle(event)} background-color: {fill}; color: {inkOn(fill)};"
 							onclick={() => onEventClick(event)}
 						>
-							<span class="block w-full truncate font-semibold">{event.title}</span>
+							<span class="flex w-full items-center gap-1">
+								<span class="min-w-0 flex-1 truncate font-semibold">{event.title}</span>
+								{#if event.recurrence_rule}<iconify-icon icon="solar:repeat-linear" width="12" height="12" aria-label="Récurrent" class="block size-3 shrink-0 opacity-80"></iconify-icon>{/if}
+								<EventAvatar creator={event.created_by} />
+							</span>
 							<span class="mt-0.5 block w-full truncate opacity-90">
 								{new Date(event.start_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
 							</span>

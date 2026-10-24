@@ -2,6 +2,8 @@
 	import { type CalendarDate, today, getLocalTimeZone } from '@internationalized/date';
 	import { Badge } from '@facile/muse';
 	import type { AgendaEvent, CalendarItem } from '$lib/backend';
+	import { eventKey } from '$lib/recurrence';
+	import EventAvatar from '$lib/components/EventAvatar.svelte';
 	import { calendarColor, inkOn } from '$lib/calendar-colors';
 
 	let {
@@ -80,15 +82,17 @@
 		<div class="flex items-center gap-1 border-b border-border px-4 py-2">
 			<span class="w-12 shrink-0 text-xs text-muted-foreground">Jour</span>
 			<div class="flex flex-wrap gap-1">
-				{#each allDayEvents as event (event.id)}
+				{#each allDayEvents as event (eventKey(event))}
 					{@const fill = getCalendarColor(event.calendar_id)}
 					<button
 						type="button"
-						class="cursor-pointer truncate rounded-md px-2 py-0.5 text-xs font-medium transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+						class="flex max-w-full cursor-pointer items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 						style="background-color: {fill}; color: {inkOn(fill)};"
 						onclick={() => onEventClick(event)}
 					>
-						{event.title}
+						<EventAvatar creator={event.created_by} class="size-3.5" />
+						<span class="min-w-0 truncate">{event.title}</span>
+						{#if event.recurrence_rule}<iconify-icon icon="solar:repeat-linear" width="12" height="12" aria-label="Récurrent" class="block size-3 shrink-0 opacity-80"></iconify-icon>{/if}
 					</button>
 				{/each}
 			</div>
@@ -128,7 +132,7 @@
 			{/each}
 
 			<!-- Events -->
-			{#each dayEvents as event (event.id)}
+			{#each dayEvents as event (eventKey(event))}
 				{@const fill = getCalendarColor(event.calendar_id)}
 				<button
 					type="button"
@@ -136,7 +140,11 @@
 					style="{getEventStyle(event)} background-color: {fill}; color: {inkOn(fill)};"
 					onclick={() => onEventClick(event)}
 				>
-					<span class="block w-full truncate font-semibold">{event.title}</span>
+					<span class="flex w-full items-center gap-1.5">
+						<span class="min-w-0 flex-1 truncate font-semibold">{event.title}</span>
+						{#if event.recurrence_rule}<iconify-icon icon="solar:repeat-linear" width="12" height="12" aria-label="Récurrent" class="block size-3 shrink-0 opacity-80"></iconify-icon>{/if}
+						<EventAvatar creator={event.created_by} class="size-5 text-[0.6rem]!" />
+					</span>
 					<span class="mt-0.5 block w-full truncate opacity-90">
 						{new Date(event.start_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
 						–
