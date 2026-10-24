@@ -32,6 +32,7 @@
 	const LANE_HEIGHT = 22;
 	const MAX_VISIBLE_LANES = 3;
 	const DAY_HEADER_OFFSET = 30;
+	const CELL_INSET = 4;
 
 	type SpanningSegment = {
 		event: AgendaEvent;
@@ -250,8 +251,8 @@
 
 				{#each segments as seg}
 					{#if seg.lane < MAX_VISIBLE_LANES}
-						{@const lPad = seg.continuesLeft ? 0 : 2}
-						{@const rPad = seg.continuesRight ? 0 : 2}
+						{@const lPad = seg.continuesLeft ? 0 : CELL_INSET}
+						{@const rPad = seg.continuesRight ? 0 : CELL_INSET + (seg.startCol + seg.span < 7 ? 1 : 0)}
 						{@const fill = getCalendarColor(seg.event.calendar_id)}
 						<button
 							type="button"

@@ -16,7 +16,7 @@
 {#if creator}
 	<Avatar
 		size="sm"
-		class="size-4 text-[0.55rem]! ring-1 ring-current/25 {className}"
+		class="size-4 text-[0.55rem]! leading-none ring-1 ring-current/25 {className}"
 		src={creator.avatar_url ? resolveFileUrl(creator.avatar_url) : undefined}
 		{name}
 		title={`Créé par ${name}`}
