@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Alert, Button, ColorPicker, Field, Input, Modal, icons } from '@facile/muse';
+	import { Alert, Button, SwatchPicker, Field, Input, Modal, icons } from '@facile/muse';
 	import { backend } from '$lib/backend';
 	import { spaceId } from '$lib/space-context.svelte';
 
@@ -57,7 +57,7 @@
 
 		<div class="flex flex-col gap-1.5">
 			<span class="text-fc-sm text-fc-fg">Couleur</span>
-			<ColorPicker bind:value={color} colors={COLORS} label="Couleur du calendrier" />
+			<SwatchPicker bind:value={color} colors={COLORS} label="Couleur du calendrier" />
 		</div>
 
 		<Field label="Description">

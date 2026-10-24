@@ -26,9 +26,9 @@
 	function roleBadgeClass(role: string): string {
 		switch (role) {
 			case 'owner':
-				return 'bg-amber-500/10 text-amber-600';
+				return 'bg-fc-owner/10 text-fc-owner';
 			case 'admin':
-				return 'bg-blue-500/10 text-blue-600';
+				return 'bg-fc-admin/10 text-fc-admin';
 			default:
 				return 'bg-muted text-muted-foreground';
 		}

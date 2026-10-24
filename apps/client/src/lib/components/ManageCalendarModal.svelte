@@ -4,7 +4,7 @@
 		Avatar,
 		Badge,
 		Button,
-		ColorPicker,
+		SwatchPicker,
 		ConfirmModal,
 		Divider,
 		Field,
@@ -188,7 +188,7 @@
 
 			<div class="flex flex-col gap-1.5">
 				<span class="text-fc-sm text-fc-fg">Couleur</span>
-				<ColorPicker bind:value={editColor} colors={COLORS} label="Couleur du calendrier" />
+				<SwatchPicker bind:value={editColor} colors={COLORS} label="Couleur du calendrier" />
 			</div>
 
 			<Field label="Description">

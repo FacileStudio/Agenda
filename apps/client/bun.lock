@@ -5,9 +5,9 @@
     "": {
       "name": "agenda-client",
       "dependencies": {
+        "@facile/muse": "github:FacileStudio/muse#v0.7.2",
         "@iconify-json/solar": "^1.2.5",
         "class-variance-authority": "^0.7.1",
-        "@facile/muse": "github:FacileStudio/muse#v0.5.0",
         "iconify-icon": "^3.0.2",
         "lucide-svelte": "^1.0.1",
         "svelte-sonner": "^1.1.1",
@@ -88,7 +88,7 @@
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.27.7", "", { "os": "win32", "cpu": "x64" }, "sha512-56hiAJPhwQ1R4i+21FVF7V8kSD5zZTdHcVuRFMW0hn753vVfQN8xlx4uOPT4xoGH0Z/oVATuR82AiqSTDIpaHg=="],
 
-    "@facile/muse": ["@facile/muse@github:FacileStudio/muse#bda8af7", { "dependencies": { "gsap": "^3.13.0", "tailwind-merge": "^3.5.0" }, "peerDependencies": { "svelte": "^5.0.0", "tailwindcss": "^4.0.0" } }, "FacileStudio-muse-bda8af7", "sha512-PyQLJa66dmG+NtGJhdMfjEPhdt1zcIi27b0V5SviQ9L99BTUqUAUvgP2qDL0P1jsS9x3Hc+OYgzL/baow5OgYQ=="],
+    "@facile/muse": ["@facile/muse@github:FacileStudio/muse#97754f2", { "dependencies": { "gsap": "^3.13.0", "tailwind-merge": "^3.5.0" }, "peerDependencies": { "svelte": "^5.0.0", "tailwindcss": "^4.0.0" } }, "FacileStudio-muse-97754f2", "sha512-OO1UtcfX/4P2HGIIj7EUnoruR3m2tghuPMuchqz3U5mY5ManwvxJ/5bYKT7wLdymD/FisHeTyWXC9PCVzpj+ug=="],
 
     "@floating-ui/core": ["@floating-ui/core@1.7.5", "", { "dependencies": { "@floating-ui/utils": "^0.2.11" } }, "sha512-1Ih4WTWyw0+lKyFMcBHGbb5U5FtuHJuujoyyr5zTaWS5EYMeT6Jb2AuDeftsCsEuchO+mM2ij5+q9crhydzLhQ=="],
 

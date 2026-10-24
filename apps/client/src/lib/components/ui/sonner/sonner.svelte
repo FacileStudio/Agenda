@@ -15,7 +15,7 @@
 			actionButton: 'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',
 			cancelButton: 'group-[.toast]:bg-muted group-[.toast]:text-muted-foreground',
 			error: 'group-[.toaster]:!bg-destructive group-[.toaster]:!text-white group-[.toaster]:!border-destructive',
-			success: 'group-[.toaster]:!border-green-500/30'
+			success: 'group-[.toaster]:!border-fc-success/30'
 		}
 	}}
 	{...restProps}
