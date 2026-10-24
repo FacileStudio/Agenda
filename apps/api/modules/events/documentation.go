@@ -13,7 +13,7 @@ var Documentation = documentation.Module{
 			Method:      "GET",
 			Path:        "/calendars/{calendarID}/events",
 			Summary:     "List events in a calendar",
-			Description: "Returns the calendar's events, optionally filtered to a date range.",
+			Description: "Returns the calendar's events, optionally filtered to a date range (`from`, `to`, RFC 3339). With both bounds set, a recurring event comes back once per occurrence in the range, with the series ID; `tz` (IANA zone) anchors series that carry no zone of their own.",
 			Auth:        "bearer token required",
 			PathParams: []documentation.Field{
 				{Name: "calendarID", Type: "string", Description: "Calendar ID."},

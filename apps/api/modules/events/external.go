@@ -40,6 +40,7 @@ func (s *Service) UpsertExternal(ctx context.Context, calendarID int64, source, 
 		Status:             req.Status,
 		ConferenceURL:      req.ConferenceURL,
 		ConferenceProvider: req.ConferenceProvider,
+		Timezone:           req.Timezone,
 	})
 	return err
 }

@@ -324,7 +324,7 @@ func (b *Backend) QueryCalendarObjects(ctx context.Context, calPath string, quer
 	for _, cal := range cals {
 		q := b.db.WithContext(ctx).Where("calendar_id = ?", cal.ID)
 		if !query.CompFilter.Start.IsZero() {
-			q = q.Where("end_at >= ?", query.CompFilter.Start)
+			q = q.Where("(end_at >= ? OR recurrence_rule <> '')", query.CompFilter.Start)
 		}
 		if !query.CompFilter.End.IsZero() {
 			q = q.Where("start_at <= ?", query.CompFilter.End)

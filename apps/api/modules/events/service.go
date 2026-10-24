@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	stderrors "errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -28,14 +29,17 @@ func NewService(orm *gorm.DB) *Service {
 	return &Service{orm: orm}
 }
 
-func (s *Service) ListEvents(ctx context.Context, userID int64, calendarID int64, from, to *time.Time) ([]EventResponse, error) {
+// ListEvents returns a calendar's events overlapping [from, to]. When both
+// bounds are set, a recurring event is expanded into one entry per occurrence
+// in the window, anchored in viewer unless its ICS names a zone.
+func (s *Service) ListEvents(ctx context.Context, userID int64, calendarID int64, from, to *time.Time, viewer *time.Location) ([]EventResponse, error) {
 	if err := s.checkCalendarAccess(ctx, userID, calendarID); err != nil {
 		return nil, err
 	}
 
 	q := s.orm.WithContext(ctx).Preload("CreatedBy").Where("calendar_id = ?", calendarID)
 	if from != nil {
-		q = q.Where("end_at >= ?", from)
+		q = q.Where("(end_at >= ? OR recurrence_rule <> '')", from)
 	}
 	if to != nil {
 		q = q.Where("start_at <= ?", to)
@@ -45,12 +49,28 @@ func (s *Service) ListEvents(ctx context.Context, userID int64, calendarID int64
 	if err := q.Order("start_at asc").Find(&evts).Error; err != nil {
 		return nil, errors.Internal("failed to list events", err)
 	}
+	if from != nil && to != nil {
+		evts = expandAll(evts, viewer, *from, *to)
+	}
 
 	out := make([]EventResponse, len(evts))
 	for i, e := range evts {
 		out[i] = toResponse(&e)
 	}
 	return out, nil
+}
+
+func expandAll(evts []schemas.Event, viewer *time.Location, from, to time.Time) []schemas.Event {
+	out := make([]schemas.Event, 0, len(evts))
+	for i := range evts {
+		if evts[i].RecurrenceRule == "" {
+			out = append(out, evts[i])
+			continue
+		}
+		out = append(out, expandOccurrences(&evts[i], viewer, from, to)...)
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].StartAt.Before(out[j].StartAt) })
+	return out
 }
 
 func validateEventFields(title string, startAt, endAt time.Time) error {
@@ -70,6 +90,11 @@ func (s *Service) CreateEvent(ctx context.Context, userID int64, calendarID int6
 	if err := validateEventFields(req.Title, req.StartAt, req.EndAt); err != nil {
 		return nil, err
 	}
+	rule, err := normalizeRecurrenceRule(req.RecurrenceRule)
+	if err != nil {
+		return nil, err
+	}
+	req.RecurrenceRule = rule
 	if err := s.checkCalendarWriteAccess(ctx, userID, calendarID); err != nil {
 		return nil, err
 	}
@@ -101,7 +126,7 @@ func (s *Service) insertEvent(ctx context.Context, calendarID int64, creatorID *
 		ExternalID:         externalID,
 		CreatedByID:        creatorID,
 	}
-	evt.RawICS = buildRawICS(evt)
+	evt.RawICS = buildRawICS(evt, requestLocation(req.Timezone))
 
 	if err := s.orm.WithContext(ctx).Create(evt).Error; err != nil {
 		return nil, errors.Internal("failed to create event", err)
@@ -132,6 +157,11 @@ func (s *Service) UpdateEvent(ctx context.Context, userID int64, eventID int64, 
 	if err := validateEventFields(req.Title, req.StartAt, req.EndAt); err != nil {
 		return nil, err
 	}
+	rule, err := normalizeRecurrenceRule(req.RecurrenceRule)
+	if err != nil {
+		return nil, err
+	}
+	req.RecurrenceRule = rule
 	evt, err := s.loadWithAccess(ctx, userID, eventID)
 	if err != nil {
 		return nil, err
@@ -174,7 +204,7 @@ func (s *Service) applyUpdate(ctx context.Context, evt *schemas.Event, req *Upda
 	evt.Status = statusOrDefault(req.Status)
 	evt.ConferenceURL = req.ConferenceURL
 	evt.ConferenceProvider = req.ConferenceProvider
-	evt.RawICS = buildRawICS(evt)
+	evt.RawICS = buildRawICS(evt, requestLocation(req.Timezone))
 
 	if err := s.orm.WithContext(ctx).Omit("CreatedBy").Save(evt).Error; err != nil {
 		return nil, errors.Internal("failed to update event", err)
@@ -347,8 +377,12 @@ func foldICSLine(line string) string {
 	return sb.String()
 }
 
-func buildRawICS(e *schemas.Event) string {
+// buildRawICS renders an event as a VCALENDAR. Times are written in UTC,
+// except a timed recurring event, whose DTSTART and DTEND carry the TZID of
+// loc so CalDAV clients expand it on the creator's wall clock.
+func buildRawICS(e *schemas.Event, loc *time.Location) string {
 	const dtFmt = "20060102T150405Z"
+	const localFmt = "20060102T150405"
 	createdAt := e.CreatedAt
 	if createdAt.IsZero() {
 		createdAt = time.Now().UTC()
@@ -371,6 +405,9 @@ func buildRawICS(e *schemas.Event) string {
 	if e.IsAllDay {
 		ics += fold(fmt.Sprintf("DTSTART;VALUE=DATE:%s", e.StartAt.UTC().Format("20060102")))
 		ics += fold(fmt.Sprintf("DTEND;VALUE=DATE:%s", allDayEnd(e.EndAt).Format("20060102")))
+	} else if e.RecurrenceRule != "" && loc != time.UTC {
+		ics += fold(fmt.Sprintf("DTSTART;TZID=%s:%s", loc.String(), e.StartAt.In(loc).Format(localFmt)))
+		ics += fold(fmt.Sprintf("DTEND;TZID=%s:%s", loc.String(), e.EndAt.In(loc).Format(localFmt)))
 	} else {
 		ics += fold(fmt.Sprintf("DTSTART:%s", e.StartAt.UTC().Format(dtFmt)))
 		ics += fold(fmt.Sprintf("DTEND:%s", e.EndAt.UTC().Format(dtFmt)))

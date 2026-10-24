@@ -37,7 +37,7 @@ func (c *controller) list(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	evts, err := c.service.ListEvents(r.Context(), userID, calID, from, to)
+	evts, err := c.service.ListEvents(r.Context(), userID, calID, from, to, requestLocation(r.URL.Query().Get("tz")))
 	if err != nil {
 		httpjson.WriteError(w, err)
 		return

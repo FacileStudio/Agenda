@@ -3,6 +3,9 @@ package events
 import "time"
 
 // CreateEventRequest is the payload for creating an event in a calendar.
+// RecurrenceRule is an RFC 5545 RRULE value such as "FREQ=WEEKLY;BYDAY=MO".
+// Timezone is the creator's IANA zone; a recurring event is anchored in it so
+// its wall-clock time survives DST changes.
 type CreateEventRequest struct {
 	Title              string    `json:"title"`
 	Description        string    `json:"description"`
@@ -14,9 +17,11 @@ type CreateEventRequest struct {
 	Status             string    `json:"status"`
 	ConferenceURL      string    `json:"conference_url"`
 	ConferenceProvider string    `json:"conference_provider"`
+	Timezone           string    `json:"timezone"`
 }
 
-// UpdateEventRequest is the payload for editing an event. CalendarID, when set
+// UpdateEventRequest is the payload for editing an event; RecurrenceRule and
+// Timezone behave as in CreateEventRequest. CalendarID, when set
 // and different from the event's current calendar, moves the event to that
 // calendar (requires write access to it).
 type UpdateEventRequest struct {
@@ -31,6 +36,7 @@ type UpdateEventRequest struct {
 	Status             string    `json:"status"`
 	ConferenceURL      string    `json:"conference_url"`
 	ConferenceProvider string    `json:"conference_provider"`
+	Timezone           string    `json:"timezone"`
 }
 
 // EventCreator describes the user who created an event.
