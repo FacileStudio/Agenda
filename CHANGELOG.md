@@ -4,6 +4,18 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-24
+
+### Fixed
+
+- In the month view, all-day bars and Opus tasks now sit at the same 4px inset as timed events instead of 2px.
+- The creator initial is centered in its avatar on event chips.
+- Select chevrons no longer touch the right border (muse v0.7.2).
+
+### Changed
+
+- muse bumped from v0.5.0 to v0.7.2: the calendar colour picker is `SwatchPicker`, space role badges use the `fc-owner` and `fc-admin` tokens, and the UI uses the platform sans font now that muse no longer bundles Goga.
+
 ## [0.2.0] - 2026-10-24
 
 ### Added
