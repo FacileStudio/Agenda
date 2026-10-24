@@ -4,6 +4,19 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-24
+
+### Added
+
+- Recurring events: a repeat picker in the event form (daily, weekly on chosen days, monthly, yearly, every N, ending never, on a date or after N times).
+- The calendar views show each occurrence of a series in the requested range. A series keeps its wall-clock time across DST changes, and EXDATE and single-occurrence edits made in CalDAV clients are respected.
+- Every view shows the creator's avatar on the event, and recurring events carry a repeat icon.
+
+### Changed
+
+- Editing or deleting an occurrence applies to the whole series, and the form says so.
+- Recurrence rules are validated on create and update; an invalid rule is rejected with `invalid_argument`.
+
 ## [0.1.4] - 2026-10-23
 
 ### Changed
