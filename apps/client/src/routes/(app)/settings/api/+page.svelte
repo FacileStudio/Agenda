@@ -108,9 +108,11 @@
 	async function generateToken() {
 		tokenBusy = true;
 		try {
+			const wasReplacing = Boolean(apiToken?.has_token);
 			const created = await backend.createApiToken(tokenName || 'CalDAV');
 			issuedToken = created.token;
 			apiToken = { has_token: true, name: created.name, created_at: created.created_at };
+			toast.success(wasReplacing ? 'Token remplacé.' : 'Token généré.');
 		} catch (error: unknown) {
 			toast.error(error instanceof Error ? error.message : 'Erreur.');
 		} finally {
@@ -196,12 +198,12 @@
 		description="Un identifiant machine pour les clients CalDAV et les appels HTTP. Agenda en garde un seul par compte."
 	>
 		{#snippet actions()}
-			{#if !apiToken?.has_token}
-				<Button icon={icons.plus} onclick={openCreate}>Générer un token</Button>
-			{/if}
+			<Button icon={icons.plus} onclick={openCreate}>
+				{apiToken?.has_token ? 'Remplacer le token' : 'Générer un token'}
+			</Button>
 		{/snippet}
 
-		{#if isSSOUser}
+		{#if isSSOUser && !apiToken?.has_token}
 			<Alert tone="warning">
 				Vous êtes connecté via SSO — vous n’avez pas de mot de passe Agenda. Générez un token API
 				et utilisez-le comme mot de passe dans votre client CalDAV.
@@ -281,8 +283,10 @@
 
 <Drawer
 	bind:open={createOpen}
-	title="Générer un token API"
-	description="Nommez-le d’après la machine qui s’en servira — c’est la seule façon de savoir plus tard ce que vous révoquez."
+	title={apiToken?.has_token && !issuedToken ? 'Remplacer le token API' : 'Générer un token API'}
+	description={apiToken?.has_token && !issuedToken
+		? 'Générer un nouveau token invalidera immédiatement l’ancien. Nommez-le d’après la machine qui s’en servira.'
+		: 'Nommez-le d’après la machine qui s’en servira — c’est la seule façon de savoir plus tard ce que vous révoquez.'}
 	onClose={() => (issuedToken = '')}
 >
 	{#if issuedToken}
@@ -316,7 +320,7 @@
 		{:else}
 			<Button variant="outline" onclick={() => (createOpen = false)}>Annuler</Button>
 			<Button icon={icons.key} disabled={tokenBusy} onclick={generateToken}>
-				{tokenBusy ? 'Génération…' : 'Générer'}
+				{tokenBusy ? 'Génération…' : apiToken?.has_token ? 'Remplacer' : 'Générer'}
 			</Button>
 		{/if}
 	{/snippet}
