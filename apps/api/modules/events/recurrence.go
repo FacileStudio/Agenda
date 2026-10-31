@@ -55,13 +55,15 @@ func requestLocation(name string) *time.Location {
 func expandOccurrences(e *schemas.Event, viewer *time.Location, from, to time.Time) []schemas.Event {
 	master, instances := splitComponents(e.RawICS)
 	loc := anchorLocation(master, viewer)
+	if e.IsAllDay {
+		loc = time.UTC
+	}
 	set, err := seriesSet(e, master, loc)
 	if err != nil {
 		return overlapping(e, from, to)
 	}
 	overrides := indexOverrides(instances, loc)
 
-	duration := e.EndAt.Sub(e.StartAt)
 	next := set.Iterator()
 	var out []schemas.Event
 	for i := 0; i < maxIterations && len(out) < maxOccurrences; i++ {
@@ -69,26 +71,36 @@ func expandOccurrences(e *schemas.Event, viewer *time.Location, from, to time.Ti
 		if !ok || start.After(to) {
 			break
 		}
-		occ := *e
-		occ.StartAt = start
-		occ.EndAt = addWallClock(start, duration)
-		if override := overrides[start.Unix()]; override != nil && !applyOverride(&occ, override, loc) {
-			continue
-		}
-		if !occ.EndAt.Before(from) && !occ.StartAt.After(to) {
+		occ, keep := occurrenceAt(e, start, overrides[start.Unix()], loc)
+		if keep && !occ.EndAt.Before(from) && !occ.StartAt.After(to) {
 			out = append(out, occ)
 		}
 	}
 	return out
 }
 
-func seriesSet(e *schemas.Event, master *ical.Component, loc *time.Location) (*rrule.Set, error) {
+func occurrenceAt(e *schemas.Event, start time.Time, override *ical.Component, loc *time.Location) (schemas.Event, bool) {
+	occ := *e
+	occ.OccurrenceStart = &start
+	occ.StartAt = start
+	occ.EndAt = addWallClock(start, e.EndAt.Sub(e.StartAt))
+	if override != nil && !applyOverride(&occ, override, loc) {
+		return occ, false
+	}
+	return occ, true
+}
+
+func seriesRule(e *schemas.Event, loc *time.Location) (*rrule.RRule, error) {
 	opt, err := rrule.StrToROptionInLocation(e.RecurrenceRule, loc)
 	if err != nil {
 		return nil, err
 	}
 	opt.Dtstart = e.StartAt.In(loc)
-	rule, err := rrule.NewRRule(*opt)
+	return rrule.NewRRule(*opt)
+}
+
+func seriesSet(e *schemas.Event, master *ical.Component, loc *time.Location) (*rrule.Set, error) {
+	rule, err := seriesRule(e, loc)
 	if err != nil {
 		return nil, err
 	}
@@ -123,23 +135,6 @@ func indexOverrides(instances []*ical.Component, loc *time.Location) map[int64]*
 		}
 	}
 	return out
-}
-
-func overlapping(e *schemas.Event, from, to time.Time) []schemas.Event {
-	if e.EndAt.Before(from) || e.StartAt.After(to) {
-		return nil
-	}
-	return []schemas.Event{*e}
-}
-
-// addWallClock adds d to start and corrects for a UTC offset change between
-// the two instants, so an occurrence after a DST switch keeps its wall-clock
-// length instead of ending an hour early or late.
-func addWallClock(start time.Time, d time.Duration) time.Time {
-	end := start.Add(d)
-	_, startOffset := start.Zone()
-	_, endOffset := end.Zone()
-	return end.Add(time.Duration(startOffset-endOffset) * time.Second)
 }
 
 func splitComponents(raw string) (*ical.Component, []*ical.Component) {
@@ -197,6 +192,9 @@ func applyOverride(occ *schemas.Event, comp *ical.Component, loc *time.Location)
 	}
 	if v := propValue(comp, ical.PropSummary); v != "" {
 		occ.Title = v
+	}
+	if v := strings.ToLower(propValue(comp, ical.PropStatus)); v != "" {
+		occ.Status = v
 	}
 	if v := propValue(comp, ical.PropLocation); v != "" {
 		occ.Location = v

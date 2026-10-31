@@ -133,6 +133,9 @@ unique.
 | GET | `/api/events/{eventID}` | — | `Event` |
 | PUT | `/api/events/{eventID}` | `UpdateEvent` | `Event` |
 | DELETE | `/api/events/{eventID}` | — | `{"ok":true}` |
+| PUT | `/api/events/{eventID}/occurrences/{when}` | `Occurrence` | `Event` |
+| DELETE | `/api/events/{eventID}/occurrences/{when}` | — | `Event` |
+| POST | `/api/events/{eventID}/occurrences/{when}/restore` | — | `Event` |
 
 The list route takes `from` and `to` query parameters, both RFC 3339 timestamps. An
 unparseable value is ignored rather than rejected.
@@ -140,11 +143,37 @@ unparseable value is ignored rather than rejected.
 `CreateEvent` is `{title, description, location, start_at, end_at, is_all_day,
 recurrence_rule, status, conference_url, conference_provider}`. `UpdateEvent` adds
 `calendar_id`: setting it to a different calendar moves the event there, which requires
-write access to the target.
+write access to the target. Both also take `timezone` (IANA name), `color` (`#RRGGBB` or
+empty), `attendees` and `reminders`:
+
+- `attendees` is `[{email, name, role, response}]`. `role` is `required` (default) or
+  `optional`; `response` is `needs-action` (default), `accepted`, `declined` or
+  `tentative`. Agenda stores the invitation and the answer in the event's ICS, so a
+  CalDAV client sees them; it sends no mail.
+- `reminders` is `[{minutes_before, method}]`, `method` being `display` (default), `audio`
+  or `email`, `minutes_before` 0 to 40320. CalDAV clients deliver them.
+- On update, an omitted `attendees`, `reminders` or `color` keeps the stored value and an
+  empty one clears it. An empty `timezone` keeps the stored zone, so a client that does
+  not know the zone cannot re-anchor a recurring series to UTC.
+- An unknown `status`, `timezone`, `color`, attendee or reminder is a 400
+  `invalid_argument`.
 
 `Event` returns those fields plus `id`, `calendar_id`, `uid`, `etag`, `created_by`
 (`{id, name, email, avatar_url}` or null), `created_at`, and `updated_at`. `status` is
-`confirmed`, `tentative`, or `cancelled`.
+`confirmed`, `tentative`, or `cancelled`. It also returns `timezone`, `color`,
+`attendees`, `reminders` and `exceptions`, and, in a range-expanded list,
+`occurrence_start`.
+
+A recurring event can have single-occurrence exceptions. `{when}` is `YYYY-MM-DD` in the
+event's zone, or an RFC 3339 instant when the series recurs more than once a day.
+`DELETE` cancels the occurrence (an `EXDATE`), `PUT` overrides it (a `RECURRENCE-ID`
+instance) with `Occurrence` `{title, description, location, start_at, end_at, status}`
+where every field is optional, and `POST .../restore` removes either. All three return
+the series with its `exceptions` list `[{original_start, date, cancelled, title,
+start_at, end_at, ...}]`. Expanded lists skip cancelled occurrences and show overrides.
+Editing the start, rule, zone or all-day flag of the series discards its exceptions;
+any other edit keeps them, as does a CalDAV client's own `EXDATE` and `RECURRENCE-ID`
+data.
 
 Every event write bumps `calendars.sync_token`, which is what CalDAV clients poll to
 detect changes.

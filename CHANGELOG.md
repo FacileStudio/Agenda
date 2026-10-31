@@ -4,6 +4,18 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Events carry attendees (email, name, required or optional, response), reminders (minutes before, method), an optional `#RRGGBB` color and a `timezone`, on create, update and read. Attendees and reminders live in the event's ICS, so CalDAV clients see them.
+- Single occurrences of a recurring event can be cancelled, overridden and restored: `DELETE`, `PUT` and `POST .../restore` on `/api/events/{id}/occurrences/{when}`. List expansion honours them and reports `occurrence_start`; ICS export carries `EXDATE` and `RECURRENCE-ID`.
+
+### Changed
+
+- An unknown `status` or `timezone` on create or update is now a 400 `invalid_argument` instead of becoming confirmed or UTC.
+- An update with an empty `timezone` keeps the stored zone instead of re-anchoring a recurring series to UTC, and an omitted `attendees`, `reminders` or `color` keeps its value.
+- An API edit keeps a recurring event's `EXDATE` and `RECURRENCE-ID` data unless the schedule itself changes.
+- All-day recurring events expand in UTC, so `EXDATE` matches the right day for every viewer zone.
+
 ## [0.2.1] - 2026-10-24
 
 ### Fixed

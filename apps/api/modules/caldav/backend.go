@@ -430,6 +430,8 @@ func (b *Backend) PutCalendarObject(ctx context.Context, objPath string, calenda
 	evt.Location = propText(comp, ical.PropLocation)
 	evt.RecurrenceRule = propText(comp, ical.PropRecurrenceRule)
 	evt.RawICS = rawICS
+	evt.Color = propText(comp, ical.PropColor)
+	evt.Timezone = propZone(comp)
 
 	if seqStr := propText(comp, ical.PropSequence); seqStr != "" {
 		if seq, err := strconv.Atoi(seqStr); err == nil {
@@ -721,6 +723,13 @@ func findVEvent(cal *ical.Calendar) *ical.Component {
 func propText(comp *ical.Component, name string) string {
 	if p := comp.Props.Get(name); p != nil {
 		return p.Value
+	}
+	return ""
+}
+
+func propZone(comp *ical.Component) string {
+	if p := comp.Props.Get(ical.PropDateTimeStart); p != nil {
+		return p.Params.Get(ical.PropTimezoneID)
 	}
 	return ""
 }

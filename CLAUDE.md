@@ -27,7 +27,7 @@ apps/
       users/              User profile management (copied from Courrier)
       settings/           App settings (copied from Courrier)
       calendars/          Calendar CRUD + sharing + member management
-      events/             Event CRUD with date range filtering
+      events/             Event CRUD, attendees, reminders, occurrence exceptions
       caldav/             CalDAV server (go-webdav backend + Basic Auth middleware)
     internal/             Shared infra (database, middleware, logger, env, errors, etc.)
     schemas/              GORM models (User, Session, ApiToken, Calendar, CalendarMember, Event, EventAttendee)
@@ -138,3 +138,4 @@ the root because their URLs are held outside this repo:
 - **CalDAV sync token** — stored per calendar, bumped on every event create/update/delete
 - **Mirrored events** — `events.source` / `events.external_id` mark events owned by another app (Opus tasks); user edits and CalDAV PUT/DELETE are rejected
 - **Event raw ICS** — stored in `events.raw_ics` for round-trip fidelity with CalDAV clients
+- **Event ICS is the source of truth** — attendees, reminders, EXDATE and RECURRENCE-ID overrides live only in `events.raw_ics` (rendered by `modules/events/ics_write.go`, read by `details.go`), so CalDAV clients and the API agree; `color` and `timezone` are columns

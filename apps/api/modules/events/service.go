@@ -53,11 +53,21 @@ func (s *Service) ListEvents(ctx context.Context, userID int64, calendarID int64
 		evts = expandAll(evts, viewer, *from, *to)
 	}
 
+	return toResponses(evts), nil
+}
+
+func toResponses(evts []schemas.Event) []EventResponse {
+	cache := map[int64]eventDetails{}
 	out := make([]EventResponse, len(evts))
-	for i, e := range evts {
-		out[i] = toResponse(&e)
+	for i := range evts {
+		d, ok := cache[evts[i].ID]
+		if !ok {
+			d = readDetails(&evts[i])
+			cache[evts[i].ID] = d
+		}
+		out[i] = responseWith(&evts[i], d)
 	}
-	return out, nil
+	return out
 }
 
 func expandAll(evts []schemas.Event, viewer *time.Location, from, to time.Time) []schemas.Event {
@@ -90,6 +100,11 @@ func (s *Service) CreateEvent(ctx context.Context, userID int64, calendarID int6
 	if err := validateEventFields(req.Title, req.StartAt, req.EndAt); err != nil {
 		return nil, err
 	}
+	x, err := validateEnums(req.Status, req.Timezone, req.Attendees, req.Reminders, req.Color)
+	if err != nil {
+		return nil, err
+	}
+	req.Attendees, req.Reminders = x.attendees, x.reminders
 	rule, err := normalizeRecurrenceRule(req.RecurrenceRule)
 	if err != nil {
 		return nil, err
@@ -122,11 +137,14 @@ func (s *Service) insertEvent(ctx context.Context, calendarID int64, creatorID *
 		Status:             statusOrDefault(req.Status),
 		ConferenceURL:      req.ConferenceURL,
 		ConferenceProvider: req.ConferenceProvider,
+		Timezone:           req.Timezone,
 		Source:             source,
 		ExternalID:         externalID,
 		CreatedByID:        creatorID,
 	}
-	evt.RawICS = buildRawICS(evt, requestLocation(req.Timezone))
+	if err := renderNew(evt, req); err != nil {
+		return nil, err
+	}
 
 	if err := s.orm.WithContext(ctx).Create(evt).Error; err != nil {
 		return nil, errors.Internal("failed to create event", err)
@@ -157,6 +175,11 @@ func (s *Service) UpdateEvent(ctx context.Context, userID int64, eventID int64, 
 	if err := validateEventFields(req.Title, req.StartAt, req.EndAt); err != nil {
 		return nil, err
 	}
+	x, err := validateEnums(req.Status, req.Timezone, req.Attendees, req.Reminders, req.Color)
+	if err != nil {
+		return nil, err
+	}
+	req.Attendees, req.Reminders = x.attendees, x.reminders
 	rule, err := normalizeRecurrenceRule(req.RecurrenceRule)
 	if err != nil {
 		return nil, err
@@ -192,6 +215,7 @@ func (s *Service) applyUpdate(ctx context.Context, evt *schemas.Event, req *Upda
 		evt.SpaceID = destCal.SpaceID
 	}
 
+	prev := snapshotOf(evt, req)
 	evt.ETag = newETag()
 	evt.Sequence++
 	evt.Title = req.Title
@@ -204,7 +228,9 @@ func (s *Service) applyUpdate(ctx context.Context, evt *schemas.Event, req *Upda
 	evt.Status = statusOrDefault(req.Status)
 	evt.ConferenceURL = req.ConferenceURL
 	evt.ConferenceProvider = req.ConferenceProvider
-	evt.RawICS = buildRawICS(evt, requestLocation(req.Timezone))
+	if err := renderUpdated(evt, req, prev); err != nil {
+		return nil, err
+	}
 
 	if err := s.orm.WithContext(ctx).Omit("CreatedBy").Save(evt).Error; err != nil {
 		return nil, errors.Internal("failed to update event", err)
@@ -300,15 +326,22 @@ func (s *Service) bumpSyncToken(ctx context.Context, calendarID int64) {
 }
 
 func toResponse(e *schemas.Event) EventResponse {
-	var creator *EventCreator
-	if e.CreatedBy != nil {
-		creator = &EventCreator{
-			ID:        e.CreatedBy.ID,
-			Name:      e.CreatedBy.Name,
-			Email:     e.CreatedBy.Email,
-			AvatarURL: e.CreatedBy.Avatar(),
-		}
+	return responseWith(e, readDetails(e))
+}
+
+func creatorOf(e *schemas.Event) *EventCreator {
+	if e.CreatedBy == nil {
+		return nil
 	}
+	return &EventCreator{
+		ID:        e.CreatedBy.ID,
+		Name:      e.CreatedBy.Name,
+		Email:     e.CreatedBy.Email,
+		AvatarURL: e.CreatedBy.Avatar(),
+	}
+}
+
+func responseWith(e *schemas.Event, d eventDetails) EventResponse {
 	return EventResponse{
 		ID:                 e.ID,
 		CalendarID:         e.CalendarID,
@@ -326,9 +359,15 @@ func toResponse(e *schemas.Event) EventResponse {
 		ConferenceProvider: e.ConferenceProvider,
 		Source:             e.Source,
 		ExternalID:         e.ExternalID,
-		CreatedBy:          creator,
+		CreatedBy:          creatorOf(e),
 		CreatedAt:          e.CreatedAt,
 		UpdatedAt:          e.UpdatedAt,
+		Timezone:           d.timezone,
+		Color:              e.Color,
+		Attendees:          d.attendees,
+		Reminders:          d.reminders,
+		Exceptions:         d.exceptions,
+		OccurrenceStart:    e.OccurrenceStart,
 	}
 }
 
@@ -420,6 +459,9 @@ func buildRawICS(e *schemas.Event, loc *time.Location) string {
 	}
 	if e.RecurrenceRule != "" {
 		ics += fold(fmt.Sprintf("RRULE:%s", e.RecurrenceRule))
+	}
+	if e.Color != "" {
+		ics += fold(fmt.Sprintf("COLOR:%s", escapeICS(e.Color)))
 	}
 	if e.ConferenceURL != "" {
 		label := "Visioconference"
