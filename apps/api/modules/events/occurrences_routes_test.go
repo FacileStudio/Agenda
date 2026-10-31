@@ -22,6 +22,9 @@ func TestCancelOccurrenceExcludesItFromTheList(t *testing.T) {
 		t.Fatalf("ICS lacks the EXDATE:\n%s", h.raw(evt.ID))
 	}
 	code, _, _ = h.do(http.MethodDelete, "/events/"+itoa(evt.ID)+"/occurrences/2026-11-04", nil)
+	if strings.Contains(h.raw(evt.ID), "SEQUENCE;") {
+		t.Fatalf("SEQUENCE carries a type parameter:\n%s", h.raw(evt.ID))
+	}
 	if code != http.StatusOK || strings.Count(h.raw(evt.ID), "EXDATE") != 1 {
 		t.Fatalf("a repeated cancel was not idempotent: %d", code)
 	}

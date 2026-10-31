@@ -81,7 +81,9 @@ func (s *Service) saveSeries(ctx context.Context, c *seriesCtx) (*EventResponse,
 	evt := c.evt
 	evt.ETag = newETag()
 	evt.Sequence++
-	c.master.Props.SetText(ical.PropSequence, strconv.Itoa(evt.Sequence))
+	sequence := ical.NewProp(ical.PropSequence)
+	sequence.Value = strconv.Itoa(evt.Sequence)
+	c.master.Props.Set(sequence)
 	c.master.Props.SetDateTime(ical.PropLastModified, time.Now().UTC())
 	raw, err := encodeCalendar(c.cal)
 	if err != nil {
