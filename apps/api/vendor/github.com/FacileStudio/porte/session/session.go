@@ -406,7 +406,27 @@ func (m *Manager) verifyBearerJWT(r *http.Request, token string) (porte.Identity
 	if err != nil {
 		return porte.Identity{}, errors.Unauthorized("invalid token")
 	}
+	if !m.scopeAllows(r, identity.Scopes) {
+		return porte.Identity{}, errors.Forbidden("insufficient scope")
+	}
 	return identity, nil
+}
+
+// scopeAllows applies Config.ScopePrefix to a verified bearer JWT. Unset, it
+// allows everything, which is the behaviour before the gate existed.
+func (m *Manager) scopeAllows(r *http.Request, scopes []string) bool {
+	prefix := m.cfg.ScopePrefix
+	if prefix == "" {
+		return true
+	}
+	write := prefix + ".write"
+	read := prefix + ".read"
+	for _, scope := range scopes {
+		if scope == write || (!mutating(r) && scope == read) {
+			return true
+		}
+	}
+	return false
 }
 
 // credential returns the token and whether it came from the cookie. Cookie

@@ -42,6 +42,16 @@ type Identity struct {
 	// meaning. What an "admin" may do is the app's business.
 	Roles []string
 
+	// Scopes is the scope claim of a verified bearer JWT, split on spaces.
+	// It is empty on a cookie or opaque-session identity, which carry no
+	// scope and are never gated by one.
+	Scopes []string
+
+	// Actor is the act.sub claim of a delegated bearer JWT: the client
+	// that holds the token and is acting for Subject. Empty when the token
+	// is not a delegation and on every cookie or opaque-session identity.
+	Actor string
+
 	// SessionID identifies the session row this request authenticated
 	// against, so an app can offer "revoke this one device" without
 	// handling the token itself.
@@ -95,6 +105,17 @@ func WithIdentity(ctx context.Context, identity Identity) context.Context {
 func From(ctx context.Context) (Identity, bool) {
 	identity, ok := ctx.Value(contextKey{}).(Identity)
 	return identity, ok
+}
+
+// ActorFrom returns the client acting on behalf of the authenticated user, as
+// asserted by a delegated bearer token. The second result is false when the
+// request is not a delegation.
+func ActorFrom(ctx context.Context) (string, bool) {
+	identity, ok := From(ctx)
+	if !ok || identity.Actor == "" {
+		return "", false
+	}
+	return identity.Actor, true
 }
 
 // Claims is what the identity provider asserted about a user during a

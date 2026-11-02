@@ -31,6 +31,8 @@ services:
       ANTENNE_SECRET: ${ANTENNE_SECRET:-}
       ANTENNE_INSTANCE_ID: ${ANTENNE_INSTANCE_ID:-}
       JOURNAL_TOKEN: ${JOURNAL_TOKEN:-}
+      OIDC_MACHINE_AUDIENCE: ${OIDC_MACHINE_AUDIENCE:-}
+      OIDC_SCOPE_PREFIX: ${OIDC_SCOPE_PREFIX:-}
     healthcheck:
       test: ["CMD", "/agenda", "healthcheck"]
       interval: 10s

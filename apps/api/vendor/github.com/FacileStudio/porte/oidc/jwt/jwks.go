@@ -129,6 +129,12 @@ type payload struct {
 	Email     string   `json:"email"`
 	Name      string   `json:"name"`
 	Roles     []string `json:"roles"`
+	Scope     string   `json:"scope"`
+	Act       actor    `json:"act"`
+}
+
+type actor struct {
+	Subject string `json:"sub"`
 }
 
 // parseClaims decodes the verified payload. It lives apart from Verify so the

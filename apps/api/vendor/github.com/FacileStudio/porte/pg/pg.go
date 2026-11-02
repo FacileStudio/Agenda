@@ -95,7 +95,21 @@ CREATE TABLE IF NOT EXISTS porte_login_codes (
 	consumed_at timestamptz
 );
 ALTER TABLE porte_login_codes ADD COLUMN IF NOT EXISTS consumed_at timestamptz;
-`
+
+CREATE TABLE IF NOT EXISTS porte_magic_links (
+	token_hash  text PRIMARY KEY,
+	user_id     bigint NOT NULL REFERENCES porte_users(id) ON DELETE CASCADE,
+	ip          text NOT NULL DEFAULT '',
+	created_at  timestamptz NOT NULL,
+	expires_at  timestamptz NOT NULL,
+	consumed_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS porte_magic_links_user_idx ON porte_magic_links (user_id, created_at);
+CREATE INDEX IF NOT EXISTS porte_magic_links_ip_idx ON porte_magic_links (ip, created_at)
+	WHERE ip <> '';
+CREATE INDEX IF NOT EXISTS porte_magic_links_expiry_idx ON porte_magic_links (expires_at);
+
+` + KeySchema
 
 // Store is the entry point: one value over a *sql.DB that hands out the four
 // stores porte asks for.
@@ -124,6 +138,9 @@ func (s *Store) Sessions() *SessionStore { return &SessionStore{db: s.db} }
 // LoginCodes persists pending CLI login codes.
 func (s *Store) LoginCodes() *LoginCodeStore { return &LoginCodeStore{db: s.db} }
 
+// MagicLinks persists the links porte/magiclink emails.
+func (s *Store) MagicLinks() *MagicLinkStore { return &MagicLinkStore{db: s.db} }
+
 // UserStore implements [porte.UserStore] over porte_users.
 type UserStore struct{ db *sql.DB }
 
@@ -142,6 +159,7 @@ var (
 	_ porte.IdentityStore     = (*IdentityStore)(nil)
 	_ porte.SessionStore      = (*SessionStore)(nil)
 	_ porte.LoginCodeStore    = (*LoginCodeStore)(nil)
+	_ porte.MagicLinkStore    = (*MagicLinkStore)(nil)
 )
 
 // EnsureSchema applies [Schema]. It is here for tests and local development;

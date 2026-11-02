@@ -19,6 +19,9 @@ type OIDCConfig struct {
 	ClientSecret string
 	RedirectURL  string
 	SuccessURL   string
+
+	MachineAudience string
+	ScopePrefix     string
 }
 
 // AntenneConfig holds the optional Antenne Pool settings. The pool is enabled
@@ -74,6 +77,9 @@ func Load() (Config, error) {
 			ClientSecret: troncenv.String("OIDC_CLIENT_SECRET", ""),
 			RedirectURL:  troncenv.String("OIDC_REDIRECT_URL", ""),
 			SuccessURL:   troncenv.String("OIDC_SUCCESS_URL", ""),
+
+			MachineAudience: troncenv.String("OIDC_MACHINE_AUDIENCE", ""),
+			ScopePrefix:     troncenv.String("OIDC_SCOPE_PREFIX", ""),
 		}
 		if oidc.ClientID == "" || oidc.ClientSecret == "" || oidc.RedirectURL == "" {
 			return Config{}, fmt.Errorf("OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, and OIDC_REDIRECT_URL are required when OIDC_ISSUER is set")
@@ -192,6 +198,8 @@ func (c Config) Porte() porte.Config {
 	cfg.ClientSecret = c.OIDC.ClientSecret
 	cfg.RedirectURL = c.OIDC.RedirectURL
 	cfg.SuccessURL = c.OIDC.SuccessURL
+	cfg.MachineAudience = c.OIDC.MachineAudience
+	cfg.ScopePrefix = c.OIDC.ScopePrefix
 	return cfg
 }
 

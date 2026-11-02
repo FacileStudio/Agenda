@@ -76,6 +76,10 @@ type Claims struct {
 	Email   string
 	Name    string
 	Roles   []string
+
+	Scopes []string
+
+	Actor string
 }
 
 // Verifier verifies RS256 JWTs against a provider's JWKS.
@@ -151,6 +155,8 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (Claims, error) 
 		Email:   payload.Email,
 		Name:    payload.Name,
 		Roles:   payload.Roles,
+		Scopes:  strings.Fields(payload.Scope),
+		Actor:   payload.Act.Subject,
 	}, nil
 }
 

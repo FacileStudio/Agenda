@@ -3,6 +3,77 @@
 Decisions are recorded with their reasoning. The reasoning is the part that stops a future
 session from undoing a deliberate choice.
 
+## v0.7.0 — 2026-11-02
+
+**Delegated bearer tokens carry scope and actor, and an app can gate on scope.** Bulle acts for a
+signed-in user at Courrier, Agenda, Opus and Sablier with a 5-minute JWT that Registre mints by
+token exchange, addressed to one app, read-only. porte already verified that shape and mapped `sub`
+to the local user; what it could not do is say what the token may do, or who holds it.
+
+Decisions, with their reasons:
+
+- **The gate is opt-in per app through `Config.ScopePrefix`** (`OIDC_SCOPE_PREFIX`). Unset, every
+  valid JWT passes as before, so `suite-ci` and any other machine token keep working untouched.
+- **The method decides read versus write.** GET, HEAD and OPTIONS need `<prefix>.read` or
+  `<prefix>.write`; everything else needs `<prefix>.write`. It reuses the check the CSRF rule
+  already uses to call a request mutating, so the two cannot disagree.
+- **A JWT with no `scope` claim is refused when a prefix is set.** An absent claim must not mean
+  "everything".
+- **Every refusal is one 403 with one body.** The response does not say whether the claim was
+  missing, wrong-app or read-only.
+- **The gate covers JWTs only.** A cookie session or opaque bearer carries no scope and is never
+  gated. The device exchange route verifies its own token and is not a bearer route, so it is
+  unaffected.
+- **`act` is read one level deep.** `Identity.Actor` is `act.sub`. A nested `act` (a chain of
+  delegations) is ignored, so a token cannot launder a longer chain into a single trusted name.
+- **`ScopePrefix` without `MachineAudience` fails at boot**, since there is no JWT to gate.
+
+Added: `Identity.Scopes`, `Identity.Actor`, `porte.ActorFrom`, `Config.ScopePrefix`,
+`jwt.Claims.Scopes` and `jwt.Claims.Actor`. Nothing existing changes with the new field unset, so
+it is a minor bump: **v0.7.0**.
+
+## v0.6.0 — 2026-11-01
+
+**`porte/magiclink`: passwordless sign-in, once instead of per app.** A user who should not hold a
+password asks for a link by email and signs in with it. The kit is `Request`, `Consume` and
+`POST /auth/magic-link` plus `POST /auth/magic-link/consume`; a successful consume calls
+`Sessions.IssueCookie`, so it lands in the same cookie session as a password or federated login.
+
+Decisions, with their reasons:
+
+- **Consume is POST only and no GET is mounted.** Mail scanners prefetch every URL in a message, and
+  a GET that signed in would be spent before the human clicked.
+- **Supersession is inside `Create`.** A separate invalidate call lets two racing requests leave two
+  live links. `porte/pg` serialises them with a row lock on the user.
+- **The rate limit is silent.** A limit that only known addresses can trip is an enumeration oracle,
+  so `Request` returns nil over a limit and logs it.
+- **The mail goes out after the response**, because SMTP latency would otherwise answer "does this
+  address have an account". `Kit.Wait` drains pending mail on shutdown.
+- **One error for every dead link**, `porte.ErrMagicLinkInvalid`, status 401. The store does not
+  separate a replay from a typo as login codes do.
+- **Consume requires `X-Facile-CSRF`.** It is public but sets a cookie, so a cross-site form post
+  with an attacker's own link would sign the victim in as the attacker. The header is checked before
+  the token is read, so a forged request cannot spend a link. Found in review before release.
+- **`Deps.Allow` is required.** An optional re-check that defaults to allowing everyone is one an app
+  forgets, and a client banned after the mail went out would still sign in.
+- **The source address is `RemoteAddr`, and `Config.ClientIP` is the escape hatch.** porte reads
+  `X-Forwarded-For` nowhere. Behind a proxy `RemoteAddr` is the proxy, which turns "20 per source per
+  hour" into 20 per hour for everyone, so an app behind its own proxy resolves the address itself.
+- **The address is the parsed one.** `Camille <a@b>` mails `a@b`, not the display form.
+- **A panicking mailer is recovered**: the send runs in a goroutine no HTTP middleware covers.
+- **`pg` locks with `FOR NO KEY UPDATE`**, which serialises link creation without conflicting with the
+  `FOR KEY SHARE` a session insert takes, and counts with one statement per key shape so the indexes
+  are usable.
+- **Tokens use `NewToken` and `HashToken`** (URL-safe base64, SHA-256 hex), the shape sessions and
+  login codes already have, not a second spelling for links.
+
+Added to the contract: `MagicLinkStore`, `MagicLink`, `LinkKey`, `ErrMagicLinkInvalid`, the two
+route constants, `DefaultMagicLinkTTL` (15 minutes), `MagicLinkRateWindow` and the wire shapes. Added
+to `porte/pg`: `Store.MagicLinks()` and the `porte_magic_links` table in `Schema`, which is
+`CREATE ... IF NOT EXISTS` and so applies to a live database by re-running it. Added
+`porte/magiclink/magiclinktest`, the conformance suite and an in-memory store. Nothing existing
+changes, so it is a minor bump: **v0.6.0**.
+
 ## v0.5.2 — 2026-08-29
 
 **The success page got the treatment the failure page already had.** `Config.LoginFailure`

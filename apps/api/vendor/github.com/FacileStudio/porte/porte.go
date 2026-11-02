@@ -245,6 +245,18 @@ type Config struct {
 	// than a second use of this one.
 	MachineAudience string
 
+	// ScopePrefix turns on the scope gate for bearer JWTs, read from
+	// OIDC_SCOPE_PREFIX. A verified JWT then passes only when its scope claim
+	// holds "<prefix>.read" or "<prefix>.write" for GET, HEAD and OPTIONS, and
+	// "<prefix>.write" for every other method. A token with no scope claim is
+	// refused, and every refusal is the same 403.
+	//
+	// It gates JWTs only. A cookie or opaque session carries no scope and is
+	// never affected, and the device exchange route is not a bearer route.
+	// Empty leaves today's behaviour: any valid JWT for the audience passes.
+	// It requires MachineAudience, because there is no JWT to gate without it.
+	ScopePrefix string
+
 	// CLIAudience enables POST /auth/oidc/device/exchange: a CLI trades an
 	// access token the provider's device grant issued for this app's own
 	// session token. Empty means the route is not mounted at all. It
@@ -435,6 +447,7 @@ func (c Config) validateWithoutIssuer() error {
 	for name, audience := range map[string]string{
 		"OIDC_MACHINE_AUDIENCE": c.MachineAudience,
 		"OIDC_CLI_AUDIENCE":     c.CLIAudience,
+		"OIDC_SCOPE_PREFIX":     c.ScopePrefix,
 	} {
 		if audience != "" {
 			return fmt.Errorf("porte: %s is set but OIDC_ISSUER is empty — verifying a token audience needs a provider", name)
@@ -463,6 +476,9 @@ func (c Config) Scopes() []string {
 func (c Config) Validate() error {
 	if !c.Enabled() {
 		return c.validateWithoutIssuer()
+	}
+	if c.ScopePrefix != "" && c.MachineAudience == "" {
+		return fmt.Errorf("porte: OIDC_SCOPE_PREFIX is set but OIDC_MACHINE_AUDIENCE is empty — there is no bearer JWT to gate")
 	}
 	issuer, err := url.Parse(c.Issuer)
 	switch {

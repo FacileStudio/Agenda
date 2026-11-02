@@ -50,11 +50,13 @@ reasoning behind both.
 | `porte/session` | The credential: issuance, the cookie, the middleware, `POST /auth/logout` | the contract, tronc, chi |
 | `porte/oidc` | The engine: the flow, the routes, the avatar fetch | `porte/session`, go-oidc, oauth2, tronc, chi |
 | `porte/local` | Email and password: argon2id, register, login | `porte/session`, `x/crypto`, tronc, chi |
+| `porte/magiclink` | Passwordless sign-in: a one-time emailed link, single use, rate limited, landing in the same session | `porte/session`, tronc, chi |
 | `porte/pg` | The identity tables and the stores over them | `database/sql` |
 | `porte/avatarfs` | A filesystem `AvatarStore`: atomic writes, a guarded key, and an `http.Handler` that serves them | the standard library |
 | `porte/loopback` | The CLI's half of the CLI login: the loopback listener, the login URL, the pages a browser lands on | the standard library |
 | `porte/spaces` | Space membership authorization: the role ladder, `Resolve`, `Require`, `CanLeave`, `AssignableBy`/`AssignableOver`. No CRUD, no routes, no ORM | the standard library |
 | `porte/spaces/spacestest` | `Conformance(t, newStore)` and `ConformanceWithLadder`: the invariants, run against an app's own `Store` and its own role vocabulary | `porte/spaces`, `testing` |
+| `porte/magiclink/magiclinktest` | `Conformance(t, newStore, newUser)`: single use, supersession and the rate counts, run against an app's own `MagicLinkStore` | `porte`, `testing` |
 
 The contract package depends on nothing outside the standard library, and that is a constraint
 rather than a coincidence: an app's stores and domain code never compile against `go-oidc`,
@@ -111,6 +113,18 @@ Facile app answers `{token, user}`, and `porte` has no idea what a user looks li
 `passwords.Mount` and calls `Register` and `Login` from its own handlers. That is the supported
 path, not a workaround.
 
+A service that acts for a signed-in user, such as Bulle, presents a short-lived JWT addressed to the
+app with a `scope` claim. Set `MachineAudience` to verify it and `ScopePrefix` to gate it:
+
+```go
+cfg.MachineAudience = "<this app's client id>"
+cfg.ScopePrefix = "courrier"
+```
+
+A GET then needs `courrier.read` or `courrier.write`, any other method needs `courrier.write`, and
+a token with no `scope` claim gets a 403. `porte.ActorFrom(ctx)` returns the client acting for the
+user, for audit lines. Cookie sessions are never gated.
+
 ## Why
 
 Six Go apps — Nuage, Courrier, Plume, Agenda, Vision, Sablier — ship roughly 900 lines of
@@ -141,6 +155,8 @@ state comparison. Written once here instead of six times in the apps.
 | **v0.3.0** | Password identities keyed on the account id instead of the mutable email, per OIDC Core §5.7. `local.Kit.ChangePassword` confirms the current password, ends the other logins and rotates the caller's session; `SetPassword` refuses an account that already has one. **Breaking:** `SetPassword` loses its `email` parameter, `SessionStore` gains `DeleteLogins` |
 | **v0.4.0** | `POST /auth/oidc/device/exchange`: a CLI trades its provider token for this app's own session, on its own audience |
 | **v0.5.0** | `porte/spaces` — membership and role resolution, and the conformance suite an adopter runs against its own table. Purely additive: an app without spaces does not import it |
+| **v0.6.0** | `porte/magiclink` — passwordless sign-in by an emailed one-time link, and its store conformance suite. Purely additive: an app without links does not import it |
+| **v0.7.0** | Delegated bearer JWTs: `Identity.Scopes` and `Identity.Actor` from the `scope` and `act` claims, `porte.ActorFrom`, and `Config.ScopePrefix` (`OIDC_SCOPE_PREFIX`), which gates a bearer JWT to `<prefix>.read` for reads and `<prefix>.write` for writes. Purely additive: unset, nothing changes |
 
 The first adopter turned out to be Journal — the one app with no OIDC of its own, so the wiring
 added a path instead of replacing six hundred lines of one. It kept its own `users` table and

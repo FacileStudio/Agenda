@@ -106,5 +106,7 @@ func (b bearerVerifier) VerifyJWT(ctx context.Context, rawToken string) (porte.I
 		Email:   claims.Email,
 		Name:    claims.Name,
 		Roles:   claims.Roles,
+		Scopes:  claims.Scopes,
+		Actor:   claims.Actor,
 	}, nil
 }
