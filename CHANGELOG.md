@@ -4,13 +4,17 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-02
+
 ### Added
 
 - Events carry attendees (email, name, required or optional, response), reminders (minutes before, method), an optional `#RRGGBB` color and a `timezone`, on create, update and read. Attendees and reminders live in the event's ICS, so CalDAV clients see them.
 - Single occurrences of a recurring event can be cancelled, overridden and restored: `DELETE`, `PUT` and `POST .../restore` on `/api/events/{id}/occurrences/{when}`. List expansion honours them and reports `occurrence_start`; ICS export carries `EXDATE` and `RECURRENCE-ID`.
+- Bearer tokens minted by Registre for Agenda are accepted when `OIDC_MACHINE_AUDIENCE` is set. With `OIDC_SCOPE_PREFIX=agenda`, a token needs `agenda.read` for `GET`, `HEAD` and `OPTIONS` and `agenda.write` for anything else; a token with no scope claim is refused with 403. Cookie sessions are not gated. Both variables default to empty, which keeps today's behaviour.
 
 ### Changed
 
+- porte is bumped to v0.7.0.
 - An unknown `status` or `timezone` on create or update is now a 400 `invalid_argument` instead of becoming confirmed or UTC.
 - An update with an empty `timezone` keeps the stored zone instead of re-anchoring a recurring series to UTC, and an omitted `attendees`, `reminders` or `color` keeps its value.
 - An API edit keeps a recurring event's `EXDATE` and `RECURRENCE-ID` data unless the schedule itself changes.
