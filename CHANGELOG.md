@@ -4,6 +4,22 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-03
+
+### Added
+
+- Every SSO account carries its Registre picture (`<issuer>/avatars/<subject>`) without signing in again: the boot migration fills it from the porte identity rows when the column is empty.
+- Event attendees whose address is an Agenda account carry `avatar_url` in responses. Requests may send it back; it is ignored.
+
+### Changed
+
+- muse is bumped to v0.7.3. Space members render with muse `Avatar`, so a missing picture shows the initial instead of a broken image.
+- Settings links to the Registre account to change the profile picture.
+
+### Removed
+
+- `POST` and `DELETE /api/users/me/avatar`. The client never called them and they refused every SSO account. Existing uploads stay on disk and still render for password accounts.
+
 ## [0.3.0] - 2026-11-02
 
 ### Added
