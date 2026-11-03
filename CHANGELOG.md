@@ -4,6 +4,12 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-03
+
+### Added
+
+- `OIDC_CLI_AUDIENCE` mounts porte's device exchange at `POST /api/auth/oidc/device/exchange`, so suite CLIs sign in with the browser approval link from Registre's device grant, over SSH too. Set it to `facile-cli`; unset, the route stays absent and answers 404. It is independent of `OIDC_MACHINE_AUDIENCE`, which stays this app's own client id.
+
 ## [0.6.1] - 2026-11-03
 
 ### Changed
