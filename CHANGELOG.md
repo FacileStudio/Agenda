@@ -4,6 +4,21 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-03
+
+### Added
+
+- A filter row next to the profile picture: "Tous" shows every calendar, and each chip narrows the views to one space's calendar or one personal calendar. The choice is remembered per browser, and a space's page links straight to its filtered calendar.
+- The event form lists every calendar you can write to, grouped into "Espaces" and "Personnels", and starts on the calendar the view is filtered to.
+
+### Changed
+
+- **Breaking:** `GET /api/calendars` without `space_id` returns every calendar you can open, space calendars included. `space_id=0` returns only calendars outside any space.
+
+### Removed
+
+- The space switcher and the per-browser space context. Spaces now appear only as calendars.
+
 ## [0.8.2] - 2026-11-03
 
 ### Fixed
