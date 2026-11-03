@@ -4,6 +4,12 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-03
+
+### Changed
+
+- The calendar filter is now one compact dropdown next to the profile picture instead of a row of chips. It shows the selected calendar's color and name, lists "Tous les calendriers" then every calendar with a check on the active one, and stays on the header row on phones.
+
 ## [0.9.1] - 2026-11-03
 
 ### Fixed
