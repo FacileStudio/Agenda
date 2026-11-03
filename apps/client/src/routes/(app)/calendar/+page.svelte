@@ -126,6 +126,18 @@
 
 	function goToday() { currentDate = today(tz); }
 
+	const showsToday = $derived.by(() => {
+		const now = today(tz);
+		switch (view) {
+			case 'month':
+				return currentDate.year === now.year && currentDate.month === now.month;
+			case 'week':
+				return startOfWeek(currentDate, 'fr-FR').compare(startOfWeek(now, 'fr-FR')) === 0;
+			default:
+				return currentDate.compare(now) === 0;
+		}
+	});
+
 	function openCreateModal(date?: CalendarDate, hour?: number) {
 		selectedEvent = null;
 		if (date) {
@@ -174,27 +186,9 @@
 
 <div class="flex h-full flex-col">
 	<!-- Top bar -->
-	<div class="flex h-16 shrink-0 items-center gap-2 px-3 sm:gap-3 sm:px-5">
-		<!-- Left: today + navigation + period title -->
-		<div class="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-			<Button
-				variant="outline"
-				size="lg"
-				icon="solar:calendar-minimalistic-linear"
-				class="hidden sm:inline-flex"
-				onclick={goToday}
-			>
-				Aujourd'hui
-			</Button>
-			<IconButton class="sm:hidden" onclick={goToday} aria-label="Aujourd'hui">
-				<iconify-icon
-					icon="solar:calendar-minimalistic-linear"
-					width="18"
-					height="18"
-					class="block size-4.5"
-				></iconify-icon>
-			</IconButton>
-
+	<div class="flex min-h-16 shrink-0 flex-wrap items-center gap-2 px-3 py-2 sm:flex-nowrap sm:gap-3 sm:px-5">
+		<!-- Left: navigation + period title -->
+		<div class="flex min-w-0 flex-1 basis-full items-center gap-2 sm:basis-auto sm:gap-3">
 			<div class="flex items-center">
 				<IconButton variant="ghost" onclick={() => navigate(-1)} aria-label="Précédent">
 					<iconify-icon icon={icons.chevronLeft} width="20" height="20" class="block size-5"
@@ -209,13 +203,26 @@
 				{periodTitle()}
 			</h1>
 
+			{#if !showsToday}
+				<Button
+					variant="outline"
+					size="sm"
+					icon="solar:calendar-minimalistic-linear"
+					class="shrink-0"
+					onclick={goToday}
+					aria-label="Revenir à aujourd'hui"
+				>
+					<span class="hidden sm:inline">Revenir à aujourd'hui</span>
+				</Button>
+			{/if}
+
 			{#if loading}
 				<Spinner size="sm" class="shrink-0" label="Chargement" />
 			{/if}
 		</div>
 
 		<!-- Right: view switcher + new event -->
-		<div class="flex shrink-0 items-center gap-2 sm:gap-3">
+		<div class="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
 			<div class="flex min-w-0 items-center gap-1 rounded-fc-pill bg-muted p-1">
 				{#each viewItems as item}
 					{@const active = view === item.id}

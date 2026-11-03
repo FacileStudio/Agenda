@@ -1,8 +1,8 @@
 <script lang="ts">
 	/**
-	 * Membership in Agenda hangs off two objects: a calendar, which is shared with people
-	 * one by one, and a space, which owns its own member list under /spaces. This tab is
-	 * the account-level view of the first, and the door to the second.
+	 * Membership in Agenda hangs off two objects: a personal calendar, shared with people
+	 * one by one, and a space, whose one calendar is shared with every member Registre
+	 * lists. This tab manages the first and points at the second.
 	 */
 	import { getContext } from 'svelte';
 	import { Badge, Button, SettingsRow, SettingsSection, Table, icons } from '@facile/muse';
@@ -38,6 +38,11 @@
 		return 'neutral' as const;
 	}
 
+	function typeLabel(calendar: CalendarItem) {
+		if (calendar.space_id) return 'Espace';
+		return calendar.is_personal ? 'Personnel' : 'Partagé';
+	}
+
 	function openManage(calendar: CalendarItem) {
 		managedCalendar = calendar;
 		manageOpen = true;
@@ -55,7 +60,9 @@
 		bare
 	>
 		{#snippet actions()}
-			<Button icon={icons.plus} onclick={() => (createOpen = true)}>Nouveau calendrier</Button>
+			{#if space === 'personal'}
+				<Button icon={icons.plus} onclick={() => (createOpen = true)}>Nouveau calendrier</Button>
+			{/if}
 		{/snippet}
 
 		{#if app.calendars.length === 0}
@@ -92,14 +99,23 @@
 									</span>
 								</span>
 							</td>
-							<td class="text-fc-fg-muted">{calendar.is_personal ? 'Personnel' : 'Partagé'}</td>
+							<td class="text-fc-fg-muted">{typeLabel(calendar)}</td>
 							<td>
 								<Badge tone={roleTone(calendar.role)}>
 									{roleLabels[calendar.role] ?? calendar.role}
 								</Badge>
 							</td>
 							<td class="text-right">
-								{#if calendar.role === 'owner'}
+								{#if calendar.space_id}
+									<Button
+										variant="ghost"
+										size="sm"
+										icon={icons.space}
+										href="/spaces/{calendar.space_id}"
+									>
+										Membres
+									</Button>
+								{:else if calendar.role === 'owner'}
 									<Button
 										variant="ghost"
 										size="sm"
@@ -121,7 +137,7 @@
 
 	<SettingsSection
 		title="Espaces"
-		description="Un espace regroupe des calendriers et leur donne une liste de membres commune."
+		description="Chaque espace a son calendrier, partagé avec tous ses membres. Il naît avec l’espace et en porte le nom."
 	>
 		{#snippet actions()}
 			<Button variant="outline" href="/spaces" icon={icons.space}>Tous les espaces</Button>
@@ -129,7 +145,7 @@
 
 		<SettingsRow
 			label="Contexte courant"
-			description="Les calendriers ci-dessus sont ceux de ce contexte. Changez-le depuis le sélecteur de la barre latérale."
+			description="Les calendriers ci-dessus sont ceux de ce contexte. Changez-le depuis le sélecteur en haut de la page."
 		>
 			<Badge tone={space === 'personal' ? 'neutral' : 'accent'}>{spaceName}</Badge>
 		</SettingsRow>
@@ -137,7 +153,7 @@
 		{#if space !== 'personal'}
 			<SettingsRow
 				label="Membres de l’espace"
-				description="Inviter, changer un rôle ou retirer quelqu’un se fait dans Registre, pour toutes les apps Facile à la fois. Les calendriers de l’espace en héritent."
+				description="Inviter, changer un rôle ou retirer quelqu’un se fait dans Registre, pour toutes les apps Facile à la fois. Le calendrier de l’espace suit."
 			>
 				<Button variant="outline" href="/spaces/{space.spaceId}" icon={icons.usersGroup}>
 					Voir les membres

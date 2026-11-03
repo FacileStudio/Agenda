@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { Alert, Button, SwatchPicker, Field, Input, Modal, icons } from '@facile/muse';
 	import { backend } from '$lib/backend';
-	import { spaceId } from '$lib/space-context.svelte';
 
 	let {
 		open = $bindable(false),
@@ -39,7 +38,7 @@
 		if (!name.trim()) { error = 'Le nom est requis.'; return; }
 		saving = true; error = '';
 		try {
-			await backend.createCalendar({ name: name.trim(), color, description: description || undefined, echo_url: echoUrl.trim() || undefined, space_id: spaceId() });
+			await backend.createCalendar({ name: name.trim(), color, description: description || undefined, echo_url: echoUrl.trim() || undefined });
 			onCreated();
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Une erreur est survenue.';

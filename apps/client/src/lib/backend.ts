@@ -22,6 +22,7 @@ export type MeResponse = {
 export type CalendarItem = {
 	id: number;
 	owner_id: number;
+	space_id: number | null;
 	name: string;
 	color: string;
 	description: string;
@@ -212,7 +213,7 @@ export const backend = {
 		const qs = params.toString();
 		return apiFetch<CalendarItem[]>(`/calendars/${qs ? `?${qs}` : ''}`);
 	},
-	createCalendar(data: { name: string; color: string; description?: string; echo_url?: string; space_id?: number | null }) {
+	createCalendar(data: { name: string; color: string; description?: string; echo_url?: string }) {
 		return apiFetch<CalendarItem>('/calendars/', {
 			method: 'POST',
 			body: JSON.stringify(data)
