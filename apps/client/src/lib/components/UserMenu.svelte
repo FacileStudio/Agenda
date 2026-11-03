@@ -29,7 +29,7 @@
 		class="shrink-0 cursor-pointer rounded-fc-pill focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 		aria-label="Menu du profil"
 	>
-		<Avatar src={avatar} {name} size="sm" />
+		<Avatar src={avatar} {name} class="h-11 w-11 text-fc-sm" />
 	</DropdownMenu.Trigger>
 	<DropdownMenu.Content align="start" class="w-60">
 		<DropdownMenu.Label class="flex flex-col gap-0.5">

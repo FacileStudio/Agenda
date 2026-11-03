@@ -16,6 +16,7 @@
 	import CalendarDayView from '$lib/components/CalendarDayView.svelte';
 	import CalendarAgendaView from '$lib/components/CalendarAgendaView.svelte';
 	import EventModal from '$lib/components/EventModal.svelte';
+	import AppIdentity from '$lib/components/AppIdentity.svelte';
 
 	type AppContext = { calendars: CalendarItem[]; user: { id: string; email: string; name: string } };
 	const app = getContext<AppContext>('app');
@@ -186,9 +187,11 @@
 
 <div class="flex h-full flex-col">
 	<!-- Top bar -->
-	<div class="flex min-h-16 shrink-0 flex-wrap items-center gap-2 px-3 py-2 sm:flex-nowrap sm:gap-3 sm:px-5">
+	<div class="flex min-h-16 shrink-0 flex-wrap items-center gap-2 px-3 py-2 lg:flex-nowrap sm:gap-3 sm:px-5">
+		<AppIdentity />
+
 		<!-- Left: navigation + period title -->
-		<div class="flex min-w-0 flex-1 basis-full items-center gap-2 sm:basis-auto sm:gap-3">
+		<div class="order-last flex min-w-0 flex-1 basis-full items-center gap-2 sm:gap-3 lg:order-none lg:basis-auto">
 			<div class="flex items-center">
 				<IconButton variant="ghost" onclick={() => navigate(-1)} aria-label="Précédent">
 					<iconify-icon icon={icons.chevronLeft} width="20" height="20" class="block size-5"
@@ -199,7 +202,7 @@
 				</IconButton>
 			</div>
 
-			<h1 class="min-w-0 truncate text-fc-lg font-semibold capitalize text-foreground sm:text-fc-xl">
+			<h1 class="shrink-0 whitespace-nowrap text-fc-lg font-semibold capitalize text-foreground sm:text-fc-xl">
 				{periodTitle()}
 			</h1>
 
@@ -231,13 +234,14 @@
 						onclick={() => (view = item.id)}
 						aria-pressed={active}
 						aria-label={item.label}
+						title={item.label}
 						class="flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-fc-pill px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring {active
 							? 'bg-primary text-primary-foreground'
 							: 'text-muted-foreground hover:text-foreground'}"
 					>
 						<iconify-icon icon={item.icon} width="16" height="16" class="block size-4 shrink-0"
 						></iconify-icon>
-						<span class="hidden md:inline">{item.label}</span>
+						<span class="hidden 2xl:inline">{item.label}</span>
 					</button>
 				{/each}
 			</div>

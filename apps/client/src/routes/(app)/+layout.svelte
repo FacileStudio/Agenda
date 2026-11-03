@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount, setContext } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { SpaceSwitcher, Topbar } from '@facile/muse';
-	import UserMenu from '$lib/components/UserMenu.svelte';
+	import { page } from '$app/state';
+	import AppIdentity from '$lib/components/AppIdentity.svelte';
 	import { ApiError, backend, type UserProfile, type CalendarItem, type SpaceItem } from '$lib/backend';
 	import { getSpaceContext, setSpaceContext, spaceId } from '$lib/space-context.svelte';
 
@@ -20,6 +20,10 @@
 	setContext('app', {
 		get user() { return user; },
 		get calendars() { return calendars; },
+		get navUser() { return navUser; },
+		get switcherSpaces() { return switcherSpaces; },
+		get activeSpaceId() { return activeSpaceId; },
+		selectSpace,
 		setUser,
 		refreshCalendars
 	});
@@ -88,19 +92,11 @@
 
 {#if loaded}
 	<div class="flex h-[100dvh] w-full flex-col overflow-hidden bg-fc-page">
-		<Topbar class="shrink-0 justify-start bg-fc-page">
-			<UserMenu name={navUser.name} email={navUser.email} avatar={navUser.avatar} />
-			<div class="min-w-0 max-w-64 flex-1">
-				<SpaceSwitcher
-					spaces={switcherSpaces}
-					activeId={activeSpaceId}
-					onSelect={selectSpace}
-					personalLabel="Personnel"
-					manageHref="/spaces"
-					manageLabel="Gérer les espaces"
-				/>
+		{#if !page.url.pathname.startsWith('/calendar')}
+			<div class="flex shrink-0 items-center px-3 pt-3 sm:px-5">
+				<AppIdentity />
 			</div>
-		</Topbar>
+		{/if}
 		<main class="min-h-0 flex-1 overflow-auto overscroll-contain">
 			{@render children()}
 		</main>
