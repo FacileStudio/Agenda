@@ -4,6 +4,12 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-11-03
+
+### Fixed
+
+- The profile picture sat higher than the space switcher: its menu trigger was an inline box on the text baseline. It is now a 44px flex box centered on the switcher.
+
 ## [0.8.1] - 2026-11-03
 
 ### Changed
