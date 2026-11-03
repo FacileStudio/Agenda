@@ -4,6 +4,12 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-03
+
+### Changed
+
+- Spaces use the share-circle icon: the Espaces nav item, the space list rows and empty state, and the "Tous les espaces" button. The web app moves to muse v0.8.1.
+
 ## [0.6.0] - 2026-11-03
 
 ### Changed
