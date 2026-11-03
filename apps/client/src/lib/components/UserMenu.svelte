@@ -26,10 +26,10 @@
 
 <DropdownMenu.Root>
 	<DropdownMenu.Trigger
-		class="shrink-0 cursor-pointer rounded-fc-pill focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+		class="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-fc-pill focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 		aria-label="Menu du profil"
 	>
-		<Avatar src={avatar} {name} class="h-11 w-11 text-fc-sm" />
+		<Avatar src={avatar} {name} class="size-11 align-top text-fc-sm [&>img]:block" />
 	</DropdownMenu.Trigger>
 	<DropdownMenu.Content align="start" class="w-60">
 		<DropdownMenu.Label class="flex flex-col gap-0.5">
