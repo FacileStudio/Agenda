@@ -4,6 +4,12 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-03
+
+### Fixed
+
+- Phones (checked at 360 and 390px): the event form's time inputs no longer spill past the dialog, month-view events show their title instead of a clipped time, the Espaces header stacks its button under the text, a space's page wraps its buttons under its name, and the members table drops the Type column and shows icon-only actions.
+
 ## [0.9.0] - 2026-11-03
 
 ### Added
