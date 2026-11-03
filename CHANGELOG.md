@@ -4,6 +4,21 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-03
+
+### Added
+
+- Spaces follow Registre. With OIDC configured, Agenda imports its existing spaces and members into Registre once at boot, retrying with backoff while Registre is not ready, then pulls Registre's snapshot at boot, every five minutes and on Registre's nudge at `POST /api/registre/sync`. Spaces link by Registre id or by name, members are matched by SSO identity or email, and people Agenda has never seen are pre-provisioned so their first sign-in lands in their spaces. Local password members are never removed.
+- `spaces.registre_space_id` (unique, nullable), added by the boot migration, and returned as `registre_space_id`.
+
+### Changed
+
+- The spaces pages are read-only and link to `https://sso.facile.studio/spaces` to create, rename, invite, change roles, remove or leave. Calendar shares are unchanged.
+
+### Removed
+
+- `POST /api/spaces`, `PUT` and `DELETE /api/spaces/{id}`, `POST /api/spaces/{id}/leave`, `POST /api/spaces/{id}/members`, `DELETE /api/spaces/{id}/members/{userID}` and `PUT /api/spaces/{id}/members/{userID}/role`, with the client pages that called them. Registre owns these changes now.
+
 ## [0.4.0] - 2026-11-03
 
 ### Added
