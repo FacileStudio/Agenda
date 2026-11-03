@@ -16,7 +16,9 @@
 	import CalendarDayView from '$lib/components/CalendarDayView.svelte';
 	import CalendarAgendaView from '$lib/components/CalendarAgendaView.svelte';
 	import EventModal from '$lib/components/EventModal.svelte';
-	import AppIdentity from '$lib/components/AppIdentity.svelte';
+	import UserMenu from '$lib/components/UserMenu.svelte';
+	import CalendarFilter from '$lib/components/CalendarFilter.svelte';
+	import { calendarFilter, visibleCalendars } from '$lib/calendar-filter.svelte';
 
 	type AppContext = { calendars: CalendarItem[]; user: { id: string; email: string; name: string } };
 	const app = getContext<AppContext>('app');
@@ -69,7 +71,7 @@
 
 	async function loadEvents() {
 		const seq = ++loadSeq;
-		const cals = app.calendars;
+		const cals = visibleCalendars(app.calendars);
 		if (!cals.length) {
 			events = [];
 			loading = false;
@@ -91,6 +93,7 @@
 		const _date = currentDate;
 		const _view = view;
 		const _cals = app.calendars;
+		const _filter = calendarFilter();
 		loadEvents();
 	});
 
@@ -186,12 +189,47 @@
 </script>
 
 <div class="flex h-full flex-col">
-	<!-- Top bar -->
-	<div class="flex min-h-16 shrink-0 flex-wrap items-center gap-2 px-3 py-2 lg:flex-nowrap sm:gap-3 sm:px-5">
-		<AppIdentity />
+	<header class="flex shrink-0 flex-col gap-2 px-3 pt-3 pb-2 sm:px-5">
+		<div class="flex flex-wrap items-center gap-2 sm:gap-3">
+			<UserMenu />
 
-		<!-- Left: navigation + period title -->
-		<div class="order-last flex min-w-0 flex-1 basis-full items-center gap-2 sm:gap-3 lg:order-none lg:basis-auto">
+			<div class="order-last flex min-w-0 basis-full md:order-none md:flex-1 md:basis-auto">
+				<CalendarFilter calendars={app.calendars} class="w-fit max-w-full" />
+			</div>
+
+			<div class="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+				<div class="flex min-w-0 items-center gap-1 rounded-fc-pill bg-muted p-1">
+					{#each viewItems as item}
+						{@const active = view === item.id}
+						<button
+							type="button"
+							onclick={() => (view = item.id)}
+							aria-pressed={active}
+							aria-label={item.label}
+							title={item.label}
+							class="flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-fc-pill px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring {active
+								? 'bg-primary text-primary-foreground'
+								: 'text-muted-foreground hover:text-foreground'}"
+						>
+							<iconify-icon icon={item.icon} width="16" height="16" class="block size-4 shrink-0"
+							></iconify-icon>
+							<span class="hidden xl:inline">{item.label}</span>
+						</button>
+					{/each}
+				</div>
+
+				<Button
+					onclick={() => openCreateModal()}
+					size="lg"
+					icon={icons.plus}
+					aria-label="Nouvel événement"
+				>
+					<span class="hidden sm:inline">Nouveau</span>
+				</Button>
+			</div>
+		</div>
+
+		<div class="flex min-w-0 items-center gap-2 sm:gap-3">
 			<div class="flex items-center">
 				<IconButton variant="ghost" onclick={() => navigate(-1)} aria-label="Précédent">
 					<iconify-icon icon={icons.chevronLeft} width="20" height="20" class="block size-5"
@@ -223,39 +261,7 @@
 				<Spinner size="sm" class="shrink-0" label="Chargement" />
 			{/if}
 		</div>
-
-		<!-- Right: view switcher + new event -->
-		<div class="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
-			<div class="flex min-w-0 items-center gap-1 rounded-fc-pill bg-muted p-1">
-				{#each viewItems as item}
-					{@const active = view === item.id}
-					<button
-						type="button"
-						onclick={() => (view = item.id)}
-						aria-pressed={active}
-						aria-label={item.label}
-						title={item.label}
-						class="flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-fc-pill px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring {active
-							? 'bg-primary text-primary-foreground'
-							: 'text-muted-foreground hover:text-foreground'}"
-					>
-						<iconify-icon icon={item.icon} width="16" height="16" class="block size-4 shrink-0"
-						></iconify-icon>
-						<span class="hidden 2xl:inline">{item.label}</span>
-					</button>
-				{/each}
-			</div>
-
-			<Button
-				onclick={() => openCreateModal()}
-				size="lg"
-				icon={icons.plus}
-				aria-label="Nouvel événement"
-			>
-				<span class="hidden sm:inline">Nouveau</span>
-			</Button>
-		</div>
-	</div>
+	</header>
 
 	<!-- View area -->
 	<div class="min-h-0 flex-1 overflow-hidden">
@@ -298,6 +304,7 @@
 	bind:open={modalOpen}
 	event={selectedEvent}
 	calendars={app.calendars}
+	defaultCalendarId={calendarFilter() === 'all' ? null : (calendarFilter() as number)}
 	initialDate={modalInitialDate}
 	onSave={handleSave}
 	onDelete={handleDelete}

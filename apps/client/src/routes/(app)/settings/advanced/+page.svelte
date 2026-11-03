@@ -16,7 +16,6 @@
 		icons
 	} from '@facile/muse';
 	import { backend, registreSpaceUrl, type UserProfile } from '$lib/backend';
-	import { getSpaceContext } from '$lib/space-context.svelte';
 
 	const app = getContext<{ user: UserProfile | null }>('app');
 
@@ -26,7 +25,6 @@
 	let encryptionKeySet = $state(false);
 	let settingsLoaded = $state(false);
 
-	const space = $derived(getSpaceContext());
 	const serverOrigin = $derived(backend.baseUrl || (browser ? window.location.origin : ''));
 	const davEndpoint = $derived(`${serverOrigin}/dav/`);
 
@@ -164,8 +162,8 @@
 		</SettingsRow>
 
 		<SettingsRow
-			label={space === 'personal' ? 'Quitter un espace' : `Quitter « ${space.name} »`}
-			description="Quitter un espace vous coupe de ses calendriers partagés, dans toutes les apps Facile. Cela se fait dans Registre."
+			label="Quitter un espace"
+			description="Quitter un espace vous coupe de son calendrier, dans toutes les apps Facile. Cela se fait dans Registre."
 		>
 			<Button variant="ghost-danger" href={registreSpaceUrl()} target="_blank" rel="noopener" icon={icons.warning}>
 				Gérer dans Registre

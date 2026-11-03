@@ -8,7 +8,6 @@
 	import { Badge, Button, SettingsRow, SettingsSection, Table, icons } from '@facile/muse';
 	import { toast } from 'svelte-sonner';
 	import type { CalendarItem, UserProfile } from '$lib/backend';
-	import { getSpaceContext } from '$lib/space-context.svelte';
 	import CreateCalendarModal from '$lib/components/CreateCalendarModal.svelte';
 	import ManageCalendarModal from '$lib/components/ManageCalendarModal.svelte';
 
@@ -22,8 +21,6 @@
 	let manageOpen = $state(false);
 	let managedCalendar = $state<CalendarItem | null>(null);
 
-	const space = $derived(getSpaceContext());
-	const spaceName = $derived(space === 'personal' ? 'Personnel' : space.name);
 
 	const roleLabels: Record<string, string> = {
 		owner: 'Propriétaire',
@@ -56,19 +53,16 @@
 <div class="flex flex-col gap-10">
 	<SettingsSection
 		title="Calendriers"
-		description="Un calendrier se partage par adresse email. Le rôle décide de qui peut écrire dedans."
+		description="Un calendrier personnel se partage par adresse email. Celui d’un espace est partagé avec tous ses membres."
 		bare
 	>
 		{#snippet actions()}
-			{#if space === 'personal'}
-				<Button icon={icons.plus} onclick={() => (createOpen = true)}>Nouveau calendrier</Button>
-			{/if}
+			<Button icon={icons.plus} onclick={() => (createOpen = true)}>Nouveau calendrier</Button>
 		{/snippet}
 
 		{#if app.calendars.length === 0}
 			<div class="rounded-fc-md bg-fc-component p-6 text-fc-sm text-fc-fg-muted">
-				Aucun calendrier dans le contexte <span class="font-medium text-fc-fg">{spaceName}</span>.
-				Créez-en un pour commencer à partager.
+				Aucun calendrier pour l’instant. Créez-en un pour commencer à partager.
 			</div>
 		{:else}
 			<Table>
@@ -144,22 +138,11 @@
 		{/snippet}
 
 		<SettingsRow
-			label="Contexte courant"
-			description="Les calendriers ci-dessus sont ceux de ce contexte. Changez-le depuis le sélecteur en haut de la page."
+			label="Membres d’un espace"
+			description="Inviter, changer un rôle ou retirer quelqu’un se fait dans Registre, pour toutes les apps Facile à la fois. Le calendrier de l’espace suit."
 		>
-			<Badge tone={space === 'personal' ? 'neutral' : 'accent'}>{spaceName}</Badge>
+			<Button variant="outline" href="/spaces" icon={icons.usersGroup}>Voir les espaces</Button>
 		</SettingsRow>
-
-		{#if space !== 'personal'}
-			<SettingsRow
-				label="Membres de l’espace"
-				description="Inviter, changer un rôle ou retirer quelqu’un se fait dans Registre, pour toutes les apps Facile à la fois. Le calendrier de l’espace suit."
-			>
-				<Button variant="outline" href="/spaces/{space.spaceId}" icon={icons.usersGroup}>
-					Voir les membres
-				</Button>
-			</SettingsRow>
-		{/if}
 	</SettingsSection>
 </div>
 

@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { EmptyState, Spinner, icons } from '@facile/muse';
 	import { backend, type AgendaEvent, type CalendarItem } from '$lib/backend';
-	import { spaceId } from '$lib/space-context.svelte';
+	import { visibleCalendars } from '$lib/calendar-filter.svelte';
 	import { eventKey } from '$lib/recurrence';
 	import EventAvatar from '$lib/components/EventAvatar.svelte';
 
@@ -12,7 +12,7 @@
 
 	onMount(async () => {
 		try {
-			const calendars: CalendarItem[] = await backend.listCalendars(spaceId() ?? undefined);
+			const calendars: CalendarItem[] = visibleCalendars(await backend.listCalendars());
 			const now = new Date();
 			const from = now.toISOString();
 			const to = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();

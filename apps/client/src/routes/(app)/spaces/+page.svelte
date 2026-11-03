@@ -3,7 +3,6 @@
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
 	import { backend, registreSpaceUrl, type SpaceItem } from '$lib/backend';
-	import { setSpaceContext } from '$lib/space-context.svelte';
 
 	let spaces = $state<SpaceItem[]>([]);
 	let loading = $state(true);
@@ -19,7 +18,6 @@
 	});
 
 	function selectSpace(space: SpaceItem) {
-		setSpaceContext({ spaceId: space.id, name: space.name, role: space.role });
 		goto(`/spaces/${space.id}`);
 	}
 

@@ -1,11 +1,12 @@
 <script lang="ts">
+	import { getContext } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { Avatar, icons } from '@facile/muse';
 	import { toast } from 'svelte-sonner';
 	import { backend } from '$lib/backend';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 
-	let { name, email, avatar }: { name: string; email: string; avatar?: string } = $props();
+	const app = getContext<{ navUser: { name: string; email: string; avatar?: string } }>('app');
 
 	const links = [
 		{ label: 'Calendrier', href: '/calendar', icon: icons.calendar },
@@ -29,12 +30,12 @@
 		class="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-fc-pill focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 		aria-label="Menu du profil"
 	>
-		<Avatar src={avatar} {name} class="size-11 align-top text-fc-sm [&>img]:block" />
+		<Avatar src={app.navUser.avatar} name={app.navUser.name} class="size-11 align-top text-fc-sm [&>img]:block" />
 	</DropdownMenu.Trigger>
 	<DropdownMenu.Content align="start" class="w-60">
 		<DropdownMenu.Label class="flex flex-col gap-0.5">
-			<span class="truncate text-fc-sm font-semibold text-fc-fg">{name}</span>
-			<span class="truncate text-fc-xs font-normal text-fc-fg-muted">{email}</span>
+			<span class="truncate text-fc-sm font-semibold text-fc-fg">{app.navUser.name}</span>
+			<span class="truncate text-fc-xs font-normal text-fc-fg-muted">{app.navUser.email}</span>
 		</DropdownMenu.Label>
 		<DropdownMenu.Separator />
 		{#each links as link (link.href)}

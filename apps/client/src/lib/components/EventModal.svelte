@@ -21,6 +21,7 @@
 		open = $bindable(false),
 		event,
 		calendars,
+		defaultCalendarId = null,
 		initialDate,
 		onSave,
 		onDelete,
@@ -29,11 +30,23 @@
 		open: boolean;
 		event: AgendaEvent | null;
 		calendars: CalendarItem[];
+		defaultCalendarId?: number | null;
 		initialDate: string | null;
 		onSave: (calendarId: number, data: CreateEventRequest) => Promise<void>;
 		onDelete: () => Promise<void>;
 		onClose: () => void;
 	} = $props();
+
+	const choices = $derived(
+		calendars.filter((c) => c.role !== 'reader' || c.id === event?.calendar_id)
+	);
+	const spaceChoices = $derived(choices.filter((c) => c.space_id));
+	const personalChoices = $derived(choices.filter((c) => !c.space_id));
+
+	function pickDefault() {
+		if (defaultCalendarId && choices.some((c) => c.id === defaultCalendarId)) return defaultCalendarId;
+		return (personalChoices.find((c) => c.is_personal) ?? choices[0])?.id ?? 0;
+	}
 
 	function splitDT(iso: string) {
 		return { date: iso.slice(0, 10), time: iso.slice(11, 16) || '09:00' };
@@ -100,7 +113,7 @@
 			location = event?.location ?? '';
 			isAllDay = event?.is_all_day ?? false;
 			status = event?.status ?? 'confirmed';
-			calendarId = event?.calendar_id ?? (calendars[0]?.id ?? 0);
+			calendarId = event?.calendar_id ?? pickDefault();
 			conferenceUrl = event?.conference_url ?? '';
 			conferenceProvider = event?.conference_provider ?? '';
 			error = '';
@@ -180,7 +193,7 @@
 
 	async function handleSave() {
 		if (!title.trim()) { error = 'Le titre est requis.'; return; }
-		if (!calendarId || !calendars.find((c) => c.id === calendarId)) {
+		if (!calendarId || !choices.find((c) => c.id === calendarId)) {
 			error = 'Selectionnez un calendrier valide.';
 			return;
 		}
@@ -256,9 +269,20 @@
 					value={String(calendarId)}
 					onchange={(e) => (calendarId = Number(e.currentTarget.value))}
 				>
-					{#each calendars as cal (cal.id)}
-						<option value={String(cal.id)}>{cal.name}</option>
-					{/each}
+					{#if spaceChoices.length > 0}
+						<optgroup label="Espaces">
+							{#each spaceChoices as cal (cal.id)}
+								<option value={String(cal.id)}>{cal.name}</option>
+							{/each}
+						</optgroup>
+					{/if}
+					{#if personalChoices.length > 0}
+						<optgroup label="Personnels">
+							{#each personalChoices as cal (cal.id)}
+								<option value={String(cal.id)}>{cal.name}</option>
+							{/each}
+						</optgroup>
+					{/if}
 				</Select>
 			</div>
 		</Field>

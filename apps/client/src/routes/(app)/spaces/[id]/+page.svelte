@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { onMount } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { Avatar } from '@facile/muse';
 	import { Button } from '$lib/components/ui/button';
 	import { backend, registreSpaceUrl, resolveFileUrl, type SpaceItem, type SpaceMember } from '$lib/backend';
-	import { setSpaceContext, getSpaceContext, isPersonal } from '$lib/space-context.svelte';
+	import { setCalendarFilter } from '$lib/calendar-filter.svelte';
+	import type { CalendarItem } from '$lib/backend';
 
 	const spaceId = $derived(Number($page.params.id));
 
@@ -14,7 +15,8 @@
 	let loading = $state(true);
 
 	const canManage = $derived(space?.role === 'owner' || space?.role === 'admin');
-	const isCurrentSpace = $derived(!isPersonal() && getSpaceContext() !== 'personal' && (getSpaceContext() as { spaceId: number }).spaceId === spaceId);
+	const app = getContext<{ calendars: CalendarItem[] }>('app');
+	const spaceCalendar = $derived(app.calendars.find((c) => c.space_id === spaceId));
 
 	function roleBadgeClass(role: string): string {
 		switch (role) {
@@ -48,9 +50,10 @@
 		}
 	});
 
-	function switchToSpace() {
-		if (!space) return;
-		setSpaceContext({ spaceId: space.id, name: space.name, role: space.role });
+	function openCalendar() {
+		if (!spaceCalendar) return;
+		setCalendarFilter(spaceCalendar.id);
+		goto('/calendar');
 	}
 </script>
 
@@ -76,10 +79,10 @@
 					{/if}
 				</div>
 				<div class="flex shrink-0 items-center gap-2">
-					{#if !isCurrentSpace}
-						<Button onclick={switchToSpace} class="cursor-pointer gap-2">
-							<iconify-icon icon="solar:transfer-horizontal-linear" width="16"></iconify-icon>
-							Basculer
+					{#if spaceCalendar}
+						<Button onclick={openCalendar} class="cursor-pointer gap-2">
+							<iconify-icon icon="solar:calendar-linear" width="16"></iconify-icon>
+							Voir le calendrier
 						</Button>
 					{/if}
 					<Button
