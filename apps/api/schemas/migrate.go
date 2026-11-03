@@ -30,6 +30,9 @@ func MigrateWithIssuer(db *gorm.DB, issuer string) error {
 	if err := backfillAvatarSources(db); err != nil {
 		return err
 	}
+	if err := SyncSpaceCalendars(db); err != nil {
+		return err
+	}
 	return AdoptPorte(db, issuer)
 }
 

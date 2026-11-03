@@ -197,14 +197,7 @@ func (b *Backend) ListCalendars(ctx context.Context) ([]caldav.Calendar, error) 
 
 	b.ensurePersonalCalendar(ctx, user.ID)
 
-	var cals []schemas.Calendar
-	err := b.db.WithContext(ctx).Raw(`
-		SELECT c.* FROM calendars c WHERE c.owner_id = ?
-		UNION
-		SELECT c.* FROM calendars c
-		JOIN calendar_members cm ON cm.calendar_id = c.id
-		WHERE cm.user_id = ? AND c.owner_id != ?
-	`, user.ID, user.ID, user.ID).Scan(&cals).Error
+	cals, err := b.accessibleCalendars(ctx, user.ID)
 	if err != nil {
 		return nil, webdav.NewHTTPError(http.StatusInternalServerError, err)
 	}
@@ -311,13 +304,7 @@ func (b *Backend) QueryCalendarObjects(ctx context.Context, calPath string, quer
 		}
 		cals = []schemas.Calendar{cal}
 	} else {
-		b.db.WithContext(ctx).Raw(`
-			SELECT c.* FROM calendars c WHERE c.owner_id = ?
-			UNION
-			SELECT c.* FROM calendars c
-			JOIN calendar_members cm ON cm.calendar_id = c.id
-			WHERE cm.user_id = ? AND c.owner_id != ?
-		`, user.ID, user.ID, user.ID).Scan(&cals)
+		cals, _ = b.accessibleCalendars(ctx, user.ID)
 	}
 
 	var all []caldav.CalendarObject
@@ -578,52 +565,42 @@ func (b *Backend) loadCalendarByPath(ctx context.Context, p string) (*schemas.Ca
 }
 
 func (b *Backend) checkCalendarAccess(ctx context.Context, calID int64) error {
-	user := userFromContext(ctx)
-	if user == nil {
-		return webdav.NewHTTPError(http.StatusUnauthorized, fmt.Errorf("not authenticated"))
-	}
-	var cal schemas.Calendar
-	if err := b.db.WithContext(ctx).First(&cal, calID).Error; err != nil {
-		return webdav.NewHTTPError(http.StatusNotFound, fmt.Errorf("calendar not found"))
-	}
-	if cal.OwnerID == user.ID {
-		return nil
-	}
-	var member schemas.CalendarMember
-	err := b.db.WithContext(ctx).Where("calendar_id = ? AND user_id = ?", calID, user.ID).First(&member).Error
-	if err != nil {
-		if stderrors.Is(err, gorm.ErrRecordNotFound) {
-			return webdav.NewHTTPError(http.StatusForbidden, fmt.Errorf("access denied"))
-		}
-		return webdav.NewHTTPError(http.StatusInternalServerError, err)
-	}
-	return nil
+	_, err := b.calendarRole(ctx, calID)
+	return err
 }
 
 func (b *Backend) checkCalendarWriteAccess(ctx context.Context, calID int64) error {
-	user := userFromContext(ctx)
-	if user == nil {
-		return webdav.NewHTTPError(http.StatusUnauthorized, fmt.Errorf("not authenticated"))
-	}
-	var cal schemas.Calendar
-	if err := b.db.WithContext(ctx).First(&cal, calID).Error; err != nil {
-		return webdav.NewHTTPError(http.StatusNotFound, fmt.Errorf("calendar not found"))
-	}
-	if cal.OwnerID == user.ID {
-		return nil
-	}
-	var member schemas.CalendarMember
-	err := b.db.WithContext(ctx).Where("calendar_id = ? AND user_id = ?", calID, user.ID).First(&member).Error
-	if stderrors.Is(err, gorm.ErrRecordNotFound) {
-		return webdav.NewHTTPError(http.StatusForbidden, fmt.Errorf("access denied"))
-	}
-	if err != nil {
-		return webdav.NewHTTPError(http.StatusInternalServerError, err)
-	}
-	if member.Role == "reader" {
+	role, err := b.calendarRole(ctx, calID)
+	if err == nil && role == "reader" {
 		return webdav.NewHTTPError(http.StatusForbidden, fmt.Errorf("read-only access"))
 	}
-	return nil
+	return err
+}
+
+func (b *Backend) calendarRole(ctx context.Context, calID int64) (string, error) {
+	user := userFromContext(ctx)
+	if user == nil {
+		return "", webdav.NewHTTPError(http.StatusUnauthorized, fmt.Errorf("not authenticated"))
+	}
+	access, found, err := schemas.LoadCalendarAccess(b.db.WithContext(ctx), user.ID, calID)
+	switch {
+	case err != nil:
+		return "", webdav.NewHTTPError(http.StatusInternalServerError, err)
+	case !found:
+		return "", webdav.NewHTTPError(http.StatusNotFound, fmt.Errorf("calendar not found"))
+	case access.Role == "":
+		return "", webdav.NewHTTPError(http.StatusForbidden, fmt.Errorf("access denied"))
+	}
+	return access.Role, nil
+}
+
+func (b *Backend) accessibleCalendars(ctx context.Context, userID int64) ([]schemas.Calendar, error) {
+	rows, err := schemas.AccessibleCalendars(b.db.WithContext(ctx), userID)
+	cals := make([]schemas.Calendar, len(rows))
+	for i := range rows {
+		cals[i] = rows[i].Calendar
+	}
+	return cals, err
 }
 
 func (b *Backend) bumpSyncToken(ctx context.Context, calID int64) {

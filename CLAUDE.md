@@ -137,7 +137,8 @@ the root because their URLs are held outside this repo:
 - **Svelte 5 runes** enforced (`$state`, `$props`, `$derived`, `$effect`)
 - **shadcn-svelte** for UI primitives in `src/lib/components/ui/`
 - **CalDAV sync token** — stored per calendar, bumped on every event create/update/delete
-- **Spaces belong to Registre** — `modules/spaces` imports once, then applies Registre snapshots; Agenda has no space write endpoints and the UI links to `https://sso.facile.studio/spaces`. Calendar shares stay app-local
+- **Spaces belong to Registre** — `modules/spaces` imports once, then applies Registre snapshots; Agenda has no space write endpoints and the UI links to `https://sso.facile.studio/spaces`
+- **One calendar per space** — `schemas.SyncSpaceCalendars` (run by `Migrate` and after every Registre snapshot) gives each space exactly one calendar, named after it and pinned by the partial unique index `idx_calendars_one_per_space`; extra or orphaned space calendars are handed back to their owner as personal ones. Access to a space's calendar is space membership alone (owner/admin → admin, member → writer), resolved by `schemas.CalendarRoleExpr`, which calendars, events and CalDAV all share. Only personal calendars are created, deleted or shared one by one
 - **Mirrored events** — `events.source` / `events.external_id` mark events owned by another app (Opus tasks); user edits and CalDAV PUT/DELETE are rejected
 - **Event raw ICS** — stored in `events.raw_ics` for round-trip fidelity with CalDAV clients
 - **Event ICS is the source of truth** — attendees, reminders, EXDATE and RECURRENCE-ID overrides live only in `events.raw_ics` (rendered by `modules/events/ics_write.go`, read by `details.go`), so CalDAV clients and the API agree; `color` and `timezone` are columns

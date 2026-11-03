@@ -39,47 +39,89 @@ func names(cals []CalendarResponse) map[string]bool {
 	return out
 }
 
-func TestPersonalListingHidesOnlyCalendarsOfSpacesTheUserBelongsTo(t *testing.T) {
+func TestEverySpaceOwnsOneCalendarItsMembersShare(t *testing.T) {
 	db := openTestDatabase(t)
 	svc := NewService(db)
 	ctx := context.Background()
 	alice := schemas.User{Email: "alice@example.com", Name: "Alice"}
 	bob := schemas.User{Email: "bob@example.com", Name: "Bob"}
+	carol := schemas.User{Email: "carol@example.com", Name: "Carol"}
 	db.Create(&alice)
 	db.Create(&bob)
+	db.Create(&carol)
 	space := schemas.Space{Name: "Studio"}
 	db.Create(&space)
 	db.Create(&schemas.SpaceMember{SpaceID: space.ID, UserID: alice.ID, Role: "owner"})
-	zero := int64(0)
+	db.Create(&schemas.SpaceMember{SpaceID: space.ID, UserID: bob.ID, Role: "member"})
 	gone := int64(9999)
-	db.Create(&schemas.Calendar{OwnerID: alice.ID, Slug: "legacy", Name: "Legacy"})
-	db.Create(&schemas.Calendar{OwnerID: alice.ID, SpaceID: &space.ID, Slug: "in-space", Name: "InSpace"})
-	db.Create(&schemas.Calendar{OwnerID: alice.ID, SpaceID: &zero, Slug: "zero", Name: "Zero"})
+	db.Exec("DROP INDEX idx_calendars_one_per_space")
+	db.Create(&schemas.Calendar{OwnerID: alice.ID, SpaceID: &space.ID, Slug: "first", Name: "First"})
+	db.Create(&schemas.Calendar{OwnerID: alice.ID, SpaceID: &space.ID, Slug: "second", Name: "Second"})
 	db.Create(&schemas.Calendar{OwnerID: alice.ID, SpaceID: &gone, Slug: "gone", Name: "Gone"})
-	shared := schemas.Calendar{OwnerID: bob.ID, SpaceID: &space.ID, Slug: "bob-space", Name: "BobSpace"}
-	db.Create(&shared)
-	db.Create(&schemas.CalendarMember{CalendarID: shared.ID, UserID: alice.ID, Role: "writer"})
-
-	personal, err := svc.ListCalendars(ctx, alice.ID, nil)
-	if err != nil {
-		t.Fatalf("list personal: %v", err)
+	if err := schemas.SyncSpaceCalendars(db); err != nil {
+		t.Fatalf("sync: %v", err)
 	}
-	got := names(personal)
-	for _, want := range []string{"Legacy", "Zero", "Gone", "Personal"} {
-		if !got[want] {
-			t.Errorf("personal listing misses %s: %v", want, got)
+	if err := schemas.SyncSpaceCalendars(db); err != nil {
+		t.Fatalf("second sync: %v", err)
+	}
+
+	for user, want := range map[int64]string{alice.ID: "admin", bob.ID: "writer"} {
+		cals, err := svc.ListCalendars(ctx, user, &space.ID)
+		if err != nil || len(cals) != 1 || cals[0].Name != "Studio" || cals[0].Role != want {
+			t.Fatalf("space listing for %d = %+v, %v; want one Studio as %s", user, cals, err, want)
 		}
 	}
-	if got["InSpace"] || got["BobSpace"] {
-		t.Errorf("personal listing leaks space calendars: %v", got)
+	if cals, _ := svc.ListCalendars(ctx, carol.ID, &space.ID); len(cals) != 0 {
+		t.Fatalf("outsider sees the space calendar: %+v", cals)
 	}
+	got := map[string]bool{}
+	personal, _ := svc.ListCalendars(ctx, alice.ID, nil)
+	for _, c := range personal {
+		got[c.Name] = true
+	}
+	if !got["Second"] || !got["Gone"] || !got["Personal"] || got["Studio"] {
+		t.Fatalf("personal listing = %v", got)
+	}
+	members, err := svc.ListMembers(ctx, bob.ID, personalOrSpace(t, svc, bob.ID, space.ID))
+	if err != nil || len(members) != 2 {
+		t.Fatalf("space calendar members = %+v, %v", members, err)
+	}
+}
 
-	inSpace, err := svc.ListCalendars(ctx, alice.ID, &space.ID)
-	if err != nil {
-		t.Fatalf("list space: %v", err)
+func personalOrSpace(t *testing.T, svc *Service, userID, spaceID int64) int64 {
+	t.Helper()
+	cals, err := svc.ListCalendars(context.Background(), userID, &spaceID)
+	if err != nil || len(cals) != 1 {
+		t.Fatalf("space calendar: %+v, %v", cals, err)
 	}
-	if got := names(inSpace); !got["InSpace"] || !got["BobSpace"] || len(got) != 2 {
-		t.Errorf("space listing = %v", got)
+	return cals[0].ID
+}
+
+func TestSpaceCalendarRefusesSharesDeletionAndSiblings(t *testing.T) {
+	db := openTestDatabase(t)
+	svc := NewService(db)
+	ctx := context.Background()
+	alice := schemas.User{Email: "alice@example.com", Name: "Alice"}
+	db.Create(&alice)
+	space := schemas.Space{Name: "Studio"}
+	db.Create(&space)
+	db.Create(&schemas.SpaceMember{SpaceID: space.ID, UserID: alice.ID, Role: "owner"})
+	if err := schemas.SyncSpaceCalendars(db); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	id := personalOrSpace(t, svc, alice.ID, space.ID)
+	if err := svc.ShareCalendar(ctx, alice.ID, id, &ShareCalendarRequest{Email: "x@example.com", Role: "reader"}); err == nil {
+		t.Error("share on a space calendar succeeded")
+	}
+	if err := svc.DeleteCalendar(ctx, alice.ID, id); err == nil {
+		t.Error("delete of a space calendar succeeded")
+	}
+	if _, err := svc.CreateCalendar(ctx, alice.ID, &CreateCalendarRequest{Name: "Extra", SpaceID: &space.ID}); err == nil {
+		t.Error("second calendar in a space was created")
+	}
+	updated, err := svc.UpdateCalendar(ctx, alice.ID, id, &UpdateCalendarRequest{Name: "Renamed", Color: "#000000"})
+	if err != nil || updated.Name != "Studio" || updated.Color != "#000000" {
+		t.Errorf("update = %+v, %v; want name kept, color changed", updated, err)
 	}
 }
 

@@ -277,47 +277,29 @@ func (s *Service) loadWithAccess(ctx context.Context, userID int64, eventID int6
 }
 
 func (s *Service) checkCalendarAccess(ctx context.Context, userID int64, calendarID int64) error {
-	var cal schemas.Calendar
-	if err := s.orm.WithContext(ctx).First(&cal, calendarID).Error; err != nil {
-		if stderrors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.NotFound("calendar not found")
-		}
-		return errors.Internal("failed to load calendar", err)
-	}
-	if cal.OwnerID == userID {
-		return nil
-	}
-	var member schemas.CalendarMember
-	err := s.orm.WithContext(ctx).Where("calendar_id = ? AND user_id = ?", calendarID, userID).First(&member).Error
-	if stderrors.Is(err, gorm.ErrRecordNotFound) {
-		return errors.Forbidden("access denied")
-	}
+	_, err := s.calendarRole(ctx, userID, calendarID)
 	return err
 }
 
 func (s *Service) checkCalendarWriteAccess(ctx context.Context, userID int64, calendarID int64) error {
-	var cal schemas.Calendar
-	if err := s.orm.WithContext(ctx).First(&cal, calendarID).Error; err != nil {
-		if stderrors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.NotFound("calendar not found")
-		}
-		return errors.Internal("failed to load calendar", err)
-	}
-	if cal.OwnerID == userID {
-		return nil
-	}
-	var member schemas.CalendarMember
-	err := s.orm.WithContext(ctx).Where("calendar_id = ? AND user_id = ?", calendarID, userID).First(&member).Error
-	if stderrors.Is(err, gorm.ErrRecordNotFound) {
-		return errors.Forbidden("access denied")
-	}
-	if err != nil {
-		return errors.Internal("failed to check access", err)
-	}
-	if member.Role == "reader" {
+	role, err := s.calendarRole(ctx, userID, calendarID)
+	if err == nil && role == "reader" {
 		return errors.Forbidden("read-only access")
 	}
-	return nil
+	return err
+}
+
+func (s *Service) calendarRole(ctx context.Context, userID int64, calendarID int64) (string, error) {
+	access, found, err := schemas.LoadCalendarAccess(s.orm.WithContext(ctx), userID, calendarID)
+	switch {
+	case err != nil:
+		return "", errors.Internal("failed to load calendar", err)
+	case !found:
+		return "", errors.NotFound("calendar not found")
+	case access.Role == "":
+		return "", errors.Forbidden("access denied")
+	}
+	return access.Role, nil
 }
 
 func (s *Service) bumpSyncToken(ctx context.Context, calendarID int64) {

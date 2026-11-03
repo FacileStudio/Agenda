@@ -46,6 +46,7 @@ func state(t *testing.T, db *gorm.DB) []map[string]any {
 		UNION ALL SELECT 'member', space_id::text, user_id::text, role, joined_at::text FROM space_members
 		UNION ALL SELECT 'user', id::text, email, name, oidc_picture_url FROM users
 		UNION ALL SELECT 'identity', user_id::text, provider, subject, '' FROM porte_identities
+		UNION ALL SELECT 'calendar', space_id::text, name, '', updated_at::text FROM calendars WHERE space_id IS NOT NULL
 		ORDER BY 1, 2, 3, 4`).Scan(&rows).Error
 	if err != nil {
 		t.Fatalf("read state: %v", err)
@@ -91,6 +92,12 @@ func TestApplyFollowsRegistreAndSparesLocalMembers(t *testing.T) {
 	db.Raw(`SELECT id FROM spaces WHERE registre_space_id = 'r-atelier'`).Scan(&atelier)
 	if got := rolesIn(t, db, atelier); !reflect.DeepEqual(got, map[string]string{"alice@x.test": "member"}) {
 		t.Errorf("Atelier members = %v, want alice alone", got)
+	}
+
+	var calendars []string
+	db.Raw(`SELECT name FROM calendars WHERE space_id IS NOT NULL ORDER BY name`).Scan(&calendars)
+	if !reflect.DeepEqual(calendars, []string{"Atelier", "STUDIO"}) {
+		t.Errorf("space calendars = %v, want one per space named after it", calendars)
 	}
 
 	before := state(t, db)

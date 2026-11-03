@@ -1,7 +1,7 @@
 package calendars
 
-// CreateCalendarRequest is the payload for creating a calendar, optionally
-// scoped to a space.
+// CreateCalendarRequest is the payload for creating a personal calendar.
+// SpaceID is accepted only as null or 0: a space's calendar comes with it.
 type CreateCalendarRequest struct {
 	Name        string `json:"name"`
 	Color       string `json:"color"`
@@ -26,10 +26,11 @@ type ShareCalendarRequest struct {
 }
 
 // CalendarResponse describes a calendar as returned to its members. Role is one
-// of owner, admin, writer or reader.
+// of owner, admin, writer or reader. SpaceID is set on a space's own calendar.
 type CalendarResponse struct {
 	ID          int64  `json:"id"`
 	OwnerID     int64  `json:"owner_id"`
+	SpaceID     *int64 `json:"space_id"`
 	Name        string `json:"name"`
 	Color       string `json:"color"`
 	Description string `json:"description"`

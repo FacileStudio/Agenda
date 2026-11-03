@@ -19,6 +19,7 @@ import (
 // Registre, so a local password account added to a space by hand stays put.
 // A linked space Registre no longer lists is logged and left alone, because
 // Registre has no space deletion and its absence is more likely a fault.
+// Every space then owns its calendar, renamed when the space was.
 func (d *Directory) Apply(ctx context.Context, snapshot directory.Snapshot) error {
 	return d.orm.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		linked := []string{""}
@@ -27,6 +28,9 @@ func (d *Directory) Apply(ctx context.Context, snapshot directory.Snapshot) erro
 				return err
 			}
 			linked = append(linked, space.ID)
+		}
+		if err := schemas.SyncSpaceCalendars(tx); err != nil {
+			return err
 		}
 		return d.reportUnlisted(tx, linked)
 	})
