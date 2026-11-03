@@ -193,9 +193,7 @@
 		<div class="flex flex-wrap items-center gap-2 sm:gap-3">
 			<UserMenu />
 
-			<div class="order-last flex min-w-0 basis-full md:order-none md:flex-1 md:basis-auto">
-				<CalendarFilter calendars={app.calendars} class="w-fit max-w-full" />
-			</div>
+			<CalendarFilter calendars={app.calendars} />
 
 			<div class="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
 				<div class="flex min-w-0 items-center gap-1 rounded-fc-pill bg-muted p-1">
