@@ -4,6 +4,24 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-03
+
+### Added
+
+- Every space has exactly one calendar, named after the space and shared with all its members: owners and admins administer it, members write to it. Agenda creates it at boot and on each Registre snapshot, and renames it when the space is renamed.
+- A "Revenir à aujourd'hui" button appears in the calendar header once you navigate away from the current period.
+
+### Changed
+
+- The sidebar is gone. A top bar carries the profile picture, whose menu opens the calendar, settings, spaces, members and sign-out, with the space switcher beside it.
+- Calendars, events and CalDAV resolve access through one shared rule, so a space member reaches the space's calendar from the web app and from CalDAV clients alike.
+- The calendar header wraps onto two rows on small screens.
+
+### Removed
+
+- The always-visible "Aujourd'hui" button.
+- **Breaking:** `POST /api/calendars` refuses a non-zero `space_id`. A space's calendar cannot be shared, renamed or deleted directly; its members come from Registre. Existing extra calendars in a space become personal calendars of their owner, with their events and shares intact.
+
 ## [0.7.0] - 2026-11-03
 
 ### Added
