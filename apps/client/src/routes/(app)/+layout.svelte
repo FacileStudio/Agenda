@@ -64,7 +64,7 @@
 
 	const navPages = $derived([
 		{ label: 'Calendrier', href: '/calendar', icon: icons.calendar, active: isActive('/calendar') },
-		{ label: 'Espaces', href: '/spaces', icon: icons.usersGroup, active: isActive('/spaces') }
+		{ label: 'Espaces', href: '/spaces', icon: icons.space, active: isActive('/spaces') }
 	]);
 
 	const onSettings = $derived(isActive('/settings') || isActive('/profile'));

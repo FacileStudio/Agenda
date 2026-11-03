@@ -68,7 +68,7 @@
 			</div>
 		{:else if spaces.length === 0}
 			<div class="flex flex-col items-center justify-center py-16 text-center">
-				<iconify-icon icon="solar:users-group-rounded-bold-duotone" width="48" class="text-muted-foreground/50"></iconify-icon>
+				<iconify-icon icon="solar:share-circle-bold-duotone" width="48" class="text-muted-foreground/50"></iconify-icon>
 				<p class="mt-4 text-sm text-muted-foreground">Aucun espace pour le moment.</p>
 				<Button href={registreSpaceUrl()} target="_blank" rel="noopener" variant="outline" class="mt-4 cursor-pointer gap-2">
 					<iconify-icon icon="solar:square-top-down-linear" width="16"></iconify-icon>
@@ -83,7 +83,7 @@
 						class="flex w-full cursor-pointer items-center gap-4 rounded-lg bg-muted/40 p-4 text-left transition-colors hover:bg-muted"
 					>
 						<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-							<iconify-icon icon="solar:users-group-rounded-bold-duotone" width="20" class="text-primary"></iconify-icon>
+							<iconify-icon icon="solar:share-circle-bold-duotone" width="20" class="text-primary"></iconify-icon>
 						</div>
 						<div class="min-w-0 flex-1">
 							<p class="truncate text-sm font-medium">{space.name}</p>

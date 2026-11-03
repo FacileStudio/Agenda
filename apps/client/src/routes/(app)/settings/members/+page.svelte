@@ -124,7 +124,7 @@
 		description="Un espace regroupe des calendriers et leur donne une liste de membres commune."
 	>
 		{#snippet actions()}
-			<Button variant="outline" href="/spaces" icon={icons.folder}>Tous les espaces</Button>
+			<Button variant="outline" href="/spaces" icon={icons.space}>Tous les espaces</Button>
 		{/snippet}
 
 		<SettingsRow
