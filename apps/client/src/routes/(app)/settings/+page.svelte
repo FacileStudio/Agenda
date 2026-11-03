@@ -120,9 +120,9 @@
 		{#if managedBySSO}
 			<SettingsRow
 				label="Photo de profil"
-				description="Elle vient de votre fournisseur SSO. Changez-la dans Porte, elle se met à jour ici en quelques minutes."
+				description="Elle vient de Registre et vaut pour toute la suite. Changez-la sur votre compte, elle s’affiche ici au prochain chargement."
 			>
-				<Badge tone="info">Gérée par le SSO</Badge>
+				<Button variant="outline" href="https://sso.facile.studio/account">Modifier sur Registre</Button>
 			</SettingsRow>
 		{/if}
 	</SettingsSection>

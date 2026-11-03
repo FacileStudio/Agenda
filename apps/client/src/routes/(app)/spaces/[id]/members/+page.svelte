@@ -2,6 +2,7 @@
 	import { page } from '$app/stores';
 	import { getContext, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { Avatar } from '@facile/muse';
 	import { Button } from '$lib/components/ui/button';
 	import { toast } from 'svelte-sonner';
 	import { backend, resolveFileUrl, type SpaceItem, type SpaceMember, type UserProfile } from '$lib/backend';
@@ -167,17 +168,11 @@
 				<div class="grid gap-2">
 					{#each members as member (member.user_id)}
 						<div class="flex items-center gap-3 rounded-lg border border-border p-3">
-							{#if member.avatar_url}
-								<img
-									src={resolveFileUrl(member.avatar_url)}
-									alt={member.name || member.email}
-									class="h-9 w-9 shrink-0 rounded-full border border-border object-cover"
-								/>
-							{:else}
-								<div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-foreground text-xs font-semibold text-background">
-									{(member.name || member.email).slice(0, 2).toUpperCase()}
-								</div>
-							{/if}
+							<Avatar
+								class="size-9"
+								src={member.avatar_url ? resolveFileUrl(member.avatar_url) : undefined}
+								name={member.name || member.email}
+							/>
 							<div class="min-w-0 flex-1">
 								<p class="truncate text-sm font-medium">{member.name || member.email}</p>
 								{#if member.name}
