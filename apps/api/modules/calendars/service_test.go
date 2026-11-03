@@ -75,12 +75,16 @@ func TestEverySpaceOwnsOneCalendarItsMembersShare(t *testing.T) {
 		t.Fatalf("outsider sees the space calendar: %+v", cals)
 	}
 	got := map[string]bool{}
-	personal, _ := svc.ListCalendars(ctx, alice.ID, nil)
+	none := int64(0)
+	personal, _ := svc.ListCalendars(ctx, alice.ID, &none)
 	for _, c := range personal {
 		got[c.Name] = true
 	}
 	if !got["Second"] || !got["Gone"] || !got["Personal"] || got["Studio"] {
 		t.Fatalf("personal listing = %v", got)
+	}
+	if all, _ := svc.ListCalendars(ctx, alice.ID, nil); len(all) != len(personal)+1 {
+		t.Fatalf("unfiltered listing = %+v, want personal calendars plus Studio", all)
 	}
 	members, err := svc.ListMembers(ctx, bob.ID, personalOrSpace(t, svc, bob.ID, space.ID))
 	if err != nil || len(members) != 2 {

@@ -16,7 +16,7 @@ var Documentation = documentation.Module{
 			Method:       "GET",
 			Path:         "/calendars",
 			Summary:      "List calendars",
-			Description:  "Returns every calendar the authenticated user owns or has been given access to.",
+			Description:  "Returns every calendar the user can open: their own, the ones shared with them, and the calendar of each space they belong to. `?space_id=N` keeps only that space's calendar; `?space_id=0` keeps only calendars outside any space.",
 			Auth:         "bearer token required",
 			ResponseBody: []CalendarResponse{},
 			Errors:       []documentation.Error{unauthenticated, internalError},

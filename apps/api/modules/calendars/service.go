@@ -60,9 +60,9 @@ func (s *Service) EnsureCalendar(ctx context.Context, userID int64, slug, name, 
 	return cal.ID, nil
 }
 
-// ListCalendars returns the calendars the user can open in one scope: a
-// space's own calendar when spaceID is set, otherwise every calendar that
-// belongs to no space.
+// ListCalendars returns the calendars the user can open: all of them when
+// spaceID is nil, the ones in no space when it is 0, and otherwise that
+// space's own calendar.
 func (s *Service) ListCalendars(ctx context.Context, userID int64, spaceID *int64) ([]CalendarResponse, error) {
 	_ = s.EnsurePersonalCalendar(ctx, userID)
 	rows, err := schemas.AccessibleCalendars(s.orm.WithContext(ctx), userID)
@@ -79,7 +79,10 @@ func (s *Service) ListCalendars(ctx context.Context, userID int64, spaceID *int6
 }
 
 func inScope(calendarSpace, wanted *int64) bool {
-	if wanted == nil || *wanted == 0 {
+	if wanted == nil {
+		return true
+	}
+	if *wanted == 0 {
 		return calendarSpace == nil
 	}
 	return calendarSpace != nil && *calendarSpace == *wanted
