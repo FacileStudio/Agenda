@@ -64,7 +64,7 @@
 			<iconify-icon icon="solar:refresh-linear" width="20" class="animate-spin text-muted-foreground"></iconify-icon>
 		</div>
 	{:else if space}
-		<div class="border-b border-border px-4 py-4 md:px-8 md:py-5">
+		<div class="px-4 py-4 md:px-8 md:py-5">
 			<div class="flex items-center gap-3">
 				<button onclick={() => goto('/spaces')} class="cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Retour aux espaces">
 					<iconify-icon icon="solar:arrow-left-linear" width="20"></iconify-icon>
@@ -98,7 +98,7 @@
 
 		<div class="flex-1 overflow-auto p-4 md:p-8">
 			<div class="max-w-2xl space-y-6">
-				<div class="rounded-lg border border-border/60 bg-muted/20 p-4">
+				<div class="rounded-lg bg-muted/40 p-4">
 					<p class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Informations</p>
 					<div class="mt-3 grid gap-2 text-sm">
 						<div class="flex justify-between">
@@ -138,7 +138,7 @@
 
 					<div class="mt-3 grid gap-2">
 						{#each members as member (member.user_id)}
-							<div class="flex items-center gap-3 rounded-lg border border-border p-3">
+							<div class="flex items-center gap-3 rounded-lg bg-muted/40 p-3">
 								<Avatar
 									class="size-9"
 									src={member.avatar_url ? resolveFileUrl(member.avatar_url) : undefined}

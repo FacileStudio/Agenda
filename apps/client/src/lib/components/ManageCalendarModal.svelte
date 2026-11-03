@@ -225,7 +225,7 @@
 		{:else if members.length === 0}
 			<p class="text-fc-sm text-fc-fg-muted">Aucun membre partage.</p>
 		{:else}
-			<div class="flex flex-col divide-y divide-fc-border">
+			<div class="flex flex-col">
 				{#each members as member (member.user_id)}
 					<div class="flex items-center gap-3 py-2">
 						<Avatar

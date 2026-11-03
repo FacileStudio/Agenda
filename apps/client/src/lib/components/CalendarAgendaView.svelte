@@ -68,13 +68,13 @@
 		</div>
 	{:else}
 		{#each grouped() as group (group.key)}
-			<div class="border-b border-border last:border-b-0">
-				<div class="sticky top-0 z-10 border-b border-border bg-background px-4 py-2">
+			<div>
+				<div class="sticky top-0 z-10 bg-background px-4 py-2">
 					<span class="text-sm font-medium capitalize text-foreground">
 						{formatDate(group.date)}
 					</span>
 				</div>
-				<div class="divide-y divide-border">
+				<div>
 					{#each group.events as event (eventKey(event))}
 						<button
 							type="button"
@@ -109,7 +109,7 @@
 									<span class="hidden max-w-32 truncate text-xs text-muted-foreground sm:block">
 										{event.created_by.name || event.created_by.email}
 									</span>
-									<EventAvatar creator={event.created_by} class="size-7 text-fc-xs! ring-0" />
+									<EventAvatar creator={event.created_by} class="size-7 text-fc-xs!" />
 								</div>
 							{/if}
 						</button>

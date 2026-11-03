@@ -147,7 +147,7 @@
 				{/if}
 
 				{#if !ssoOnly}
-					<div class="mb-6 flex gap-1 rounded-lg border border-border bg-muted p-1" role="tablist">
+					<div class="mb-6 flex gap-1 rounded-lg bg-muted p-1" role="tablist">
 						<button
 							type="button"
 							role="tab"

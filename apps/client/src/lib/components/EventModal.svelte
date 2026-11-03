@@ -365,7 +365,7 @@
 
 		{#if event?.created_by}
 			{@const creator = event.created_by}
-			<div class="flex items-center gap-2 border-t border-fc-border pt-3 text-fc-sm text-fc-fg-muted">
+			<div class="flex items-center gap-2 pt-3 text-fc-sm text-fc-fg-muted">
 				<Avatar
 					size="sm"
 					class="size-6 text-fc-xs"

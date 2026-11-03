@@ -4,6 +4,12 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-03
+
+### Changed
+
+- The web app moves to muse v0.8.0 and drops decorative borders: landing and space cards, page headers, the recurrence panel, the API client list and the calendar toolbar are separated by tone and spacing. Calendar grid lines, inputs and buttons keep theirs.
+
 ## [0.5.0] - 2026-11-03
 
 ### Added

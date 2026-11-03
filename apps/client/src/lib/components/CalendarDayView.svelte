@@ -79,7 +79,7 @@
 <div class="flex h-full flex-col overflow-hidden">
 	<!-- All-day strip -->
 	{#if allDayEvents.length > 0}
-		<div class="flex items-center gap-1 border-b border-border px-4 py-2">
+		<div class="flex items-center gap-1 px-4 py-2">
 			<span class="w-12 shrink-0 text-xs text-muted-foreground">Jour</span>
 			<div class="flex flex-wrap gap-1">
 				{#each allDayEvents as event (eventKey(event))}
@@ -100,7 +100,7 @@
 	{/if}
 
 	<!-- Day column header -->
-	<div class="flex items-center border-b border-border px-4 py-2">
+	<div class="flex items-center px-4 py-2">
 		<div class="w-12"></div>
 		<div class="flex flex-1 items-center justify-center gap-2 text-sm font-medium capitalize text-foreground">
 			{currentDate.toDate(tz).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}

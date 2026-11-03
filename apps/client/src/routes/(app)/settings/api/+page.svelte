@@ -256,7 +256,7 @@
 	>
 		<div class="overflow-hidden rounded-fc-md bg-fc-component">
 			{#each clients as client (client.id)}
-				<details class="group border-t border-fc-border first:border-t-0">
+				<details class="group [&+details]:mt-px">
 					<summary
 						class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-fc-sm font-medium text-fc-fg select-none"
 					>

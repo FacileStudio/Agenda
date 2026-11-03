@@ -46,7 +46,7 @@
 </svelte:head>
 
 <div class="flex h-full flex-col">
-	<div class="border-b border-border px-4 py-4 md:px-8 md:py-5">
+	<div class="px-4 py-4 md:px-8 md:py-5">
 		<div class="flex items-center justify-between">
 			<div>
 				<h1 class="text-lg font-semibold">Espaces</h1>
@@ -80,7 +80,7 @@
 				{#each spaces as space (space.id)}
 					<button
 						onclick={() => selectSpace(space)}
-						class="flex w-full cursor-pointer items-center gap-4 rounded-lg border border-border p-4 text-left transition-colors hover:bg-muted/50"
+						class="flex w-full cursor-pointer items-center gap-4 rounded-lg bg-muted/40 p-4 text-left transition-colors hover:bg-muted"
 					>
 						<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
 							<iconify-icon icon="solar:users-group-rounded-bold-duotone" width="20" class="text-primary"></iconify-icon>

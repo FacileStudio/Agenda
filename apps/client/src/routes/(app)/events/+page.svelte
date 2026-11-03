@@ -51,7 +51,7 @@
 </svelte:head>
 
 <div class="flex h-full flex-col">
-	<div class="border-b border-border px-4 py-4 md:px-8 md:py-5">
+	<div class="px-4 py-4 md:px-8 md:py-5">
 		<h1 class="text-lg font-semibold">Événements</h1>
 		<p class="mt-0.5 text-sm text-muted-foreground">Vos événements des 30 prochains jours</p>
 	</div>
@@ -95,7 +95,7 @@
 								{/if}
 							</div>
 						</div>
-						<EventAvatar creator={event.created_by} class="size-7 text-fc-xs! ring-0" />
+						<EventAvatar creator={event.created_by} class="size-7 text-fc-xs!" />
 						<iconify-icon
 							icon={icons.arrow}
 							width="16"

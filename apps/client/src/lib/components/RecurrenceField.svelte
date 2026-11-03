@@ -66,7 +66,7 @@
 	</Select>
 
 	{#if editable}
-		<div class="flex flex-col gap-3 rounded-fc-md border border-fc-border p-3">
+		<div class="flex flex-col gap-3 rounded-fc-md bg-fc-component p-3">
 			<div class="flex items-center gap-2 text-fc-sm text-fc-fg">
 				<span class="shrink-0">{words[0]}</span>
 				<Input

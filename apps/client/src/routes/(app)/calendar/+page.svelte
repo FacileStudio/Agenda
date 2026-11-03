@@ -174,7 +174,7 @@
 
 <div class="flex h-full flex-col">
 	<!-- Top bar -->
-	<div class="flex h-16 shrink-0 items-center gap-2 border-b border-border px-3 sm:gap-3 sm:px-5">
+	<div class="flex h-16 shrink-0 items-center gap-2 px-3 sm:gap-3 sm:px-5">
 		<!-- Left: today + navigation + period title -->
 		<div class="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
 			<Button
