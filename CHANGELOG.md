@@ -4,6 +4,13 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-03
+
+### Changed
+
+- The profile picture and the space switcher sit at the far left of the calendar header instead of on a bar of their own, and the avatar matches the switcher's height. Other pages show them above their content.
+- The month title no longer truncates on laptop widths; the view switcher shows icons only below 1536px, with each label as a tooltip.
+
 ## [0.8.0] - 2026-11-03
 
 ### Added
