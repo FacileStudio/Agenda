@@ -225,17 +225,16 @@
 								{@const fill = getCalendarColor(event.calendar_id)}
 								<button
 									type="button"
-									class="flex w-full cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-left text-xs font-medium transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+									class="flex w-full cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 sm:px-1.5 text-left text-xs font-medium transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
 									style="background-color: {fill}; color: {inkOn(fill)};"
 									onclick={(e) => {
 										e.stopPropagation();
 										onEventClick(event);
 									}}
 								>
-									<EventAvatar creator={event.created_by} class="size-3.5" />
+									<EventAvatar creator={event.created_by} class="hidden size-3.5 sm:inline-flex" />
 									<span class="min-w-0 flex-1 truncate">
-										{new Date(event.start_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-										{' '}{event.title}
+										<span class="hidden sm:inline">{new Date(event.start_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}{' '}</span>{event.title}
 									</span>
 									{#if event.recurrence_rule}<iconify-icon icon="solar:repeat-linear" width="12" height="12" aria-label="Récurrent" class="block size-3 shrink-0 opacity-80"></iconify-icon>{/if}
 								</button>

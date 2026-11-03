@@ -68,7 +68,7 @@
 		</div>
 	{:else if space}
 		<div class="px-4 py-4 md:px-8 md:py-5">
-			<div class="flex items-center gap-3">
+			<div class="flex flex-wrap items-center gap-3">
 				<button onclick={() => goto('/spaces')} class="cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Retour aux espaces">
 					<iconify-icon icon="solar:arrow-left-linear" width="20"></iconify-icon>
 				</button>
@@ -78,7 +78,7 @@
 						<p class="mt-1 truncate text-sm text-muted-foreground">{space.description}</p>
 					{/if}
 				</div>
-				<div class="flex shrink-0 items-center gap-2">
+				<div class="flex basis-full flex-wrap items-center gap-2 sm:basis-auto sm:shrink-0">
 					{#if spaceCalendar}
 						<Button onclick={openCalendar} class="cursor-pointer gap-2">
 							<iconify-icon icon="solar:calendar-linear" width="16"></iconify-icon>

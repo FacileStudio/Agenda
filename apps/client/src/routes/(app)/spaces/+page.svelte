@@ -45,14 +45,14 @@
 
 <div class="flex h-full flex-col">
 	<div class="px-4 py-4 md:px-8 md:py-5">
-		<div class="flex items-center justify-between">
-			<div>
+		<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+			<div class="min-w-0">
 				<h1 class="text-lg font-semibold">Espaces</h1>
 				<p class="mt-1 text-sm text-muted-foreground">
 					Vos espaces partagés, les mêmes dans toutes les apps Facile. Ils se créent et se gèrent dans Registre.
 				</p>
 			</div>
-			<Button href={registreSpaceUrl()} target="_blank" rel="noopener" class="cursor-pointer gap-2">
+			<Button href={registreSpaceUrl()} target="_blank" rel="noopener" class="shrink-0 cursor-pointer gap-2 self-start sm:self-auto">
 				<iconify-icon icon="solar:square-top-down-linear" width="16"></iconify-icon>
 				Gérer dans Registre
 			</Button>

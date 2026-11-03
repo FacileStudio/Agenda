@@ -69,7 +69,7 @@
 				<thead>
 					<tr>
 						<th>Calendrier</th>
-						<th>Type</th>
+						<th class="hidden sm:table-cell">Type</th>
 						<th>Votre rôle</th>
 						<th class="text-right">Action</th>
 					</tr>
@@ -93,7 +93,7 @@
 									</span>
 								</span>
 							</td>
-							<td class="text-fc-fg-muted">{typeLabel(calendar)}</td>
+							<td class="hidden text-fc-fg-muted sm:table-cell">{typeLabel(calendar)}</td>
 							<td>
 								<Badge tone={roleTone(calendar.role)}>
 									{roleLabels[calendar.role] ?? calendar.role}
@@ -106,8 +106,9 @@
 										size="sm"
 										icon={icons.space}
 										href="/spaces/{calendar.space_id}"
+										aria-label="Membres de l’espace"
 									>
-										Membres
+										<span class="hidden sm:inline">Membres</span>
 									</Button>
 								{:else if calendar.role === 'owner'}
 									<Button
@@ -115,11 +116,12 @@
 										size="sm"
 										icon={icons.usersGroup}
 										onclick={() => openManage(calendar)}
+										aria-label="Gérer {calendar.name}"
 									>
-										Gérer
+										<span class="hidden sm:inline">Gérer</span>
 									</Button>
 								{:else}
-									<span class="text-fc-xs text-fc-fg-muted">Partagé avec vous</span>
+									<span class="text-fc-xs text-fc-fg-muted">Partagé</span>
 								{/if}
 							</td>
 						</tr>

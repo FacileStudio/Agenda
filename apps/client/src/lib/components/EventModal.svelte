@@ -295,7 +295,7 @@
 					type="date"
 					bind:value={startDateStr}
 					onchange={shiftEndToPreserveDuration}
-					class="flex-1"
+					class="min-w-0 flex-1"
 				/>
 				{#if !isAllDay}
 					<Input
@@ -303,7 +303,7 @@
 						aria-label="Heure de debut"
 						bind:value={startTimeStr}
 						onchange={shiftEndToPreserveDuration}
-						class="w-32 shrink-0"
+						class="w-28 shrink-0 sm:w-32"
 					/>
 				{/if}
 			</div>
@@ -315,7 +315,7 @@
 					type="date"
 					bind:value={endDateStr}
 					onchange={rememberDurationFromEnd}
-					class="flex-1"
+					class="min-w-0 flex-1"
 				/>
 				{#if !isAllDay}
 					<Input
@@ -323,7 +323,7 @@
 						aria-label="Heure de fin"
 						bind:value={endTimeStr}
 						onchange={rememberDurationFromEnd}
-						class="w-32 shrink-0"
+						class="w-28 shrink-0 sm:w-32"
 					/>
 				{/if}
 			</div>
