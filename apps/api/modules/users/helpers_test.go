@@ -97,7 +97,7 @@ func newHarness(t *testing.T) *harness {
 	}
 
 	authService := auth.NewService(db, sessions, passwords, logger)
-	userService := NewService(db, t.TempDir(), authService)
+	userService := NewService(db, authService)
 
 	router := chi.NewRouter()
 	sessions.Mount(router)

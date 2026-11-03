@@ -253,6 +253,39 @@ func TestAdoptPorteMovesTheOIDCSubject(t *testing.T) {
 	}
 }
 
+// TestAdoptPorteBackfillsTheRegistrePicture checks an SSO account that has not
+// signed in since pictures shipped gets <issuer>/avatars/<subject>, a password
+// account gets nothing, and a URL a sign-in already stored is left alone.
+func TestAdoptPorteBackfillsTheRegistrePicture(t *testing.T) {
+	db := openTestDatabase(t)
+	seedPrePorte(t, db)
+	if err := db.Exec(`INSERT INTO users (id, email, name, oidc_subject, oidc_picture_url, created_at)
+		VALUES (3, 'lea@facile.studio', 'Lea', 'sub-3', 'https://elsewhere.test/lea.png', now())`).Error; err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	for range 2 {
+		if err := AdoptPorte(db, testIssuer); err != nil {
+			t.Fatalf("adopt: %v", err)
+		}
+	}
+
+	want := map[int64]string{
+		1: "https://porte.test/application/o/agenda/avatars/sub-1",
+		2: "",
+		3: "https://elsewhere.test/lea.png",
+	}
+	for id, url := range want {
+		var got string
+		if err := db.Raw(`SELECT coalesce(oidc_picture_url, '') FROM users WHERE id = ?`, id).Scan(&got).Error; err != nil {
+			t.Fatalf("read user %d: %v", id, err)
+		}
+		if got != url {
+			t.Fatalf("user %d picture = %q, want %q", id, got, url)
+		}
+	}
+}
+
 // An empty issuer is a deployment with SSO switched off. The sessions, the API
 // tokens and the passwords still have to move — they are what keeps people
 // signed in and able to sign in — but there is no provider to key a federated

@@ -57,8 +57,3 @@ type CreateApiTokenRequest struct {
 type DeletedResponse struct {
 	Deleted bool `json:"deleted"`
 }
-
-// AvatarUploadRequest represents a multipart avatar file upload.
-type AvatarUploadRequest struct {
-	Avatar string `json:"avatar" doc:"Binary avatar image file (PNG, JPEG, GIF, WebP)."`
-}

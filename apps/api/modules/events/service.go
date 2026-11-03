@@ -53,10 +53,10 @@ func (s *Service) ListEvents(ctx context.Context, userID int64, calendarID int64
 		evts = expandAll(evts, viewer, *from, *to)
 	}
 
-	return toResponses(evts), nil
+	return s.toResponses(ctx, evts)
 }
 
-func toResponses(evts []schemas.Event) []EventResponse {
+func (s *Service) toResponses(ctx context.Context, evts []schemas.Event) ([]EventResponse, error) {
 	cache := map[int64]eventDetails{}
 	out := make([]EventResponse, len(evts))
 	for i := range evts {
@@ -67,7 +67,10 @@ func toResponses(evts []schemas.Event) []EventResponse {
 		}
 		out[i] = responseWith(&evts[i], d)
 	}
-	return out
+	if err := s.attachAttendeeAvatars(ctx, out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func expandAll(evts []schemas.Event, viewer *time.Location, from, to time.Time) []schemas.Event {
@@ -152,8 +155,7 @@ func (s *Service) insertEvent(ctx context.Context, calendarID int64, creatorID *
 	s.bumpSyncToken(ctx, calendarID)
 	s.orm.WithContext(ctx).Preload("CreatedBy").First(evt, evt.ID)
 
-	resp := toResponse(evt)
-	return &resp, nil
+	return s.toResponse(ctx, evt)
 }
 
 func (s *Service) GetEvent(ctx context.Context, userID int64, eventID int64) (*EventResponse, error) {
@@ -161,8 +163,7 @@ func (s *Service) GetEvent(ctx context.Context, userID int64, eventID int64) (*E
 	if err != nil {
 		return nil, err
 	}
-	resp := toResponse(evt)
-	return &resp, nil
+	return s.toResponse(ctx, evt)
 }
 
 // UpdateEvent edits an event and bumps its sync token. When the request
@@ -240,8 +241,7 @@ func (s *Service) applyUpdate(ctx context.Context, evt *schemas.Event, req *Upda
 		s.bumpSyncToken(ctx, sourceCalendarID)
 	}
 
-	resp := toResponse(evt)
-	return &resp, nil
+	return s.toResponse(ctx, evt)
 }
 
 func (s *Service) DeleteEvent(ctx context.Context, userID int64, eventID int64) error {
@@ -325,8 +325,12 @@ func (s *Service) bumpSyncToken(ctx context.Context, calendarID int64) {
 	s.orm.WithContext(ctx).Model(&schemas.Calendar{}).Where("id = ?", calendarID).Update("sync_token", token)
 }
 
-func toResponse(e *schemas.Event) EventResponse {
-	return responseWith(e, readDetails(e))
+func (s *Service) toResponse(ctx context.Context, e *schemas.Event) (*EventResponse, error) {
+	out := []EventResponse{responseWith(e, readDetails(e))}
+	if err := s.attachAttendeeAvatars(ctx, out); err != nil {
+		return nil, err
+	}
+	return &out[0], nil
 }
 
 func creatorOf(e *schemas.Event) *EventCreator {

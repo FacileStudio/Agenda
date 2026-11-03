@@ -19,12 +19,15 @@ var colorPattern = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 // Attendee is a person invited to an event. Role is required or optional and
 // Response is needs-action, accepted, declined or tentative. Agenda records
-// the invitation and the answer; it does not send mail.
+// the invitation and the answer; it does not send mail. AvatarURL is filled on
+// responses when the address belongs to an Agenda account and is ignored on
+// requests, so a fetched event can be sent back as it came.
 type Attendee struct {
-	Email    string `json:"email"`
-	Name     string `json:"name"`
-	Role     string `json:"role"`
-	Response string `json:"response"`
+	Email     string `json:"email"`
+	Name      string `json:"name"`
+	Role      string `json:"role"`
+	Response  string `json:"response"`
+	AvatarURL string `json:"avatar_url,omitempty"`
 }
 
 // Reminder fires MinutesBefore minutes ahead of the event start. Method is

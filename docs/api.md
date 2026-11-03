@@ -17,8 +17,7 @@ spec: it speaks WebDAV verbs OpenAPI cannot express.
 - Authenticated routes resolve a token from the `session` cookie first, then the
   `Authorization` header, then a `?token=` query parameter, which is deprecated and logs a
   warning. The token is either a 30-day session token or a user's API token.
-- Request and response bodies are JSON, except the avatar upload, which is
-  `multipart/form-data`, and CalDAV, which is XML and iCalendar.
+- Request and response bodies are JSON, except CalDAV, which is XML and iCalendar.
 - Every request body is capped at 4 MB by `middleware.MaxBodySize`.
 - Errors come back as JSON from `tronc/httpjson`. `tronc/errors` maps `Invalid` to 400,
   `Unauthorized` to 401, `Conflict` to 409, and `Internal` to 500.
@@ -68,8 +67,6 @@ All routes require authentication.
 | GET | `/api/users/me` | — | `{"user":User}` |
 | GET | `/api/users/{id}` | — | `{"user":User}` |
 | PATCH | `/api/users/me` | any of `name`, `email`, `password` | `{"user":User}` |
-| POST | `/api/users/me/avatar` | `multipart/form-data` | `{"user":User}` |
-| DELETE | `/api/users/me/avatar` | — | `{"user":User}` |
 | GET | `/api/users/me/api-token` | — | `{"has_token", "name"?, "created_at"?}` |
 | POST | `/api/users/me/api-token` | `{"name"}` | 201 `{"token","name","created_at"}` — the only time the token is returned |
 | DELETE | `/api/users/me/api-token` | — | `{"deleted":true}` |
@@ -149,7 +146,8 @@ empty), `attendees` and `reminders`:
 - `attendees` is `[{email, name, role, response}]`. `role` is `required` (default) or
   `optional`; `response` is `needs-action` (default), `accepted`, `declined` or
   `tentative`. Agenda stores the invitation and the answer in the event's ICS, so a
-  CalDAV client sees them; it sends no mail.
+  CalDAV client sees them; it sends no mail. Responses add `avatar_url` to an attendee
+  whose address is an Agenda account; requests may send it back and it is ignored.
 - `reminders` is `[{minutes_before, method}]`, `method` being `display` (default), `audio`
   or `email`, `minutes_before` 0 to 40320. CalDAV clients deliver them.
 - On update, an omitted `attendees`, `reminders` or `color` keeps the stored value and an

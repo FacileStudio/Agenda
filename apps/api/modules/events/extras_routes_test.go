@@ -112,3 +112,19 @@ func TestAPIEditKeepsWhatACalDAVClientWrote(t *testing.T) {
 	}
 	mustEqual(t, h.list(), "02T08:00 Edited|03T08:00 Edited|05T08:00 Edited|06T08:00 Edited")
 }
+
+func TestAttendeesCarryTheSuitePicture(t *testing.T) {
+	h := newHarness(t)
+	h.db.Create(&schemas.User{Email: "lea@example.com", Name: "Lea", OIDCPictureURL: "https://sso.test/avatars/lea"})
+	evt := h.create(weekly(map[string]any{"attendees": []map[string]any{
+		{"email": "Lea@Example.com", "avatar_url": "https://ignored.test/x"},
+		{"email": "guest@example.com"},
+	}}))
+	_, got, _ := h.do(http.MethodGet, "/events/"+itoa(evt.ID), nil)
+	if len(got.Attendees) != 2 || got.Attendees[0].AvatarURL != "https://sso.test/avatars/lea" || got.Attendees[1].AvatarURL != "" {
+		t.Fatalf("attendees = %+v", got.Attendees)
+	}
+	if strings.Contains(h.raw(evt.ID), "ignored.test") {
+		t.Fatalf("a request avatar_url reached the ICS:\n%s", h.raw(evt.ID))
+	}
+}

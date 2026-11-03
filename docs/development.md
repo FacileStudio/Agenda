@@ -139,7 +139,7 @@ go test ./...
 |---|---|
 | `main_test.go` | Routing: every URL the client calls is routed, unknown `/api` paths do not reach the SPA, health survives the `/api` mount, the legacy OIDC callback redirects |
 | `modules/caldav/backend_test.go` | `MKCALENDAR` body parsing, tasks-only calendar detection, calendar-object fallback |
-| `modules/users/service_test.go` | Avatar files land in `STORAGE_DIR` and only managed avatars are deleted |
+| `modules/users/service_test.go` | The password floor counts runes, as porte does |
 | `internal/crypto/crypto_test.go` | AES-GCM round trip, empty string, nonce uniqueness, wrong key, deterministic key derivation |
 
 `main_test.go` carries a `clientCalls` list. **Add to it when you add an endpoint** — that

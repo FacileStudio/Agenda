@@ -3,13 +3,8 @@ package users
 import (
 	"context"
 	stderrors "errors"
-	"fmt"
-	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
@@ -20,10 +15,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// Service implements user profile, avatar and API token operations.
+// Service implements user profile and API token operations.
 type Service struct {
 	orm        *gorm.DB
-	storageDir string
 	tokens     Auth
 	controller *Controller
 }
@@ -44,9 +38,9 @@ type Auth interface {
 	) (string, int64, error)
 }
 
-// NewService builds a user service over the given database and avatar storage.
-func NewService(orm *gorm.DB, storageDir string, tokens Auth) *Service {
-	service := &Service{orm: orm, storageDir: storageDir, tokens: tokens}
+// NewService builds a user service over the given database.
+func NewService(orm *gorm.DB, tokens Auth) *Service {
+	service := &Service{orm: orm, tokens: tokens}
 	service.controller = newController(service)
 	return service
 }
@@ -154,118 +148,6 @@ func (service *Service) setPassword(w http.ResponseWriter, r *http.Request, user
 	return nil
 }
 
-// storeAvatar persists an uploaded image and points the account at it.
-//
-// Uploading is the fallback for people the IdP has no photo for, so a photo in
-// Porte makes this endpoint unavailable rather than merely outranked: accepting
-// the file and then never showing it is the worse failure, because the user
-// sees a success and no change.
-func (service *Service) storeAvatar(context context.Context, userID string, reader io.Reader, contentType string) (*User, error) {
-	id, err := strconv.ParseInt(userID, 10, 64)
-	if err != nil {
-		return nil, errors.Internal("failed to parse user id", err)
-	}
-
-	var record schemas.User
-	if err := service.orm.WithContext(context).Where("id = ?", id).First(&record).Error; err != nil {
-		if stderrors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.NotFound("user not found")
-		}
-		return nil, errors.Internal("failed to read user", err)
-	}
-
-	if record.OIDCPictureURL != "" {
-		return nil, errors.Invalid("votre photo est geree par le SSO — modifiez-la dans Porte")
-	}
-
-	relativePath, absolutePath, err := service.persistAvatarFile(id, reader, contentType)
-	if err != nil {
-		return nil, err
-	}
-
-	newUploadPath := strings.ReplaceAll(relativePath, string(filepath.Separator), "/")
-	oldUploadPath := record.AvatarUploadPath
-	record.AvatarUploadPath = newUploadPath
-
-	if err := service.orm.WithContext(context).Save(&record).Error; err != nil {
-		_ = os.Remove(absolutePath)
-		return nil, errors.Internal("failed to save avatar", err)
-	}
-
-	if oldUploadPath != "" {
-		service.removeAvatarFile("/files/" + oldUploadPath)
-	}
-
-	return mapUser(record), nil
-}
-
-// clearAvatar drops the uploaded avatar. Only the upload is the user's to
-// clear: the Porte photo is not deleted from here, because it is not ours and
-// the next sync would bring it straight back.
-func (service *Service) clearAvatar(context context.Context, userID string) (*User, error) {
-	id, err := strconv.ParseInt(userID, 10, 64)
-	if err != nil {
-		return nil, errors.Internal("failed to parse user id", err)
-	}
-
-	var record schemas.User
-	if err := service.orm.WithContext(context).Where("id = ?", id).First(&record).Error; err != nil {
-		if stderrors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.NotFound("user not found")
-		}
-		return nil, errors.Internal("failed to read user", err)
-	}
-
-	oldUploadPath := record.AvatarUploadPath
-	record.AvatarUploadPath = ""
-	if err := service.orm.WithContext(context).Save(&record).Error; err != nil {
-		return nil, errors.Internal("failed to clear avatar", err)
-	}
-
-	if oldUploadPath != "" {
-		service.removeAvatarFile("/files/" + oldUploadPath)
-	}
-
-	return mapUser(record), nil
-}
-
-func (service *Service) persistAvatarFile(userID int64, reader io.Reader, contentType string) (string, string, error) {
-	extension, ok := avatarExtension(contentType)
-	if !ok {
-		return "", "", errors.Invalid("avatar must be a PNG, JPEG, GIF, or WebP image")
-	}
-
-	filename := fmt.Sprintf("user-%d-%d%s", userID, time.Now().UnixNano(), extension)
-	relativePath := filepath.Join("avatars", filename)
-	absolutePath := filepath.Join(service.storageDir, relativePath)
-
-	if err := os.MkdirAll(filepath.Dir(absolutePath), 0o755); err != nil {
-		return "", "", errors.Internal("failed to prepare avatar storage", err)
-	}
-
-	file, err := os.Create(absolutePath)
-	if err != nil {
-		return "", "", errors.Internal("failed to create avatar file", err)
-	}
-	if _, err := io.Copy(file, reader); err != nil {
-		_ = file.Close()
-		return "", "", errors.Internal("failed to write avatar file", err)
-	}
-	if err := file.Close(); err != nil {
-		return "", "", errors.Internal("failed to finalize avatar file", err)
-	}
-
-	return relativePath, absolutePath, nil
-}
-
-func (service *Service) removeAvatarFile(avatarURL string) {
-	oldPath := strings.TrimPrefix(avatarURL, "/files/")
-	oldAbsolutePath := filepath.Join(service.storageDir, filepath.Clean(oldPath))
-	if strings.HasPrefix(oldAbsolutePath, filepath.Clean(filepath.Join(service.storageDir, "avatars"))) {
-		_ = os.Remove(oldAbsolutePath)
-	}
-}
-
 func mapUser(record schemas.User) *User {
 	return &User{
 		ID:           strconv.FormatInt(record.ID, 10),
@@ -336,19 +218,4 @@ func (service *Service) deleteApiToken(ctx context.Context, userID string) error
 		}
 	}
 	return nil
-}
-
-func avatarExtension(contentType string) (string, bool) {
-	switch contentType {
-	case "image/png":
-		return ".png", true
-	case "image/jpeg":
-		return ".jpg", true
-	case "image/gif":
-		return ".gif", true
-	case "image/webp":
-		return ".webp", true
-	default:
-		return "", false
-	}
 }

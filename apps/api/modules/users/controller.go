@@ -1,9 +1,7 @@
 package users
 
 import (
-	"bytes"
 	"context"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -135,49 +133,6 @@ func normalizeProfile(req *UpdateRequest) (*string, *string, error) {
 	}
 
 	return name, email, nil
-}
-
-func (controller *Controller) deleteAvatar(context context.Context) (*MeResponse, error) {
-	identity, ok := authcontext.IdentityFromContext(context)
-	if !ok {
-		return nil, errors.Unauthorized("missing auth")
-	}
-	user, err := controller.service.clearAvatar(context, identity.UserID)
-	if err != nil {
-		return nil, err
-	}
-	return &MeResponse{User: *user}, nil
-}
-
-func (controller *Controller) uploadAvatar(context context.Context, request *http.Request) (*MeResponse, error) {
-	identity, ok := authcontext.IdentityFromContext(context)
-	if !ok {
-		return nil, errors.Unauthorized("missing auth")
-	}
-
-	if err := request.ParseMultipartForm(5 << 20); err != nil {
-		return nil, errors.TooLarge("avatar file is too large")
-	}
-
-	file, _, err := request.FormFile("avatar")
-	if err != nil {
-		return nil, errors.Invalid("avatar file is required")
-	}
-	defer file.Close()
-
-	header := make([]byte, 512)
-	n, err := file.Read(header)
-	if err != nil && err != io.EOF {
-		return nil, errors.Internal("failed to read avatar file", err)
-	}
-
-	contentType := http.DetectContentType(header[:n])
-	user, err := controller.service.storeAvatar(context, identity.UserID, io.MultiReader(bytes.NewReader(header[:n]), file), contentType)
-	if err != nil {
-		return nil, err
-	}
-
-	return &MeResponse{User: *user}, nil
 }
 
 func (controller *Controller) getApiToken(context context.Context) (*ApiTokenStatusResponse, error) {

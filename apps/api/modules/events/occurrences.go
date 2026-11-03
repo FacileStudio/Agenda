@@ -94,6 +94,5 @@ func (s *Service) saveSeries(ctx context.Context, c *seriesCtx) (*EventResponse,
 		return nil, errors.Internal("failed to update event", err)
 	}
 	s.bumpSyncToken(ctx, evt.CalendarID)
-	resp := toResponse(evt)
-	return &resp, nil
+	return s.toResponse(ctx, evt)
 }

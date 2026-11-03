@@ -23,7 +23,10 @@ func AdoptPorte(db *gorm.DB, issuer string) error {
 	if issuer == "" {
 		return nil
 	}
-	return db.Exec(adoptOIDCSubjects, issuer).Error
+	if err := db.Exec(adoptOIDCSubjects, issuer).Error; err != nil {
+		return err
+	}
+	return db.Exec(backfillRegistrePictures, issuer, issuer).Error
 }
 
 // porteSchema is porte/pg's Schema with its porte_users table left out and the
@@ -193,4 +196,23 @@ SELECT id, ?, oidc_subject
   FROM users
  WHERE oidc_subject IS NOT NULL AND oidc_subject <> ''
 ON CONFLICT (provider, subject) DO NOTHING;
+`
+
+// backfillRegistrePictures gives every SSO account the picture URL Registre
+// would hand it at the next sign-in, so a person who has not signed in since
+// pictures shipped still renders with theirs.
+//
+// Registre's picture claim is the stable <issuer>/avatars/<subject> for every
+// human, answering 404 when they have none, so the URL is derived from the
+// identity row instead of waiting for a login. It only fills an empty column:
+// a URL a sign-in already stored is the provider's word and wins. Rerunning it
+// on every boot is a no-op once each identity has been filled.
+const backfillRegistrePictures = `
+UPDATE users u
+   SET oidc_picture_url = rtrim(?, '/') || '/avatars/' || i.subject
+  FROM porte_identities i
+ WHERE i.user_id = u.id
+   AND i.provider = ?
+   AND coalesce(u.oidc_picture_url, '') = ''
+   AND i.subject <> '';
 `

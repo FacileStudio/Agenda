@@ -35,8 +35,6 @@ var clientCalls = []struct {
 	{http.MethodGet, "/api/users/"},
 	{http.MethodGet, "/api/users/me"},
 	{http.MethodPatch, "/api/users/me"},
-	{http.MethodPost, "/api/users/me/avatar"},
-	{http.MethodDelete, "/api/users/me/avatar"},
 	{http.MethodGet, "/api/users/me/api-token"},
 	{http.MethodPost, "/api/users/me/api-token"},
 	{http.MethodDelete, "/api/users/me/api-token"},

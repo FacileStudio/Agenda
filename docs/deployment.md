@@ -149,7 +149,9 @@ a 404 — that is what a missing or misplaced `CLIENT_DIR` looks like. For CalDA
 | Volume | Mounted at | Holds |
 |---|---|---|
 | `postgres_data` | `/var/lib/postgresql/data` | The database |
-| `agenda_data` | `/app/data` | Uploaded and OIDC-fetched avatars under `/app/data/avatars` |
+| `agenda_data` | `/app/data` | Avatars uploaded before pictures moved to Registre, under `/app/data/avatars` |
 
-Avatars are files on disk, not rows. Losing `agenda_data` loses every uploaded avatar;
-OIDC-sourced ones come back on the next profile sync, uploaded ones do not.
+SSO pictures are not files here: `users.oidc_picture_url` holds Registre's
+`<issuer>/avatars/<subject>` URL and the browser loads it from Registre. Agenda no longer
+accepts uploads, so `agenda_data` only keeps the old uploads of password accounts;
+losing it loses those.

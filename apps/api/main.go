@@ -127,7 +127,7 @@ func run() int {
 	calendarService := calendars.NewService(db)
 	eventService := events.NewService(db)
 	spaceService := spaces.NewService(db)
-	userService := users.NewService(db, appEnv.StorageDir, authService)
+	userService := users.NewService(db, authService)
 	settingsService := settings.NewService(db)
 
 	if appEnv.Antenne.Enabled() {

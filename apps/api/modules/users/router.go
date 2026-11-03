@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// RegisterRoutes wires the authenticated user, profile, avatar and API token
+// RegisterRoutes wires the authenticated user, profile and API token
 // endpoints.
 func RegisterRoutes(router chi.Router, service *Service, authService *auth.Service) {
 	router.Route("/users", func(router chi.Router) {
@@ -40,25 +40,6 @@ func RegisterRoutes(router chi.Router, service *Service, authService *auth.Servi
 			}
 
 			resp, err := service.controller.updateMe(w, request, &req)
-			if err != nil {
-				httpjson.WriteError(w, err)
-				return
-			}
-			httpjson.WriteJSON(w, http.StatusOK, resp)
-		})
-
-		router.With(middleware.RequireAuth(authService)).Post("/me/avatar", func(w http.ResponseWriter, request *http.Request) {
-			request.Body = http.MaxBytesReader(w, request.Body, 6<<20)
-			resp, err := service.controller.uploadAvatar(request.Context(), request)
-			if err != nil {
-				httpjson.WriteError(w, err)
-				return
-			}
-			httpjson.WriteJSON(w, http.StatusOK, resp)
-		})
-
-		router.With(middleware.RequireAuth(authService)).Delete("/me/avatar", func(w http.ResponseWriter, request *http.Request) {
-			resp, err := service.controller.deleteAvatar(request.Context())
 			if err != nil {
 				httpjson.WriteError(w, err)
 				return
