@@ -2,14 +2,17 @@ package schemas
 
 import "time"
 
-// Space groups users around shared calendars.
+// Space groups users around shared calendars. RegistreSpaceID links it to
+// the Registre space that owns its name and members; it stays nil until the
+// first snapshot carrying that space is applied.
 type Space struct {
-	ID          int64         `gorm:"column:id;primaryKey"`
-	Name        string        `gorm:"column:name;not null"`
-	Description string        `gorm:"column:description"`
-	CreatedAt   time.Time     `gorm:"column:created_at;autoCreateTime"`
-	UpdatedAt   time.Time     `gorm:"column:updated_at;autoUpdateTime"`
-	Members     []SpaceMember `gorm:"foreignKey:SpaceID"`
+	ID              int64         `gorm:"column:id;primaryKey"`
+	Name            string        `gorm:"column:name;not null"`
+	Description     string        `gorm:"column:description"`
+	RegistreSpaceID *string       `gorm:"column:registre_space_id;uniqueIndex"`
+	CreatedAt       time.Time     `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt       time.Time     `gorm:"column:updated_at;autoUpdateTime"`
+	Members         []SpaceMember `gorm:"foreignKey:SpaceID"`
 }
 
 func (Space) TableName() string { return "spaces" }

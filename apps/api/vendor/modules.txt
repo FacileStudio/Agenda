@@ -14,6 +14,9 @@ github.com/FacileStudio/porte/oidc
 github.com/FacileStudio/porte/oidc/jwt
 github.com/FacileStudio/porte/pg
 github.com/FacileStudio/porte/session
+# github.com/FacileStudio/porte/directory v0.1.0
+## explicit; go 1.22
+github.com/FacileStudio/porte/directory
 # github.com/FacileStudio/tronc v0.16.0
 ## explicit; go 1.24.0
 github.com/FacileStudio/tronc/apiref

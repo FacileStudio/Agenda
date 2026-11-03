@@ -137,10 +137,10 @@
 		{#if space !== 'personal'}
 			<SettingsRow
 				label="Membres de l’espace"
-				description="Inviter, changer un rôle ou retirer quelqu’un se fait sur l’espace lui-même — les calendriers en héritent."
+				description="Inviter, changer un rôle ou retirer quelqu’un se fait dans Registre, pour toutes les apps Facile à la fois. Les calendriers de l’espace en héritent."
 			>
-				<Button variant="outline" href="/spaces/{space.spaceId}/members" icon={icons.usersGroup}>
-					Gérer les membres
+				<Button variant="outline" href="/spaces/{space.spaceId}" icon={icons.usersGroup}>
+					Voir les membres
 				</Button>
 			</SettingsRow>
 		{/if}

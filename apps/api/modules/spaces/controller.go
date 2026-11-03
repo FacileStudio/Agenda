@@ -39,47 +39,6 @@ func (c *controller) get(w http.ResponseWriter, r *http.Request) {
 	httpjson.WriteJSON(w, http.StatusOK, space)
 }
 
-func (c *controller) create(w http.ResponseWriter, r *http.Request) {
-	userID := mustUserID(r)
-	var req CreateSpaceRequest
-	if err := httpjson.DecodeJSON(w, r, &req); err != nil {
-		httpjson.WriteError(w, err)
-		return
-	}
-	space, err := c.service.CreateSpace(r.Context(), userID, &req)
-	if err != nil {
-		httpjson.WriteError(w, err)
-		return
-	}
-	httpjson.WriteJSON(w, http.StatusCreated, space)
-}
-
-func (c *controller) update(w http.ResponseWriter, r *http.Request) {
-	userID := mustUserID(r)
-	spaceID := mustSpaceID(r)
-	var req UpdateSpaceRequest
-	if err := httpjson.DecodeJSON(w, r, &req); err != nil {
-		httpjson.WriteError(w, err)
-		return
-	}
-	space, err := c.service.UpdateSpace(r.Context(), userID, spaceID, &req)
-	if err != nil {
-		httpjson.WriteError(w, err)
-		return
-	}
-	httpjson.WriteJSON(w, http.StatusOK, space)
-}
-
-func (c *controller) delete(w http.ResponseWriter, r *http.Request) {
-	userID := mustUserID(r)
-	spaceID := mustSpaceID(r)
-	if err := c.service.DeleteSpace(r.Context(), userID, spaceID); err != nil {
-		httpjson.WriteError(w, err)
-		return
-	}
-	httpjson.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
-}
-
 func (c *controller) listMembers(w http.ResponseWriter, r *http.Request) {
 	userID := mustUserID(r)
 	spaceID := mustSpaceID(r)
@@ -89,58 +48,6 @@ func (c *controller) listMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpjson.WriteJSON(w, http.StatusOK, members)
-}
-
-func (c *controller) addMember(w http.ResponseWriter, r *http.Request) {
-	userID := mustUserID(r)
-	spaceID := mustSpaceID(r)
-	var req AddMemberRequest
-	if err := httpjson.DecodeJSON(w, r, &req); err != nil {
-		httpjson.WriteError(w, err)
-		return
-	}
-	if err := c.service.AddMember(r.Context(), userID, spaceID, &req); err != nil {
-		httpjson.WriteError(w, err)
-		return
-	}
-	httpjson.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
-}
-
-func (c *controller) removeMember(w http.ResponseWriter, r *http.Request) {
-	userID := mustUserID(r)
-	spaceID := mustSpaceID(r)
-	targetID, _ := strconv.ParseInt(chi.URLParam(r, "userID"), 10, 64)
-	if err := c.service.RemoveMember(r.Context(), userID, spaceID, targetID); err != nil {
-		httpjson.WriteError(w, err)
-		return
-	}
-	httpjson.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
-}
-
-func (c *controller) updateRole(w http.ResponseWriter, r *http.Request) {
-	userID := mustUserID(r)
-	spaceID := mustSpaceID(r)
-	targetID, _ := strconv.ParseInt(chi.URLParam(r, "userID"), 10, 64)
-	var req UpdateRoleRequest
-	if err := httpjson.DecodeJSON(w, r, &req); err != nil {
-		httpjson.WriteError(w, err)
-		return
-	}
-	if err := c.service.UpdateMemberRole(r.Context(), userID, spaceID, targetID, &req); err != nil {
-		httpjson.WriteError(w, err)
-		return
-	}
-	httpjson.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
-}
-
-func (c *controller) leave(w http.ResponseWriter, r *http.Request) {
-	userID := mustUserID(r)
-	spaceID := mustSpaceID(r)
-	if err := c.service.LeaveSpace(r.Context(), userID, spaceID); err != nil {
-		httpjson.WriteError(w, err)
-		return
-	}
-	httpjson.WriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 func mustUserID(r *http.Request) int64 {

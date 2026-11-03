@@ -27,6 +27,7 @@ apps/
       users/              User profile management (copied from Courrier)
       settings/           App settings (copied from Courrier)
       calendars/          Calendar CRUD + sharing + member management
+      spaces/             Read-only spaces + the Registre directory sync (import, Apply, nudge)
       events/             Event CRUD, attendees, reminders, occurrence exceptions
       caldav/             CalDAV server (go-webdav backend + Basic Auth middleware)
     internal/             Shared infra (database, middleware, logger, env, errors, etc.)
@@ -58,7 +59,7 @@ mise run check              # the quality gate (scripts/check.sh)
 
 ```sh
 go build -mod=vendor -o bin/api .
-go mod vendor               # After changing dependencies
+# no plain go mod vendor: it drops the go-webdav patch (see Conventions)
 ```
 
 `go run .` by hand needs the environment exported by hand — the Go code never calls
@@ -131,11 +132,12 @@ the root because their URLs are held outside this repo:
 ## Conventions
 
 - **Single binary architecture** — Go binary serves SvelteKit static build from `CLIENT_DIR`
-- **Go modules are vendored** — run `go mod vendor` after changing dependencies
+- **Go modules are vendored, with a patched go-webdav** — never run plain `go mod vendor`: add the require and go.sum lines by hand and copy the new package into `vendor/` plus `vendor/modules.txt`
 - **Migrations run on startup** via `schemas.Migrate(db)`
 - **Svelte 5 runes** enforced (`$state`, `$props`, `$derived`, `$effect`)
 - **shadcn-svelte** for UI primitives in `src/lib/components/ui/`
 - **CalDAV sync token** — stored per calendar, bumped on every event create/update/delete
+- **Spaces belong to Registre** — `modules/spaces` imports once, then applies Registre snapshots; Agenda has no space write endpoints and the UI links to `https://sso.facile.studio/spaces`. Calendar shares stay app-local
 - **Mirrored events** — `events.source` / `events.external_id` mark events owned by another app (Opus tasks); user edits and CalDAV PUT/DELETE are rejected
 - **Event raw ICS** — stored in `events.raw_ics` for round-trip fidelity with CalDAV clients
 - **Event ICS is the source of truth** — attendees, reminders, EXDATE and RECURRENCE-ID overrides live only in `events.raw_ics` (rendered by `modules/events/ics_write.go`, read by `details.go`), so CalDAV clients and the API agree; `color` and `timezone` are columns

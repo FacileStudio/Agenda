@@ -167,15 +167,18 @@ If you must re-vendor, do it and then re-apply these by hand — the commits are
 ## Dependencies
 
 Go dependencies are vendored in `apps/api/vendor`, and the Docker build runs
-`go build -mod=vendor`. After changing anything in `go.mod`:
+`go build -mod=vendor`. To add a module without touching the go-webdav patch, edit the
+vendor tree by hand:
 
-```sh
-cd apps/api
-go mod tidy
-go mod vendor
-```
+1. Add the `require` line to `go.mod`, and the two `h1:` lines from
+   `go mod download -json <module>@<version>` (`Sum`, `GoModSum`) to `go.sum`.
+2. Copy the module's non-test `.go` files into `vendor/<module path>/`.
+3. Add its block to `vendor/modules.txt` in module-path order (`# <module> <version>`,
+   `## explicit; go <version>`, then each imported package).
+4. Check it: in a scratch copy of `apps/api`, `rm -rf vendor && go mod vendor`, and diff.
+   Only the three go-webdav `caldav/` files may differ.
 
-Then check the go-webdav patch survived, per the section above.
+`github.com/FacileStudio/porte/directory` was added this way.
 
 ## Conventions
 

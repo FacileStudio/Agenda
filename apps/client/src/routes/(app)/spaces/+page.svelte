@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
-	import { backend, type SpaceItem } from '$lib/backend';
+	import { backend, registreSpaceUrl, type SpaceItem } from '$lib/backend';
 	import { setSpaceContext } from '$lib/space-context.svelte';
 
 	let spaces = $state<SpaceItem[]>([]);
@@ -50,11 +50,13 @@
 		<div class="flex items-center justify-between">
 			<div>
 				<h1 class="text-lg font-semibold">Espaces</h1>
-				<p class="mt-1 text-sm text-muted-foreground">Collaborez avec votre équipe dans des espaces partagés.</p>
+				<p class="mt-1 text-sm text-muted-foreground">
+					Vos espaces partagés, les mêmes dans toutes les apps Facile. Ils se créent et se gèrent dans Registre.
+				</p>
 			</div>
-			<Button onclick={() => goto('/spaces/new')} class="cursor-pointer gap-2">
-				<iconify-icon icon="solar:add-circle-linear" width="16"></iconify-icon>
-				Nouvel espace
+			<Button href={registreSpaceUrl()} target="_blank" rel="noopener" class="cursor-pointer gap-2">
+				<iconify-icon icon="solar:square-top-down-linear" width="16"></iconify-icon>
+				Gérer dans Registre
 			</Button>
 		</div>
 	</div>
@@ -68,9 +70,9 @@
 			<div class="flex flex-col items-center justify-center py-16 text-center">
 				<iconify-icon icon="solar:users-group-rounded-bold-duotone" width="48" class="text-muted-foreground/50"></iconify-icon>
 				<p class="mt-4 text-sm text-muted-foreground">Aucun espace pour le moment.</p>
-				<Button onclick={() => goto('/spaces/new')} variant="outline" class="mt-4 cursor-pointer gap-2">
-					<iconify-icon icon="solar:add-circle-linear" width="16"></iconify-icon>
-					Créer un espace
+				<Button href={registreSpaceUrl()} target="_blank" rel="noopener" variant="outline" class="mt-4 cursor-pointer gap-2">
+					<iconify-icon icon="solar:square-top-down-linear" width="16"></iconify-icon>
+					Créer un espace dans Registre
 				</Button>
 			</div>
 		{:else}

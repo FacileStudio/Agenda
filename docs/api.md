@@ -79,24 +79,28 @@ password connects Apple Calendar.
 
 ## Spaces
 
-All routes require authentication. Space ids are integers.
+Registre owns shared spaces: their names, members and roles. Agenda follows it and
+serves them read-only; create, rename, invite, role changes and leaving happen at
+`https://sso.facile.studio/spaces`. Space ids are integers.
 
 | Method | Path | Body | Response |
 |---|---|---|---|
 | GET | `/api/spaces` | — | `[Space]` — only spaces the caller belongs to |
-| POST | `/api/spaces` | `{"name","description"}` | 201 `Space` |
 | GET | `/api/spaces/{spaceID}` | — | `Space` |
-| PUT | `/api/spaces/{spaceID}` | `{"name","description"}` | `Space` |
-| DELETE | `/api/spaces/{spaceID}` | — | `{"ok":true}` |
-| POST | `/api/spaces/{spaceID}/leave` | — | `{"ok":true}` |
 | GET | `/api/spaces/{spaceID}/members` | — | `[Member]` |
-| POST | `/api/spaces/{spaceID}/members` | `{"email","role"}` | `{"ok":true}` |
-| DELETE | `/api/spaces/{spaceID}/members/{userID}` | — | `{"ok":true}` |
-| PUT | `/api/spaces/{spaceID}/members/{userID}/role` | `{"role"}` | `{"ok":true}` |
+| POST | `/api/registre/sync` | ignored | 202, no auth — Registre's nudge |
 
 `Space` carries the caller's own `role` alongside `id`, `name`, `description`,
-`created_at`, and `updated_at`. `Member` is `{user_id, email, name, avatar_url, role,
-joined_at}`. Members are added by email, not by id.
+`registre_space_id` (empty until linked), `created_at`, and `updated_at`. `Member` is
+`{user_id, email, name, avatar_url, role, joined_at}`.
+
+When OIDC is configured, Agenda imports its existing spaces into Registre once at boot,
+retrying with backoff until Registre accepts, and only then starts syncing. It pulls the
+full snapshot at boot, every five minutes and two seconds after a nudge, and applies it
+in one transaction: spaces link by `registre_space_id`, then by name ignoring case;
+members resolve by porte identity, then by email, and are otherwise pre-provisioned so
+their first sign-in lands on that account. Members without a Registre identity (local
+password accounts) are never removed.
 
 ## Calendars
 

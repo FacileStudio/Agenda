@@ -83,6 +83,7 @@ export type SpaceItem = {
 	id: number;
 	name: string;
 	description: string;
+	registre_space_id: string;
 	role: string;
 	created_at: string;
 	updated_at: string;
@@ -124,6 +125,16 @@ export class ApiError extends Error {
 }
 
 // Methods that cannot change anything, and so do not need the CSRF header.
+const REGISTRE_SPACES_URL = 'https://sso.facile.studio/spaces';
+
+/**
+ * Where a space is managed. Registre owns every shared space's name, members and roles;
+ * Agenda only shows them, so each edit button links here instead.
+ */
+export function registreSpaceUrl(registreSpaceId = ''): string {
+	return registreSpaceId ? `${REGISTRE_SPACES_URL}/${encodeURIComponent(registreSpaceId)}` : REGISTRE_SPACES_URL;
+}
+
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 // porte authenticates the cookie in preference to the Authorization header,
@@ -281,42 +292,7 @@ export const backend = {
 	getSpace(id: number) {
 		return apiFetch<SpaceItem>(`/spaces/${id}/`);
 	},
-	createSpace(data: { name: string; description?: string }) {
-		return apiFetch<SpaceItem>('/spaces/', {
-			method: 'POST',
-			body: JSON.stringify(data)
-		});
-	},
-	updateSpace(id: number, data: { name: string; description?: string }) {
-		return apiFetch<SpaceItem>(`/spaces/${id}/`, {
-			method: 'PUT',
-			body: JSON.stringify(data)
-		});
-	},
-	deleteSpace(id: number) {
-		return apiFetch<{ ok: boolean }>(`/spaces/${id}/`, { method: 'DELETE' });
-	},
 	listSpaceMembers(spaceId: number) {
 		return apiFetch<SpaceMember[]>(`/spaces/${spaceId}/members`);
 	},
-	addSpaceMember(spaceId: number, email: string, role: string) {
-		return apiFetch<{ ok: boolean }>(`/spaces/${spaceId}/members`, {
-			method: 'POST',
-			body: JSON.stringify({ email, role })
-		});
-	},
-	removeSpaceMember(spaceId: number, userId: number) {
-		return apiFetch<{ ok: boolean }>(`/spaces/${spaceId}/members/${userId}`, {
-			method: 'DELETE'
-		});
-	},
-	updateSpaceMemberRole(spaceId: number, userId: number, role: string) {
-		return apiFetch<{ ok: boolean }>(`/spaces/${spaceId}/members/${userId}/role`, {
-			method: 'PUT',
-			body: JSON.stringify({ role })
-		});
-	},
-	leaveSpace(spaceId: number) {
-		return apiFetch<{ ok: boolean }>(`/spaces/${spaceId}/leave`, { method: 'POST' });
-	}
 };

@@ -10,6 +10,8 @@ import (
 
 	"github.com/FacileStudio/Agenda/apps/api/internal/env"
 	"github.com/FacileStudio/Agenda/apps/api/modules/auth"
+	"github.com/FacileStudio/Agenda/apps/api/modules/spaces"
+	"github.com/FacileStudio/porte/directory"
 	"github.com/FacileStudio/porte/oidc"
 	portepg "github.com/FacileStudio/porte/pg"
 	"github.com/FacileStudio/porte/session"
@@ -56,15 +58,9 @@ var clientCalls = []struct {
 	{http.MethodDelete, "/api/events/3/occurrences/2026-11-05"},
 	{http.MethodPost, "/api/events/3/occurrences/2026-11-05/restore"},
 	{http.MethodGet, "/api/spaces/"},
-	{http.MethodPost, "/api/spaces/"},
 	{http.MethodGet, "/api/spaces/1/"},
-	{http.MethodPut, "/api/spaces/1/"},
-	{http.MethodDelete, "/api/spaces/1/"},
-	{http.MethodPost, "/api/spaces/1/leave"},
 	{http.MethodGet, "/api/spaces/1/members"},
-	{http.MethodPost, "/api/spaces/1/members"},
-	{http.MethodDelete, "/api/spaces/1/members/2"},
-	{http.MethodPut, "/api/spaces/1/members/2/role"},
+	{http.MethodPost, directory.SyncPath},
 	{http.MethodGet, "/api/settings/"},
 	{http.MethodPut, "/api/settings/"},
 	{http.MethodGet, "/api/health"},
@@ -133,10 +129,11 @@ func testRouter(t *testing.T) chi.Router {
 
 	router := chi.NewRouter()
 	mountRoutes(router, mounts{
-		env:      appEnv,
-		sessions: sessions,
-		kit:      kit,
-		auth:     authService,
+		env:       appEnv,
+		sessions:  sessions,
+		kit:       kit,
+		auth:      authService,
+		directory: spaces.NewDirectory(nil, directory.Client{Issuer: appEnv.OIDC.Issuer}, appLogger),
 	})
 	return router
 }
@@ -186,5 +183,15 @@ func TestLegacyOIDCCallbackRedirectsUnderAPI(t *testing.T) {
 	}
 	if got := recorder.Header().Get("Location"); got != "/api/auth/oidc/callback?code=abc&state=xyz" {
 		t.Errorf("Location = %q; the authorization code must survive the hop", got)
+	}
+}
+
+func TestRegistreNudgeIsAcceptedWithoutCredentials(t *testing.T) {
+	router := testRouter(t)
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, directory.SyncPath, nil))
+	if recorder.Code != http.StatusAccepted {
+		t.Errorf("POST %s = %d, want 202; Registre's nudge carries no credentials", directory.SyncPath, recorder.Code)
 	}
 }

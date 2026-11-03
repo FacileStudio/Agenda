@@ -15,7 +15,7 @@
 		StatusDot,
 		icons
 	} from '@facile/muse';
-	import { backend, type UserProfile } from '$lib/backend';
+	import { backend, registreSpaceUrl, type UserProfile } from '$lib/backend';
 	import { getSpaceContext } from '$lib/space-context.svelte';
 
 	const app = getContext<{ user: UserProfile | null }>('app');
@@ -164,15 +164,11 @@
 		</SettingsRow>
 
 		<SettingsRow
-			label={space === 'personal' ? 'Quitter ou supprimer un espace' : `Quitter « ${space.name} »`}
-			description="Quitter un espace vous coupe de ses calendriers partages ; le supprimer les détruit pour tous ses membres."
+			label={space === 'personal' ? 'Quitter un espace' : `Quitter « ${space.name} »`}
+			description="Quitter un espace vous coupe de ses calendriers partagés, dans toutes les apps Facile. Cela se fait dans Registre."
 		>
-			<Button
-				variant="ghost-danger"
-				href={space === 'personal' ? '/spaces' : `/spaces/${space.spaceId}/settings`}
-				icon={icons.warning}
-			>
-				{space === 'personal' ? 'Voir les espaces' : 'Paramètres de l’espace'}
+			<Button variant="ghost-danger" href={registreSpaceUrl()} target="_blank" rel="noopener" icon={icons.warning}>
+				Gérer dans Registre
 			</Button>
 		</SettingsRow>
 

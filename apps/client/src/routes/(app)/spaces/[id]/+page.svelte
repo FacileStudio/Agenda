@@ -4,7 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { Avatar } from '@facile/muse';
 	import { Button } from '$lib/components/ui/button';
-	import { backend, resolveFileUrl, type SpaceItem, type SpaceMember } from '$lib/backend';
+	import { backend, registreSpaceUrl, resolveFileUrl, type SpaceItem, type SpaceMember } from '$lib/backend';
 	import { setSpaceContext, getSpaceContext, isPersonal } from '$lib/space-context.svelte';
 
 	const spaceId = $derived(Number($page.params.id));
@@ -14,7 +14,6 @@
 	let loading = $state(true);
 
 	const canManage = $derived(space?.role === 'owner' || space?.role === 'admin');
-	const isOwner = $derived(space?.role === 'owner');
 	const isCurrentSpace = $derived(!isPersonal() && getSpaceContext() !== 'personal' && (getSpaceContext() as { spaceId: number }).spaceId === spaceId);
 
 	function roleBadgeClass(role: string): string {
@@ -83,12 +82,16 @@
 							Basculer
 						</Button>
 					{/if}
-					{#if canManage}
-						<Button onclick={() => goto(`/spaces/${spaceId}/settings`)} variant="outline" class="cursor-pointer gap-2">
-							<iconify-icon icon="solar:settings-minimalistic-linear" width="16"></iconify-icon>
-							Paramètres
-						</Button>
-					{/if}
+					<Button
+						href={registreSpaceUrl(space.registre_space_id)}
+						target="_blank"
+						rel="noopener"
+						variant="outline"
+						class="cursor-pointer gap-2"
+					>
+						<iconify-icon icon="solar:square-top-down-linear" width="16"></iconify-icon>
+						{canManage ? 'Gérer dans Registre' : 'Voir dans Registre'}
+					</Button>
 				</div>
 			</div>
 		</div>
@@ -119,9 +122,16 @@
 					<div class="flex items-center justify-between">
 						<p class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Membres</p>
 						{#if canManage}
-							<Button onclick={() => goto(`/spaces/${spaceId}/members`)} variant="outline" size="sm" class="cursor-pointer gap-2">
+							<Button
+								href={registreSpaceUrl(space.registre_space_id)}
+								target="_blank"
+								rel="noopener"
+								variant="outline"
+								size="sm"
+								class="cursor-pointer gap-2"
+							>
 								<iconify-icon icon="solar:users-group-rounded-linear" width="14"></iconify-icon>
-								Gérer
+								Inviter ou retirer dans Registre
 							</Button>
 						{/if}
 					</div>

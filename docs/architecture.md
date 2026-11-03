@@ -120,7 +120,7 @@ logs a warning and startup continues.
 | `sessions` | `token` PK (hashed), `user_id`, `expires_at` | 30-day sessions |
 | `api_tokens` | `token` PK (hashed), `user_id`, `name` | One long-lived token per user; also accepted as a CalDAV password |
 | `app_settings` | single row `id = 1`, `encryption_key` | Surfaced through `/api/settings` as a boolean only |
-| `spaces` | `id`, `name`, `description` | |
+| `spaces` | `id`, `name`, `description`, `registre_space_id` unique | Name and members follow Registre (`modules/spaces/apply.go`) |
 | `space_members` | unique `(space_id, user_id)`, `role` | Cascades on delete of either side |
 | `calendars` | `id`, `owner_id`, `space_id`, `cal_dav_path`, `slug`, `name`, `color`, `is_personal`, `sync_token` | `echo_url` holds a per-calendar conference URL |
 | `calendar_members` | unique `(calendar_id, user_id)`, `role` | Roles are `reader`, `writer`, `admin` |

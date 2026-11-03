@@ -37,6 +37,7 @@ import (
 	troncmiddleware "github.com/FacileStudio/tronc/middleware"
 	"github.com/FacileStudio/tronc/spa"
 
+	"github.com/FacileStudio/porte/directory"
 	"github.com/FacileStudio/porte/local"
 	"github.com/FacileStudio/porte/oidc"
 	portepg "github.com/FacileStudio/porte/pg"
@@ -130,6 +131,9 @@ func run() int {
 	userService := users.NewService(db, authService)
 	settingsService := settings.NewService(db)
 
+	registreSync, stopSync := startDirectory(db, appEnv, appLogger)
+	defer stopSync()
+
 	if appEnv.Antenne.Enabled() {
 		poolClient := pool.NewClient(appEnv.Antenne, pool.NewMirror(db, eventService, calendarService, appLogger), appLogger)
 		poolClient.Start(context.Background())
@@ -161,6 +165,7 @@ func run() int {
 		spaces:    spaceService,
 		users:     userService,
 		settings:  settingsService,
+		directory: registreSync,
 	})
 
 	clientDir := spa.DirFromEnv()
@@ -219,6 +224,26 @@ type mounts struct {
 	spaces    *spaces.Service
 	users     *users.Service
 	settings  *settings.Service
+	directory *spaces.Directory
+}
+
+// startDirectory follows Registre's spaces when SSO is configured, signing
+// its pulls with the app's own OIDC client. It returns at once: the import
+// and the sync run in the background, so a Registre that is down or not yet
+// serving the directory never holds up boot. Without SSO there is no sync,
+// a nil directory and a stop that does nothing.
+func startDirectory(db *gorm.DB, appEnv env.Config, appLogger *slog.Logger) (*spaces.Directory, context.CancelFunc) {
+	if appEnv.OIDC == nil {
+		return nil, func() {}
+	}
+	sync := spaces.NewDirectory(db, directory.Client{
+		Issuer:       appEnv.OIDC.Issuer,
+		ClientID:     appEnv.OIDC.ClientID,
+		ClientSecret: appEnv.OIDC.ClientSecret,
+	}, appLogger)
+	ctx, stop := context.WithCancel(context.Background())
+	go sync.Run(ctx)
+	return sync, stop
 }
 
 // buildAuth constructs porte: one session manager, shared by the OIDC kit and
@@ -292,6 +317,9 @@ func mountRoutes(router chi.Router, m mounts) {
 		calendars.RegisterRoutes(r, m.calendars, m.auth)
 		events.RegisterRoutes(r, m.events, m.auth)
 		spaces.RegisterRoutes(r, m.spaces, m.auth)
+		if m.directory != nil {
+			spaces.RegisterSync(r, m.directory)
+		}
 		users.RegisterRoutes(r, m.users, m.auth)
 		settings.RegisterRoutes(r, m.settings, m.auth)
 	})
