@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Alert, Button, SwatchPicker, Field, Input, Modal, icons } from '@facile/muse';
 	import { backend } from '$lib/backend';
+	import { t } from '$lib/i18n/index.svelte';
 
 	let {
 		open = $bindable(false),
@@ -35,35 +36,35 @@
 	});
 
 	async function handleCreate() {
-		if (!name.trim()) { error = 'Le nom est requis.'; return; }
+		if (!name.trim()) { error = t('calendarModal.nameRequired'); return; }
 		saving = true; error = '';
 		try {
 			await backend.createCalendar({ name: name.trim(), color, description: description || undefined, echo_url: echoUrl.trim() || undefined });
 			onCreated();
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : 'Une erreur est survenue.';
+			error = e instanceof Error ? e.message : t('common.genericError');
 		} finally {
 			saving = false;
 		}
 	}
 </script>
 
-<Modal bind:open title="Nouveau calendrier" showClose {onClose}>
+<Modal bind:open title={t('calendarModal.newTitle')} showClose {onClose}>
 	<div class="flex flex-col gap-4">
-		<Field label="Nom">
-			<Input bind:value={name} placeholder="Mon calendrier" autofocus />
+		<Field label={t('common.name')}>
+			<Input bind:value={name} placeholder={t('calendarModal.namePlaceholder')} autofocus />
 		</Field>
 
 		<div class="flex flex-col gap-1.5">
-			<span class="text-fc-sm text-fc-fg">Couleur</span>
-			<SwatchPicker bind:value={color} colors={COLORS} label="Couleur du calendrier" />
+			<span class="text-fc-sm text-fc-fg">{t('common.color')}</span>
+			<SwatchPicker bind:value={color} colors={COLORS} label={t('calendarModal.colorLabel')} />
 		</div>
 
-		<Field label="Description">
-			<Input bind:value={description} placeholder="Description (optionnelle)" />
+		<Field label={t('common.description')}>
+			<Input bind:value={description} placeholder={t('calendarModal.descriptionPlaceholder')} />
 		</Field>
 
-		<Field label="Echo (visioconférence)" helper="URL de l'instance Echo pour ce calendrier">
+		<Field label={t('calendarModal.echo')} helper={t('calendarModal.echoHelper')}>
 			<Input bind:value={echoUrl} placeholder="https://echo.facile.studio" />
 		</Field>
 
@@ -75,7 +76,7 @@
 	{#snippet footer()}
 		<div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
 			<Button variant="outline" class="w-full sm:w-auto" onclick={() => (open = false)} disabled={saving}>
-				Annuler
+				{t('common.cancel')}
 			</Button>
 			<Button
 				class="w-full sm:w-auto"
@@ -83,7 +84,7 @@
 				onclick={handleCreate}
 				disabled={saving}
 			>
-				{saving ? 'Création…' : 'Créer'}
+				{saving ? t('common.creating') : t('common.create')}
 			</Button>
 		</div>
 	{/snippet}

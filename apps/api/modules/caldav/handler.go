@@ -72,14 +72,11 @@ func davAuthMiddleware(db *gorm.DB, authService *auth.Service) func(http.Handler
 
 // resolveUser authenticates a CalDAV request against porte.
 //
-// Three credentials reach this endpoint and all three are now porte's: the
-// browser's session cookie, an email plus password, and an email plus API
-// token — the last one being how an SSO user, who has no password at all,
-// connects a calendar client.
-//
-// The password check is Verify rather than Login on purpose. A CalDAV client
-// re-sends Basic credentials on every single request, so signing in here would
-// write a session row per PROPFIND.
+// Two credentials reach this endpoint and both are porte's: the browser's
+// session cookie, and an email plus API token, which is how an SSO user, who
+// has no password at all, connects a calendar client. Passwords are not
+// accepted: porte's Verify refuses them under OIDC and Agenda keeps
+// AllowProtocolPasswords off.
 //
 // The cookie path covers both the current cookie and the legacy `session`
 // cookie this app issued before it adopted porte, which porte still reads.
@@ -113,12 +110,6 @@ func resolveUser(w http.ResponseWriter, r *http.Request, db *gorm.DB, authServic
 	email, _ := url.PathUnescape(rawEmail)
 	if email == "" {
 		email = rawEmail
-	}
-
-	if id, err := authService.VerifyPassword(ctx, email, secret); err == nil {
-		if user := load(id); user != nil {
-			return user
-		}
 	}
 
 	bearer := r.Clone(ctx)

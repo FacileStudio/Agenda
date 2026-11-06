@@ -5,6 +5,7 @@
 	import UserMenu from '$lib/components/UserMenu.svelte';
 	import { ApiError, backend, type UserProfile, type CalendarItem } from '$lib/backend';
 	import { sortCalendars } from '$lib/calendar-filter.svelte';
+	import { setSessionLocale, t } from '$lib/i18n/index.svelte';
 
 	let { children } = $props();
 
@@ -14,6 +15,7 @@
 
 	function setUser(nextUser: UserProfile) {
 		user = nextUser;
+		setSessionLocale(nextUser.locale);
 	}
 
 	setContext('app', {
@@ -35,12 +37,12 @@
 	onMount(async () => {
 		try {
 			const result = await backend.me();
-			user = result.user;
+			setUser(result.user);
 			loaded = true;
 			backend.syncProfile().then(async (r) => {
 				if (r.synced) {
 					const fresh = await backend.me();
-					user = fresh.user;
+					setUser(fresh.user);
 				}
 			}).catch(() => {});
 			await refreshCalendars();
@@ -52,7 +54,7 @@
 	});
 
 	const navUser = $derived({
-		name: user?.name?.trim() || user?.email?.split('@')[0] || 'Mon profil',
+		name: user?.name?.trim() || user?.email?.split('@')[0] || t('menu.myProfile'),
 		email: user?.email ?? '',
 		avatar: user?.avatar_url || undefined
 	});

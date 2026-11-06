@@ -9,6 +9,8 @@
 	import { eventKey } from '$lib/recurrence';
 	import EventAvatar from '$lib/components/EventAvatar.svelte';
 	import { calendarColor, inkOn } from '$lib/calendar-colors';
+	import { MONDAY_FIRST, t } from '$lib/i18n/index.svelte';
+	import { formatTime, weekdayName } from '$lib/i18n/format';
 
 	let {
 		events,
@@ -28,7 +30,6 @@
 	const HOURS = Array.from({ length: 24 }, (_, i) => i);
 	const SLOT_HEIGHT = 60;
 	const LANE_HEIGHT = 22;
-	const DAY_ABBREVS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
 	type SpanningSegment = {
 		event: AgendaEvent;
@@ -46,7 +47,7 @@
 	const todayDate = $derived(today(tz));
 
 	const weekDays = $derived(() => {
-		const weekStart = startOfWeek(currentDate, 'fr-FR');
+		const weekStart = startOfWeek(currentDate, MONDAY_FIRST);
 		return Array.from({ length: 7 }, (_, i) => weekStart.add({ days: i }));
 	});
 
@@ -179,7 +180,7 @@
 						class="flex items-center justify-center gap-1 border-r border-border py-1 text-xs last:border-r-0
 							{isToday(day) ? 'font-semibold text-foreground' : 'text-muted-foreground'}"
 					>
-						{DAY_ABBREVS[di]}
+						{weekdayName(di, 'short')}
 						<span
 							class="flex size-5 items-center justify-center rounded-full text-xs
 								{isToday(day) ? 'bg-primary font-semibold text-primary-foreground' : ''}"
@@ -241,7 +242,7 @@
 					{#each HOURS as hour}
 						<button
 							type="button"
-							aria-label={`Créer un événement à ${hour}h`}
+							aria-label={t('calendar.createAt', { time: formatTime(new Date(2000, 0, 1, hour)) })}
 							class="absolute right-0 left-0 cursor-pointer border-b border-dashed border-border transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
 							style="top: {hour * SLOT_HEIGHT}px; height: {SLOT_HEIGHT}px;"
 							onclick={() => onSlotClick(day, hour)}
@@ -258,11 +259,11 @@
 						>
 							<span class="flex w-full items-center gap-1">
 								<span class="min-w-0 flex-1 truncate font-semibold">{event.title}</span>
-								{#if event.recurrence_rule}<iconify-icon icon="solar:repeat-linear" width="12" height="12" aria-label="Récurrent" class="block size-3 shrink-0 opacity-80"></iconify-icon>{/if}
+								{#if event.recurrence_rule}<iconify-icon icon="solar:repeat-linear" width="12" height="12" aria-label={t('calendar.recurring')} class="block size-3 shrink-0 opacity-80"></iconify-icon>{/if}
 								<EventAvatar creator={event.created_by} />
 							</span>
 							<span class="mt-0.5 block w-full truncate opacity-90">
-								{new Date(event.start_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+								{formatTime(event.start_at)}
 							</span>
 						</button>
 					{/each}

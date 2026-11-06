@@ -12,6 +12,8 @@
 	import { eventKey } from '$lib/recurrence';
 	import EventAvatar from '$lib/components/EventAvatar.svelte';
 	import { calendarColor, inkOn } from '$lib/calendar-colors';
+	import { MONDAY_FIRST, t } from '$lib/i18n/index.svelte';
+	import { formatTime, weekdayName } from '$lib/i18n/format';
 
 	let {
 		events,
@@ -27,7 +29,7 @@
 		onEventClick: (event: AgendaEvent) => void;
 	} = $props();
 
-	const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+	const dayLabels = $derived(Array.from({ length: 7 }, (_, index) => weekdayName(index, 'short')));
 	const tz = getLocalTimeZone();
 	const LANE_HEIGHT = 22;
 	const MAX_VISIBLE_LANES = 3;
@@ -151,8 +153,8 @@
 	const weeks = $derived(() => {
 		const monthStart = startOfMonth(currentDate);
 		const monthEnd = endOfMonth(currentDate);
-		let gridStart = startOfWeek(monthStart, 'fr-FR');
-		let gridEnd = endOfWeek(monthEnd, 'fr-FR');
+		let gridStart = startOfWeek(monthStart, MONDAY_FIRST);
+		let gridEnd = endOfWeek(monthEnd, MONDAY_FIRST);
 
 		const days: CalendarDate[] = [];
 		let cursor = gridStart;
@@ -181,7 +183,7 @@
 
 <div class="flex h-full flex-col">
 	<div class="grid grid-cols-7 border-b border-border">
-		{#each DAY_LABELS as label}
+		{#each dayLabels as label}
 			<div class="py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
 		{/each}
 	</div>
@@ -234,14 +236,14 @@
 								>
 									<EventAvatar creator={event.created_by} class="hidden size-3.5 sm:inline-flex" />
 									<span class="min-w-0 flex-1 truncate">
-										<span class="hidden sm:inline">{new Date(event.start_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}{' '}</span>{event.title}
+										<span class="hidden sm:inline">{formatTime(event.start_at)}{' '}</span>{event.title}
 									</span>
-									{#if event.recurrence_rule}<iconify-icon icon="solar:repeat-linear" width="12" height="12" aria-label="Récurrent" class="block size-3 shrink-0 opacity-80"></iconify-icon>{/if}
+									{#if event.recurrence_rule}<iconify-icon icon="solar:repeat-linear" width="12" height="12" aria-label={t('calendar.recurring')} class="block size-3 shrink-0 opacity-80"></iconify-icon>{/if}
 								</button>
 							{/each}
 							{#if hidden > 0}
 								<span class="px-1 text-xs text-muted-foreground">
-									+{hidden} de plus
+									{t('calendar.moreEvents', { count: hidden })}
 								</span>
 							{/if}
 						</div>

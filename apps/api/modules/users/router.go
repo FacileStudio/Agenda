@@ -39,7 +39,7 @@ func RegisterRoutes(router chi.Router, service *Service, authService *auth.Servi
 				return
 			}
 
-			resp, err := service.controller.updateMe(w, request, &req)
+			resp, err := service.controller.updateMe(request, &req)
 			if err != nil {
 				httpjson.WriteError(w, err)
 				return

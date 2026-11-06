@@ -15,8 +15,8 @@ Live at [agenda.facile.studio](https://agenda.facile.studio).
 - Events with locations, all-day flags, recurrence rules, attendees, and conference links
 - CalDAV server at `/dav` with `.well-known` discovery, so Apple Calendar, iOS,
   Thunderbird, and DAVx⁵ sync natively
-- Email/password auth with optional OIDC SSO and an `SSO_ONLY` mode
-- HTTP Basic Auth for CalDAV clients, accepting either the account password or an API token
+- Sign-in through Registre (OIDC) only; no local sign-up or passwords
+- HTTP Basic Auth for CalDAV clients, with an API token as the password
 - OIDC access and refresh tokens encrypted at rest with AES-GCM
 
 ## Stack

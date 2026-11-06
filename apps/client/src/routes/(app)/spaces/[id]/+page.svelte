@@ -7,6 +7,8 @@
 	import { backend, registreSpaceUrl, resolveFileUrl, type SpaceItem, type SpaceMember } from '$lib/backend';
 	import { setCalendarFilter } from '$lib/calendar-filter.svelte';
 	import type { CalendarItem } from '$lib/backend';
+	import { t } from '$lib/i18n/index.svelte';
+	import { formatDate } from '$lib/i18n/format';
 
 	const spaceId = $derived(Number($page.params.id));
 
@@ -29,11 +31,11 @@
 		}
 	}
 
-	const roleLabelMap: Record<string, string> = {
-		owner: 'Propriétaire',
-		admin: 'Administrateur',
-		member: 'Membre'
-	};
+	const roleLabelKeys = { owner: 'role.owner', admin: 'role.admin', member: 'role.member' } as const;
+
+	function roleLabel(role: string): string {
+		return role in roleLabelKeys ? t(roleLabelKeys[role as keyof typeof roleLabelKeys]) : role;
+	}
 
 	onMount(async () => {
 		try {
@@ -58,7 +60,7 @@
 </script>
 
 <svelte:head>
-	<title>{space?.name ?? 'Espace'} — Agenda</title>
+	<title>{space?.name ?? t('spaces.fallbackTitle')} — Agenda</title>
 </svelte:head>
 
 <div class="flex h-full flex-col">
@@ -69,7 +71,7 @@
 	{:else if space}
 		<div class="px-4 py-4 md:px-8 md:py-5">
 			<div class="flex flex-wrap items-center gap-3">
-				<button onclick={() => goto('/spaces')} class="cursor-pointer text-muted-foreground hover:text-foreground" aria-label="Retour aux espaces">
+				<button onclick={() => goto('/spaces')} class="cursor-pointer text-muted-foreground hover:text-foreground" aria-label={t('spaces.back')}>
 					<iconify-icon icon="solar:arrow-left-linear" width="20"></iconify-icon>
 				</button>
 				<div class="min-w-0 flex-1">
@@ -82,7 +84,7 @@
 					{#if spaceCalendar}
 						<Button onclick={openCalendar} class="cursor-pointer gap-2">
 							<iconify-icon icon="solar:calendar-linear" width="16"></iconify-icon>
-							Voir le calendrier
+							{t('spaces.viewCalendar')}
 						</Button>
 					{/if}
 					<Button
@@ -93,7 +95,7 @@
 						class="cursor-pointer gap-2"
 					>
 						<iconify-icon icon="solar:square-top-down-linear" width="16"></iconify-icon>
-						{canManage ? 'Gérer dans Registre' : 'Voir dans Registre'}
+						{canManage ? t('common.manageInRegistre') : t('spaces.viewInRegistre')}
 					</Button>
 				</div>
 			</div>
@@ -102,28 +104,28 @@
 		<div class="flex-1 overflow-auto p-4 md:p-8">
 			<div class="max-w-2xl space-y-6">
 				<div class="rounded-lg bg-muted/40 p-4">
-					<p class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Informations</p>
+					<p class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">{t('spaces.info')}</p>
 					<div class="mt-3 grid gap-2 text-sm">
 						<div class="flex justify-between">
-							<span class="text-muted-foreground">Rôle</span>
+							<span class="text-muted-foreground">{t('spaces.role')}</span>
 							<span class="rounded-full px-2.5 py-0.5 text-xs {roleBadgeClass(space.role)}">
-								{roleLabelMap[space.role] ?? space.role}
+								{roleLabel(space.role)}
 							</span>
 						</div>
 						<div class="flex justify-between">
-							<span class="text-muted-foreground">Membres</span>
+							<span class="text-muted-foreground">{t('common.members')}</span>
 							<span>{members.length}</span>
 						</div>
 						<div class="flex justify-between">
-							<span class="text-muted-foreground">Créé le</span>
-							<span>{new Date(space.created_at).toLocaleDateString('fr-FR')}</span>
+							<span class="text-muted-foreground">{t('spaces.createdOn')}</span>
+							<span>{formatDate(space.created_at)}</span>
 						</div>
 					</div>
 				</div>
 
 				<div>
 					<div class="flex items-center justify-between">
-						<p class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Membres</p>
+						<p class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">{t('common.members')}</p>
 						{#if canManage}
 							<Button
 								href={registreSpaceUrl(space.registre_space_id)}
@@ -134,7 +136,7 @@
 								class="cursor-pointer gap-2"
 							>
 								<iconify-icon icon="solar:users-group-rounded-linear" width="14"></iconify-icon>
-								Inviter ou retirer dans Registre
+								{t('spaces.inviteInRegistre')}
 							</Button>
 						{/if}
 					</div>
@@ -154,7 +156,7 @@
 									{/if}
 								</div>
 								<span class="shrink-0 rounded-full px-2.5 py-0.5 text-xs {roleBadgeClass(member.role)}">
-									{roleLabelMap[member.role] ?? member.role}
+									{roleLabel(member.role)}
 								</span>
 							</div>
 						{/each}

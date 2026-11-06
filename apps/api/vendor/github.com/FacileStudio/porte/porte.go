@@ -57,6 +57,12 @@ var (
 	ErrInvalidEmail       = errors.New("porte: a valid email is required")
 )
 
+// ErrLocalLoginDisabled is what porte/local's Register, Login and Verify and
+// porte/magiclink's Request and Consume return when the app has an OIDC
+// issuer configured. Sign-in then goes through the issuer only, so a route an
+// app still wires by hand answers the same 404 as one that was never mounted.
+var ErrLocalLoginDisabled = errors.New("porte: local sign-in is disabled because OIDC is configured")
+
 // ErrNoPassword is returned when a change is asked of an account that has no
 // password to change. It is not an enumeration risk the way ErrWrongPassword
 // would be: reaching it takes an authenticated session for the account in
@@ -124,7 +130,16 @@ const (
 	FlowCLI    = "cli"
 	PortParam  = "port"
 	StateParam = "cli_state"
+
+	FlowMobile     = "mobile"
+	ChallengeParam = "challenge"
 )
+
+// UILocalesParam is the query parameter a sign-in link on RouteLogin carries
+// with the page's language. porte forwards it to the provider as the OIDC
+// ui_locales parameter when it is one of fr, en, es or de, and drops it
+// otherwise, so Registre's own pages open in the language the app showed.
+const UILocalesParam = "ui_locales"
 
 // SessionCookieName is the browser session cookie. Courrier and Agenda already
 // ship this exact name; adopting theirs keeps two apps from having to log
@@ -191,6 +206,14 @@ type Config struct {
 	// SuccessURL is where the browser lands after a successful callback.
 	SuccessURL string
 
+	// MobileRedirect is where the mobile login flow (?flow=mobile) sends the
+	// browser with the one-time code. It comes from here and never from the
+	// request, so the flow cannot be turned into an open redirect. Empty
+	// refuses the mobile flow. It must be an absolute https URL or a custom
+	// scheme URI such as dev.facile.app:/auth, with no fragment.
+	// Env: OIDC_MOBILE_REDIRECT.
+	MobileRedirect string
+
 	// FailureURL is where the browser lands when a login fails, with the
 	// reason in an `error` query parameter. Empty means /login on
 	// SuccessURL's origin, which is where every adopter's login page is.
@@ -224,6 +247,10 @@ type Config struct {
 
 	// SSOOnly suppresses local password routes entirely. They are not
 	// registered rather than rejected, so there is no endpoint to probe.
+	//
+	// It only matters without an Issuer. With one, porte/local never mounts
+	// its routes and refuses Register and Login whatever this says, and
+	// GET /auth/config reports sso_only true.
 	SSOOnly bool
 
 	// MachineAudience enables offline verification of bearer tokens shaped
@@ -299,6 +326,16 @@ type Config struct {
 	// altogether, which is the state every app is in today, so leaving it
 	// unset regresses nothing.
 	ClaimsScope string
+
+	// ExtraScopes are requested on top of the standard four. A provider that
+	// carries an app-specific claim behind its own scope (Registre's
+	// connections, for one) is read by naming that scope here and the claim
+	// in ExtraClaims.
+	ExtraScopes []string
+
+	// ExtraClaims names the top-level claims copied, raw, into Claims.Extra.
+	// A name the token does not carry is simply absent from the map.
+	ExtraClaims []string
 
 	// SessionTTL, ClaimsTTL and LoginCodeTTL fall back to the Default
 	// constants above when zero.
@@ -444,6 +481,9 @@ func (c Config) Enabled() bool { return c.Issuer != "" }
 // OIDC is off, and each one enables a different surface, so each says which
 // variable is the one to remove.
 func (c Config) validateWithoutIssuer() error {
+	if c.MobileRedirect != "" {
+		return errors.New("porte: OIDC_MOBILE_REDIRECT is set but OIDC_ISSUER is empty")
+	}
 	for name, audience := range map[string]string{
 		"OIDC_MACHINE_AUDIENCE": c.MachineAudience,
 		"OIDC_CLI_AUDIENCE":     c.CLIAudience,
@@ -468,7 +508,7 @@ func (c Config) Scopes() []string {
 	if c.ClaimsEnabled() {
 		scopes = append(scopes, c.ClaimsScope)
 	}
-	return scopes
+	return append(scopes, c.ExtraScopes...)
 }
 
 // Validate rejects a half-configured provider at startup. A missing client
@@ -485,9 +525,7 @@ func (c Config) Validate() error {
 	case err != nil:
 		return fmt.Errorf("porte: OIDC_ISSUER is not a valid URL: %w", err)
 	case issuer.Scheme != "https" && issuer.Scheme != "http", issuer.Host == "":
-		// url.Parse accepts almost any string, so the parse error alone
-		// catches nothing: "sso.facile.studio" parses fine as a relative
-		// path and then fails discovery with an opaque error at boot.
+
 		return fmt.Errorf("porte: OIDC_ISSUER must be an absolute http(s) URL, got %q", c.Issuer)
 	}
 	missing := []string{}
@@ -504,6 +542,24 @@ func (c Config) Validate() error {
 	if len(missing) > 0 {
 		return fmt.Errorf("porte: OIDC_ISSUER is set but %s %s empty",
 			strings.Join(sorted(missing), ", "), plural(len(missing), "is", "are"))
+	}
+	return c.validateMobileRedirect()
+}
+
+func (c Config) validateMobileRedirect() error {
+	if c.MobileRedirect == "" {
+		return nil
+	}
+	target, err := url.Parse(c.MobileRedirect)
+	switch {
+	case err != nil, !target.IsAbs(), strings.Contains(c.MobileRedirect, "#"):
+		return fmt.Errorf("porte: OIDC_MOBILE_REDIRECT must be an absolute URI without a fragment, got %q", c.MobileRedirect)
+	case target.Scheme == "http":
+		return fmt.Errorf("porte: OIDC_MOBILE_REDIRECT must be https or a custom scheme, got %q", c.MobileRedirect)
+	case target.Scheme == "https" && target.Host == "":
+		return fmt.Errorf("porte: OIDC_MOBILE_REDIRECT has no host, got %q", c.MobileRedirect)
+	case target.Scheme == "javascript", target.Scheme == "data", target.Scheme == "file", target.Scheme == "blob":
+		return fmt.Errorf("porte: OIDC_MOBILE_REDIRECT scheme %q is not allowed", target.Scheme)
 	}
 	return nil
 }
@@ -525,7 +581,8 @@ func (c Config) Resolved() Config {
 
 // ConfigResponse is the body of GET /auth/config, byte-identical to what all
 // six apps serve today. A frontend reads it to decide whether to show a
-// password form at all.
+// password form at all. SSOOnly is true whenever OIDC is enabled, since
+// porte/local then serves no password route.
 type ConfigResponse struct {
 	SSOOnly     bool `json:"sso_only"`
 	OIDCEnabled bool `json:"oidc_enabled"`
@@ -541,8 +598,13 @@ type CredentialsRequest struct {
 
 // ExchangeRequest is the body of POST /auth/oidc/exchange: a CLI trading its
 // one-time login code for a bearer token.
+//
+// Verifier is the PKCE code verifier of the mobile flow. A code minted for a
+// mobile login redeems only with the verifier whose S256 hash was sent as the
+// challenge at login. It is empty for the CLI flow.
 type ExchangeRequest struct {
-	Code string `json:"code"`
+	Code     string `json:"code"`
+	Verifier string `json:"verifier,omitempty"`
 }
 
 // DeviceExchangeRequest is the body of POST /auth/oidc/device/exchange: a CLI

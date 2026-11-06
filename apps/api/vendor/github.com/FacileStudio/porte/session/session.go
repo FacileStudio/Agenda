@@ -184,24 +184,39 @@ func (m *Manager) handleLogout(w http.ResponseWriter, r *http.Request) {
 // An app that wants named tokens to expire owns that policy: it holds the
 // label, so it can sweep or rotate them on whatever schedule it means.
 func (m *Manager) Issue(ctx context.Context, userID int64, label string) (string, porte.Session, error) {
+	return m.IssueFor(ctx, porte.Session{UserID: userID, Label: label})
+}
+
+// IssueFor is Issue for a session template: UserID and Label as for Issue,
+// and Provider and Subject to bind the session to the identity that vouched
+// for the login. A bound session is stored only while that identity still
+// belongs to UserID; when it no longer does, because a purge removed it
+// between the login and this call, nothing is stored and the answer is a
+// generic 401.
+//
+// A named token (Label set) issued from a signed-in request with no other
+// binding is bound to the caller: to its session, so it is stored only while
+// that session exists, or, for a caller authenticated by a bearer JWT (no
+// session, a Subject), to the identity (Config.Issuer, Subject) the JWT
+// resolved through. A token loop racing a purge cannot outlive either.
+func (m *Manager) IssueFor(ctx context.Context, template porte.Session) (string, porte.Session, error) {
 	token, err := porte.NewToken()
 	if err != nil {
 		return "", porte.Session{}, errors.Internal("failed to issue a session", err)
 	}
+	template = m.bindToCaller(ctx, template)
 	now := m.now()
-	var expiresAt time.Time
-	if label == "" {
-		expiresAt = now.Add(m.cfg.SessionTTL)
+	template.TokenHash = porte.HashToken(token)
+	template.CreatedAt, template.LastUsedAt = now, now
+	template.ExpiresAt = time.Time{}
+	if template.Label == "" {
+		template.ExpiresAt = now.Add(m.cfg.SessionTTL)
 	}
-	session, err := m.store.Create(ctx, porte.Session{
-		TokenHash:  porte.HashToken(token),
-		UserID:     userID,
-		Label:      label,
-		CreatedAt:  now,
-		LastUsedAt: now,
-		ExpiresAt:  expiresAt,
-	})
-	if err != nil {
+	session, err := m.store.Create(ctx, template)
+	switch {
+	case isNotFound(err):
+		return "", porte.Session{}, errors.Unauthorized("could not sign you in")
+	case err != nil:
 		return "", porte.Session{}, errors.Internal("failed to store the session", err)
 	}
 	return token, session, nil
@@ -215,7 +230,13 @@ func (m *Manager) Issue(ctx context.Context, userID int64, label string) (string
 // put its session where porte's middleware, its CSRF rule and its idle window
 // expect to find it, so adopting porte meant adopting it for half your logins.
 func (m *Manager) IssueCookie(ctx context.Context, w http.ResponseWriter, r *http.Request, userID int64) (string, porte.Session, error) {
-	token, session, err := m.Issue(ctx, userID, "")
+	return m.IssueCookieFor(ctx, w, r, porte.Session{UserID: userID})
+}
+
+// IssueCookieFor is IssueFor plus the Set-Cookie, as IssueCookie is Issue
+// plus the Set-Cookie. No cookie is set when the bound identity is gone.
+func (m *Manager) IssueCookieFor(ctx context.Context, w http.ResponseWriter, r *http.Request, template porte.Session) (string, porte.Session, error) {
+	token, session, err := m.IssueFor(ctx, template)
 	if err != nil {
 		return "", porte.Session{}, err
 	}
@@ -339,12 +360,6 @@ func (m *Manager) Authenticate(w http.ResponseWriter, r *http.Request) (porte.Id
 		return porte.Identity{}, errors.Unauthorized("missing auth")
 	}
 
-	// A cookie is attached by the browser whether or not the page meant to
-	// send it, which is the whole CSRF problem. SameSite=Lax stops the
-	// cross-site form post; this stops the rest, because a browser will not
-	// attach a custom header cross-site without a preflight the app never
-	// answers. Bearer callers are exempt: nothing attaches a header on
-	// their behalf.
 	if fromCookie && mutating(r) && r.Header.Get(porte.CSRFHeaderName) == "" {
 		return porte.Identity{}, errors.Forbidden("missing " + porte.CSRFHeaderName + " header")
 	}
@@ -369,8 +384,7 @@ func (m *Manager) Authenticate(w http.ResponseWriter, r *http.Request) (porte.Id
 		if fromCookie {
 			m.ClearCookie(w, r, porte.SessionCookieName)
 		}
-		// The row is dead either way, and leaving it costs a lookup on
-		// every replay of a token that will never authenticate again.
+
 		if err := m.store.Delete(r.Context(), hash); err != nil && !isNotFound(err) {
 			m.logger.Warn("porte: failed to drop a dead session", slog.Any("error", err))
 		}

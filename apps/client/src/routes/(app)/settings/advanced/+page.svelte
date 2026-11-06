@@ -16,10 +16,10 @@
 		icons
 	} from '@facile/muse';
 	import { backend, registreSpaceUrl, type UserProfile } from '$lib/backend';
+	import { t } from '$lib/i18n/index.svelte';
 
 	const app = getContext<{ user: UserProfile | null }>('app');
 
-	let ssoOnly = $state(false);
 	let oidcEnabled = $state(false);
 	let configLoaded = $state(false);
 	let encryptionKeySet = $state(false);
@@ -33,11 +33,9 @@
 			const response = await fetch(`${backend.apiBaseUrl}/auth/config`, {
 				credentials: 'include'
 			});
-			const config = (await response.json()) as { sso_only: boolean; oidc_enabled: boolean };
-			ssoOnly = config.sso_only;
+			const config = (await response.json()) as { oidc_enabled: boolean };
 			oidcEnabled = config.oidc_enabled;
 		} catch {
-			ssoOnly = false;
 			oidcEnabled = false;
 		} finally {
 			configLoaded = true;
@@ -58,124 +56,84 @@
 </script>
 
 <svelte:head>
-	<title>Avancé — Agenda</title>
+	<title>{t('settings.tab.advanced')} — Agenda</title>
 </svelte:head>
 
 <div class="flex flex-col gap-10">
-	<SettingsSection
-		title="Instance"
-		description="Les faits à citer quand vous ouvrez un ticket sur une installation auto-hébergée."
-	>
-		<SettingsRow
-			label="Interface"
-			description="Cette application est le client web de l’API Agenda, servi par le même binaire."
-		>
+	<SettingsSection title={t('advanced.instance')} description={t('advanced.instanceText')}>
+		<SettingsRow label={t('advanced.interface')} description={t('advanced.interfaceText')}>
 			<StatusDot tone="neutral" label="Agenda web" />
 		</SettingsRow>
 
-		<SettingsRow
-			label="Connexion par mot de passe"
-			description="Coupée pour toute l’instance par SSO_ONLY, qui masque complètement le formulaire de connexion."
-		>
-			<StatusDot
-				tone={configLoaded && ssoOnly ? 'neutral' : 'success'}
-				label={configLoaded ? (ssoOnly ? 'Désactivée' : 'Activée') : 'Vérification…'}
-				pulse={!configLoaded}
-			/>
-		</SettingsRow>
-
-		<SettingsRow
-			label="Authentification unique"
-			description="Fédération OIDC vers le fournisseur d’identité de l’instance. Activée par OIDC_ISSUER côté serveur."
-		>
+		<SettingsRow label={t('advanced.sso')} description={t('advanced.ssoText')}>
 			<StatusDot
 				tone={configLoaded && oidcEnabled ? 'success' : 'neutral'}
-				label={configLoaded ? (oidcEnabled ? 'Activée' : 'Non configurée') : 'Vérification…'}
+				label={configLoaded
+					? oidcEnabled
+						? t('advanced.enabled')
+						: t('advanced.notConfigured')
+					: t('advanced.checking')}
 				pulse={!configLoaded}
 			/>
 		</SettingsRow>
 
-		<SettingsRow
-			label="Chiffrement des jetons OIDC"
-			description="ENCRYPTION_KEY chiffre au repos les jetons rendus par le fournisseur d’identité. Sans elle ils sont stockés en clair."
-		>
+		<SettingsRow label={t('advanced.encryption')} description={t('advanced.encryptionText')}>
 			<StatusDot
 				tone={settingsLoaded && encryptionKeySet ? 'success' : 'warning'}
-				label={settingsLoaded ? (encryptionKeySet ? 'Clé définie' : 'Aucune clé') : 'Vérification…'}
+				label={settingsLoaded
+					? encryptionKeySet
+						? t('advanced.keySet')
+						: t('advanced.keyMissing')
+					: t('advanced.checking')}
 				pulse={!settingsLoaded}
 			/>
 		</SettingsRow>
 	</SettingsSection>
 
-	<SettingsSection
-		title="Interopérabilité"
-		description="Ce que d’autres logiciels peuvent lire sans passer par cette interface."
-	>
-		<SettingsRow
-			label="Point d’accès CalDAV"
-			description="Racine du serveur CalDAV. Les identifiants et le détail par client sont dans l’onglet API."
-			stacked
-		>
+	<SettingsSection title={t('advanced.interop')} description={t('advanced.interopText')}>
+		<SettingsRow label={t('advanced.endpoint')} description={t('advanced.endpointText')} stacked>
 			<SecretField value={davEndpoint} sensitive={false} class="w-full" />
 		</SettingsRow>
 
-		<SettingsRow
-			label="Découverte"
-			description="Les clients qui savent le faire trouvent le serveur tout seuls à partir du domaine."
-			stacked
-		>
+		<SettingsRow label={t('advanced.discovery')} description={t('advanced.discoveryText')} stacked>
 			<SecretField value={`${serverOrigin}/.well-known/caldav`} sensitive={false} class="w-full" />
 		</SettingsRow>
 
-		<SettingsRow
-			label="Export d’un calendrier"
-			description="Un client CalDAV récupère l’ICS d’origine, alarmes et récurrences comprises — Agenda n’a pas d’export séparé à maintenir."
-		>
-			<Button variant="outline" href="/settings/api" icon={icons.download}>Connecter un client</Button>
+		<SettingsRow label={t('advanced.export')} description={t('advanced.exportText')}>
+			<Button variant="outline" href="/settings/api" icon={icons.download}>
+				{t('advanced.connect')}
+			</Button>
 		</SettingsRow>
 	</SettingsSection>
 
-	<SettingsSection
-		title="Zone de danger"
-		description="Les actions irréversibles vivent en bas de cet onglet — jamais dans la barre d’onglets."
-	>
-		<Alert tone="warning">
-			Agenda n’a rien de destructif au niveau du compte : un compte est une identité, il ne
-			possède aucune donnée en propre. Ce qui détruit appartient à l’objet concerné — un
-			calendrier, un espace, un token — et se fait là où cet objet se gère.
-		</Alert>
+	<SettingsSection title={t('advanced.danger')} description={t('advanced.dangerText')}>
+		<Alert tone="warning">{t('advanced.dangerAlert')}</Alert>
 
-		<SettingsRow
-			label="Supprimer un calendrier"
-			description="Emporte ses événements et désabonne tous les clients CalDAV qui le synchronisaient. Réservé au propriétaire, depuis la fiche du calendrier."
-		>
+		<SettingsRow label={t('advanced.deleteCalendar')} description={t('advanced.deleteCalendarText')}>
 			<Button variant="outline" href="/settings/members" icon={icons.calendar}>
-				Ouvrir les calendriers
+				{t('advanced.openCalendars')}
 			</Button>
 		</SettingsRow>
 
-		<SettingsRow
-			label="Révoquer le token API"
-			description="Tout client ou script qui s’en sert cesse de se synchroniser immédiatement, et un token révoqué ne se restaure pas."
-		>
-			<Button variant="outline" href="/settings/api" icon={icons.key}>Ouvrir l’onglet API</Button>
+		<SettingsRow label={t('advanced.revokeToken')} description={t('advanced.revokeTokenText')}>
+			<Button variant="outline" href="/settings/api" icon={icons.key}>{t('advanced.openApi')}</Button>
 		</SettingsRow>
 
-		<SettingsRow
-			label="Quitter un espace"
-			description="Quitter un espace vous coupe de son calendrier, dans toutes les apps Facile. Cela se fait dans Registre."
-		>
-			<Button variant="ghost-danger" href={registreSpaceUrl()} target="_blank" rel="noopener" icon={icons.warning}>
-				Gérer dans Registre
+		<SettingsRow label={t('advanced.leaveSpace')} description={t('advanced.leaveSpaceText')}>
+			<Button
+				variant="ghost-danger"
+				href={registreSpaceUrl()}
+				target="_blank"
+				rel="noopener"
+				icon={icons.warning}
+			>
+				{t('common.manageInRegistre')}
 			</Button>
 		</SettingsRow>
 
 		{#if app.user}
-			<SettingsRow
-				label="Supprimer le compte"
-				description="Aucun endpoint ne le fait : la suppression d’un compte passe par l’administrateur de l’instance, ou par Porte si vous vous connectez en SSO."
-			>
-				<StatusDot tone="neutral" label="Via l’administrateur" />
+			<SettingsRow label={t('advanced.deleteAccount')} description={t('advanced.deleteAccountText')}>
+				<StatusDot tone="neutral" label={t('advanced.viaRegistre')} />
 			</SettingsRow>
 		{/if}
 	</SettingsSection>

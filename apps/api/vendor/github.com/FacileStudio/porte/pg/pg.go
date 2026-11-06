@@ -41,6 +41,11 @@ import (
 // It also makes the constraint free. subject is half the primary key, so once
 // it holds the account id, "one password per account" is enforced by the table
 // rather than by a check somebody has to remember to write.
+//
+// Columns added after a table first shipped are guarded by information_schema
+// checks rather than ALTER TABLE ... IF NOT EXISTS, which takes an ACCESS
+// EXCLUSIVE lock even when there is nothing to add: a boot behind a long read
+// would otherwise queue, and every request behind the boot with it.
 const Schema = `
 CREATE TABLE IF NOT EXISTS porte_users (
 	id             bigserial PRIMARY KEY,
@@ -69,8 +74,6 @@ CREATE TABLE IF NOT EXISTS porte_identities (
 	PRIMARY KEY (provider, subject)
 );
 CREATE INDEX IF NOT EXISTS porte_identities_user_idx ON porte_identities (user_id);
-ALTER TABLE porte_identities ADD COLUMN IF NOT EXISTS created_at timestamptz;
-ALTER TABLE porte_identities ALTER COLUMN created_at SET DEFAULT now();
 
 UPDATE porte_identities SET subject = user_id::text
  WHERE provider = 'local' AND subject <> user_id::text;
@@ -94,7 +97,6 @@ CREATE TABLE IF NOT EXISTS porte_login_codes (
 	expires_at  timestamptz NOT NULL,
 	consumed_at timestamptz
 );
-ALTER TABLE porte_login_codes ADD COLUMN IF NOT EXISTS consumed_at timestamptz;
 
 CREATE TABLE IF NOT EXISTS porte_magic_links (
 	token_hash  text PRIMARY KEY,
@@ -108,6 +110,33 @@ CREATE INDEX IF NOT EXISTS porte_magic_links_user_idx ON porte_magic_links (user
 CREATE INDEX IF NOT EXISTS porte_magic_links_ip_idx ON porte_magic_links (ip, created_at)
 	WHERE ip <> '';
 CREATE INDEX IF NOT EXISTS porte_magic_links_expiry_idx ON porte_magic_links (expires_at);
+
+DO $$
+BEGIN
+	IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+	                WHERE table_schema = current_schema() AND table_name = 'porte_users' AND column_name = 'locale') THEN
+		ALTER TABLE porte_users ADD COLUMN locale text NOT NULL DEFAULT 'en';
+	END IF;
+	IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+	                WHERE table_schema = current_schema() AND table_name = 'porte_identities' AND column_name = 'created_at') THEN
+		ALTER TABLE porte_identities ADD COLUMN created_at timestamptz;
+		ALTER TABLE porte_identities ALTER COLUMN created_at SET DEFAULT now();
+	ELSIF EXISTS (SELECT 1 FROM information_schema.columns
+	               WHERE table_schema = current_schema() AND table_name = 'porte_identities'
+	                 AND column_name = 'created_at' AND column_default IS NULL) THEN
+		ALTER TABLE porte_identities ALTER COLUMN created_at SET DEFAULT now();
+	END IF;
+	IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+	                WHERE table_schema = current_schema() AND table_name = 'porte_login_codes' AND column_name = 'consumed_at') THEN
+		ALTER TABLE porte_login_codes ADD COLUMN consumed_at timestamptz;
+	END IF;
+	IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+	                WHERE table_schema = current_schema() AND table_name = 'porte_login_codes' AND column_name = 'provider') THEN
+		ALTER TABLE porte_login_codes ADD COLUMN provider text NOT NULL DEFAULT '',
+		                              ADD COLUMN subject text NOT NULL DEFAULT '';
+	END IF;
+END
+$$;
 
 ` + KeySchema
 
@@ -202,121 +231,6 @@ func (s *UserStore) FindByEmail(ctx context.Context, email string) (int64, error
 	return userID, nil
 }
 
-// UpsertFromOIDC resolves the callback's claims to a user id, creating the
-// user and the identity link when they are new.
-//
-// Matching is on (provider, subject) first. The email fallback runs only when
-// the provider verified the address: matching a mutable, unproven email is how
-// an IdP that lets a user set any address becomes an account takeover
-// primitive. It exists at all so accounts created before the subject was
-// recorded still link on their next login instead of forking in two.
-//
-// The whole thing is one transaction. A login that created a user but failed
-// to link the identity would create a second user on the next attempt.
-func (s *UserStore) UpsertFromOIDC(ctx context.Context, claims porte.Claims) (int64, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return 0, fmt.Errorf("porte/pg: begin: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	var userID int64
-	err = tx.QueryRowContext(ctx,
-		`SELECT user_id FROM porte_identities WHERE provider = $1 AND subject = $2`,
-		claims.Provider, claims.Subject).Scan(&userID)
-
-	if stderrors.Is(err, sql.ErrNoRows) && claims.EmailVerified && claims.Email != "" {
-		err = tx.QueryRowContext(ctx,
-			`SELECT id FROM porte_users WHERE email = $1`, claims.Email).Scan(&userID)
-	}
-	switch {
-	case err == nil:
-		if _, err := tx.ExecContext(ctx, `
-			UPDATE porte_users
-			   SET email = $2,
-			       email_verified = $3,
-			       name = COALESCE(NULLIF($4, ''), name),
-			       avatar_url = COALESCE(NULLIF($5, ''), avatar_url),
-			       avatar_source = CASE WHEN $5 <> '' THEN 'oidc' ELSE avatar_source END,
-			       updated_at = now()
-			 WHERE id = $1`,
-			userID, claims.Email, claims.EmailVerified, claims.DisplayName(), claims.AvatarURL,
-		); err != nil {
-			return 0, fmt.Errorf("porte/pg: update user: %w", err)
-		}
-	case stderrors.Is(err, sql.ErrNoRows):
-		// A new subject whose email already belongs to somebody. Either
-		// the provider re-created the account — in which case linking
-		// on an unverified address is the account takeover this refuses
-		// — or two humans share an address, which they cannot. Saying
-		// so beats a raw unique-violation 500 on the login path.
-		var taken int64
-		switch err := tx.QueryRowContext(ctx,
-			`SELECT id FROM porte_users WHERE email = $1`, claims.Email).Scan(&taken); {
-		case err == nil:
-			return 0, fmt.Errorf(
-				"porte/pg: %s is already registered under a different identity, and the provider did not verify the address, so porte will not link them",
-				claims.Email)
-		case !stderrors.Is(err, sql.ErrNoRows):
-			return 0, fmt.Errorf("porte/pg: check email: %w", err)
-		}
-
-		avatarSource := ""
-		if claims.AvatarURL != "" {
-			avatarSource = "oidc"
-		}
-		// ON CONFLICT rather than a bare INSERT, because the check above
-		// is a read in a READ COMMITTED transaction and two first logins
-		// for the same new user — a double click, two tabs, a retried
-		// callback — both pass it and both arrive here. Letting the
-		// loser adopt the winner's row turns a unique-violation 500 on
-		// the login path into a second successful login.
-		err := tx.QueryRowContext(ctx, `
-			INSERT INTO porte_users (email, email_verified, name, avatar_url, avatar_source)
-			VALUES ($1, $2, $3, $4, $5)
-			ON CONFLICT (email) DO NOTHING
-			RETURNING id`,
-			claims.Email, claims.EmailVerified, claims.DisplayName(), claims.AvatarURL, avatarSource,
-		).Scan(&userID)
-		if stderrors.Is(err, sql.ErrNoRows) {
-			// Somebody else inserted this email between the check above
-			// and here. Adopting their row is right when the provider
-			// verified the address — that is the same rule the fallback
-			// at the top of this method applies — and is the account
-			// takeover it refuses when the provider did not, so the
-			// guard is applied again rather than assumed.
-			if !claims.EmailVerified {
-				return 0, fmt.Errorf(
-					"porte/pg: %s is already registered under a different identity, and the provider did not verify the address, so porte will not link them",
-					claims.Email)
-			}
-			err = tx.QueryRowContext(ctx,
-				`SELECT id FROM porte_users WHERE email = $1`, claims.Email).Scan(&userID)
-		}
-		if err != nil {
-			return 0, fmt.Errorf("porte/pg: insert user: %w", err)
-		}
-	default:
-		return 0, fmt.Errorf("porte/pg: resolve user: %w", err)
-	}
-
-	// The link only. Tokens and roles arrive through Save, so this method
-	// stays the same shape an app implementing UserStore has to satisfy.
-	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO porte_identities (user_id, provider, subject)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (provider, subject) DO UPDATE SET user_id = EXCLUDED.user_id`,
-		userID, claims.Provider, claims.Subject,
-	); err != nil {
-		return 0, fmt.Errorf("porte/pg: link identity: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return 0, fmt.Errorf("porte/pg: commit: %w", err)
-	}
-	return userID, nil
-}
-
 // Find returns the identity for a provider and subject.
 func (s *IdentityStore) Find(ctx context.Context, provider, subject string) (porte.StoredIdentity, error) {
 	row := s.db.QueryRowContext(ctx, `
@@ -334,11 +248,24 @@ func (s *IdentityStore) Find(ctx context.Context, provider, subject string) (por
 	return identity, nil
 }
 
-// Save inserts or updates by (provider, subject).
+// Save inserts or updates a password identity by (provider, subject). A
+// federated identity it inserts when absent and updates when present, but
+// never re-points onto another account, and never creates one on an account
+// that already holds a different subject of the same provider.
+//
+// That second rule is what keeps a late Save after a purge from resurrecting
+// the purged identity: the purge leaves the owner's identity of the same
+// provider on the row. Save takes the account's advisory lock first, as the
+// purge does, so it either runs before the purge and is purged with the rest,
+// or after it and sees the owner's identity. The lock names no table, so Save
+// works whatever table an adopter keeps its accounts in. Either refusal is porte.ErrNotFound.
 func (s *IdentityStore) Save(ctx context.Context, identity porte.StoredIdentity) error {
 	roles, err := marshalRoles(identity.Roles)
 	if err != nil {
 		return err
+	}
+	if identity.Provider != porte.ProviderLocal {
+		return s.saveFederated(ctx, identity, roles)
 	}
 	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO porte_identities
@@ -362,6 +289,37 @@ func (s *IdentityStore) Save(ctx context.Context, identity porte.StoredIdentity)
 		return fmt.Errorf("porte/pg: save identity: %w", err)
 	}
 	return nil
+}
+
+// saveFederated is Save for a non-local identity, under the account's
+// exclusive advisory lock, the one the purge takes.
+func (s *IdentityStore) saveFederated(ctx context.Context, identity porte.StoredIdentity, roles []byte) error {
+	return withUserLock(ctx, s.db, identity.UserID, false, func(q querier) error {
+		result, err := q.ExecContext(ctx, `
+			INSERT INTO porte_identities
+			       (user_id, provider, subject, password_hash, access_token, refresh_token,
+			        token_expiry, roles, roles_synced_at, synced_at)
+			SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+			 WHERE EXISTS (SELECT 1 FROM porte_identities WHERE provider = $2 AND subject = $3 AND user_id = $1)
+			    OR NOT EXISTS (SELECT 1 FROM porte_identities WHERE provider = $2 AND user_id = $1)
+			ON CONFLICT (provider, subject) DO UPDATE SET
+			       password_hash = EXCLUDED.password_hash, access_token = EXCLUDED.access_token,
+			       refresh_token = EXCLUDED.refresh_token, token_expiry = EXCLUDED.token_expiry,
+			       roles = EXCLUDED.roles, roles_synced_at = EXCLUDED.roles_synced_at,
+			       synced_at = EXCLUDED.synced_at
+			 WHERE porte_identities.user_id = EXCLUDED.user_id`,
+			identity.UserID, identity.Provider, identity.Subject, identity.PasswordHash,
+			identity.Tokens.AccessToken, identity.Tokens.RefreshToken,
+			nullTime(identity.Tokens.Expiry), roles,
+			nullTime(identity.RolesSyncedAt), nullTime(identity.SyncedAt))
+		if err != nil {
+			return fmt.Errorf("porte/pg: save identity: %w", err)
+		}
+		if written, err := result.RowsAffected(); err != nil || written == 0 {
+			return porte.ErrNotFound
+		}
+		return nil
+	})
 }
 
 // MarkRolesSynced moves the roles_synced_at stamp and nothing else.
@@ -409,14 +367,26 @@ func (s *IdentityStore) ListByUser(ctx context.Context, userID int64) ([]porte.S
 }
 
 // Create stores a session and returns it with its id filled in.
+//
+// A bound session is inserted only while what vouched for it still exists:
+// its identity (Provider set) or the session that issued it (IssuedBy set).
+// The check runs under the account's shared advisory lock, which a purge's
+// exclusive lock excludes. The binding is checked, not stored, so the insert
+// uses the column list every adopter's own DDL already has.
 func (s *SessionStore) Create(ctx context.Context, session porte.Session) (porte.Session, error) {
-	err := s.db.QueryRowContext(ctx, `
-		INSERT INTO porte_sessions (token_hash, user_id, label, created_at, last_used_at, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id`,
-		session.TokenHash, session.UserID, session.Label,
-		session.CreatedAt, session.LastUsedAt, nullTime(session.ExpiresAt),
-	).Scan(&session.ID)
+	insert := func(q querier) error {
+		return q.QueryRowContext(ctx, `
+			INSERT INTO porte_sessions (token_hash, user_id, label, created_at, last_used_at, expires_at)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			RETURNING id`,
+			session.TokenHash, session.UserID, session.Label,
+			session.CreatedAt, session.LastUsedAt, nullTime(session.ExpiresAt),
+		).Scan(&session.ID)
+	}
+	err := whileBound(ctx, s.db, session, insert)
+	if stderrors.Is(err, porte.ErrNotFound) {
+		return porte.Session{}, err
+	}
 	if err != nil {
 		return porte.Session{}, fmt.Errorf("porte/pg: create session: %w", err)
 	}
@@ -537,15 +507,29 @@ func (s *SessionStore) DeleteExpired(ctx context.Context, now time.Time) (int64,
 	return result.RowsAffected()
 }
 
-// Create stores a pending code.
+// Create stores a pending code. An unbound code uses the column list every
+// adopter's own DDL already has; a bound one also stores provider and
+// subject, which a table without those columns refuses, and is inserted only
+// while its identity exists, like a bound session.
 func (s *LoginCodeStore) Create(ctx context.Context, code porte.LoginCode) error {
-	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO porte_login_codes (code_hash, user_id, expires_at) VALUES ($1, $2, $3)`,
-		code.CodeHash, code.UserID, code.ExpiresAt)
-	if err != nil {
+	insert := func(q querier) error {
+		if code.Provider == "" {
+			_, err := q.ExecContext(ctx,
+				`INSERT INTO porte_login_codes (code_hash, user_id, expires_at) VALUES ($1, $2, $3)`,
+				code.CodeHash, code.UserID, code.ExpiresAt)
+			return err
+		}
+		_, err := q.ExecContext(ctx, `
+			INSERT INTO porte_login_codes (code_hash, user_id, expires_at, provider, subject)
+			VALUES ($1, $2, $3, $4, $5)`,
+			code.CodeHash, code.UserID, code.ExpiresAt, code.Provider, code.Subject)
+		return err
+	}
+	err := whileBound(ctx, s.db, porte.Session{UserID: code.UserID, Provider: code.Provider, Subject: code.Subject}, insert)
+	if err != nil && !stderrors.Is(err, porte.ErrNotFound) {
 		return fmt.Errorf("porte/pg: create login code: %w", err)
 	}
-	return nil
+	return err
 }
 
 // Consume claims the code in one statement, so two exchanges racing each other
@@ -562,8 +546,10 @@ func (s *LoginCodeStore) Consume(ctx context.Context, codeHash string) (porte.Lo
 	err := s.db.QueryRowContext(ctx, `
 		UPDATE porte_login_codes SET consumed_at = $2
 		 WHERE code_hash = $1 AND consumed_at IS NULL
-		RETURNING code_hash, user_id, expires_at`, codeHash, time.Now(),
-	).Scan(&code.CodeHash, &code.UserID, &code.ExpiresAt)
+		RETURNING code_hash, user_id, expires_at,
+		          COALESCE(to_jsonb(porte_login_codes) ->> 'provider', ''),
+		          COALESCE(to_jsonb(porte_login_codes) ->> 'subject', '')`, codeHash, time.Now(),
+	).Scan(&code.CodeHash, &code.UserID, &code.ExpiresAt, &code.Provider, &code.Subject)
 	if stderrors.Is(err, sql.ErrNoRows) {
 		return porte.LoginCode{}, s.whyItFailed(ctx, codeHash)
 	}
@@ -668,4 +654,13 @@ func requireOne(result sql.Result, operation string) error {
 		return porte.ErrNotFound
 	}
 	return nil
+}
+
+// keptLocale is the locale an update writes: the claim normalised, or empty
+// to keep the stored one when the caller built Claims without a locale.
+func keptLocale(claimed string) string {
+	if claimed == "" {
+		return ""
+	}
+	return porte.NormalizeLocale(claimed)
 }

@@ -1,5 +1,6 @@
 import { browser } from '$app/environment';
 import type { CalendarItem } from '$lib/backend';
+import { compareNames } from '$lib/i18n/format';
 
 const STORAGE_KEY = 'agenda:calendar-filter';
 
@@ -42,6 +43,6 @@ export function visibleCalendars(calendars: CalendarItem[]): CalendarItem[] {
 /** Space calendars first, then personal ones, each by name. */
 export function sortCalendars(calendars: CalendarItem[]): CalendarItem[] {
 	return [...calendars].sort(
-		(a, b) => Number(!a.space_id) - Number(!b.space_id) || a.name.localeCompare(b.name, 'fr')
+		(a, b) => Number(!a.space_id) - Number(!b.space_id) || compareNames(a.name, b.name)
 	);
 }

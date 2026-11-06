@@ -1,4 +1,6 @@
 import type { AgendaEvent } from '$lib/backend';
+import { t } from '$lib/i18n/index.svelte';
+import { formatDate, weekdayName } from '$lib/i18n/format';
 
 export type Frequency = 'none' | 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | 'custom';
 export type RecurrenceEnd = 'never' | 'until' | 'count';
@@ -14,8 +16,6 @@ export type Recurrence = {
 };
 
 export const WEEKDAYS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
-export const WEEKDAY_LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-const WEEKDAY_NAMES = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
 const MODELLED_PARTS = new Set(['FREQ', 'INTERVAL', 'BYDAY', 'UNTIL', 'COUNT', 'WKST']);
 
 function pad(n: number): string {
@@ -114,36 +114,39 @@ export function buildRule(r: Recurrence, start: Date, allDay: boolean): string {
 	return out.join(';');
 }
 
-const UNITS: Record<string, [string, string, string]> = {
-	DAILY: ['Tous les jours', 'jours', 'Tous les'],
-	WEEKLY: ['Toutes les semaines', 'semaines', 'Toutes les'],
-	MONTHLY: ['Tous les mois', 'mois', 'Tous les'],
-	YEARLY: ['Tous les ans', 'ans', 'Tous les']
-};
+const UNIT_KEYS = {
+	DAILY: { single: 'rec.daily', lead: 'rec.lead.daily', unit: 'rec.unit.daily' },
+	WEEKLY: { single: 'rec.weekly', lead: 'rec.lead.weekly', unit: 'rec.unit.weekly' },
+	MONTHLY: { single: 'rec.monthly', lead: 'rec.lead.monthly', unit: 'rec.unit.monthly' },
+	YEARLY: { single: 'rec.yearly', lead: 'rec.lead.yearly', unit: 'rec.unit.yearly' }
+} as const;
 
-/** Returns the words around an interval input, such as ["Toutes les", "semaines"]. */
+/** Returns the words around an interval input, such as ["Every", "weeks"]. */
 export function intervalWords(freq: Frequency): [string, string] {
-	const unit = UNITS[freq];
-	return unit ? [unit[2], unit[1]] : ['', ''];
+	const keys = UNIT_KEYS[freq as keyof typeof UNIT_KEYS];
+	return keys ? [t(keys.lead), t(keys.unit)] : ['', ''];
 }
 
-/** Describes an RRULE in French, such as "Toutes les semaines le lundi, 10 fois". */
+function describeWeekdays(r: Recurrence, base: string): string {
+	const days = WEEKDAYS.filter((d) => r.byDay.includes(d));
+	if (r.interval === 1 && days.join() === 'MO,TU,WE,TH,FR') return t('rec.workdays');
+	if (days.length === 7) return r.interval === 1 ? t('rec.daily') : base;
+	const names = days.map((d) => weekdayName(WEEKDAYS.indexOf(d))).join(', ');
+	return base + t('rec.onDays', { days: names });
+}
+
+/** Describes an RRULE in the current locale, such as "Every week on Monday, 10 times". */
 export function describeRule(rule: string, start: Date): string {
 	if (!rule) return '';
 	const r = parseRule(rule, start);
-	if (r.freq === 'custom' || r.freq === 'none') return 'Récurrence personnalisée';
-	const [single, plural, lead] = UNITS[r.freq];
-	let text = r.interval > 1 ? `${lead} ${r.interval} ${plural}` : single;
-	if (r.freq === 'WEEKLY') {
-		const days = WEEKDAYS.filter((d) => r.byDay.includes(d));
-		if (r.interval === 1 && days.join() === 'MO,TU,WE,TH,FR') text = 'Du lundi au vendredi';
-		else if (days.length === 7) text = r.interval === 1 ? 'Tous les jours' : text;
-		else text += ` le ${days.map((d) => WEEKDAY_NAMES[WEEKDAYS.indexOf(d)]).join(', ')}`;
-	}
-	if (r.end === 'count') text += `, ${r.count} fois`;
+	if (r.freq === 'custom' || r.freq === 'none') return t('rec.customSummary');
+	const keys = UNIT_KEYS[r.freq];
+	let text = r.interval > 1 ? `${t(keys.lead)} ${r.interval} ${t(keys.unit)}` : t(keys.single);
+	if (r.freq === 'WEEKLY') text = describeWeekdays(r, text);
+	if (r.end === 'count') text += t('rec.count', { count: r.count });
 	if (r.end === 'until' && r.until) {
-		const until = new Date(`${r.until}T00:00`);
-		text += `, jusqu'au ${until.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+		const until = formatDate(new Date(`${r.until}T00:00`), { day: 'numeric', month: 'long', year: 'numeric' });
+		text += t('rec.until', { date: until });
 	}
 	return text;
 }

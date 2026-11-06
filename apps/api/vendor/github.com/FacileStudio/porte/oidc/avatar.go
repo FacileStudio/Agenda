@@ -80,8 +80,6 @@ func FetchAvatar(ctx context.Context, pictureURL string) (data []byte, contentTy
 		return nil, "", fmt.Errorf("porte: unsupported avatar content type %q", contentType)
 	}
 
-	// One byte past the limit, so an oversized body is detected rather
-	// than silently truncated into a corrupt image.
 	data, err = io.ReadAll(io.LimitReader(response.Body, MaxAvatarBytes+1))
 	if err != nil {
 		return nil, "", fmt.Errorf("porte: reading the avatar failed: %w", err)
@@ -157,8 +155,7 @@ func isPublicIP(ip net.IP) bool {
 // every legitimate avatar host — arrives in that form.
 func embeddedIPv4(ip net.IP) net.IP {
 	if mapped := ip.To4(); mapped != nil {
-		// Either a plain IPv4 or the ::ffff:a.b.c.d form. Only the
-		// second is a different value worth re-checking.
+
 		if len(ip) == net.IPv6len && !mapped.Equal(ip) {
 			return mapped
 		}
@@ -169,14 +166,13 @@ func embeddedIPv4(ip net.IP) net.IP {
 	}
 	switch {
 	case ip[0] == 0x00 && ip[1] == 0x64 && ip[2] == 0xff && ip[3] == 0x9b:
-		// NAT64 well-known prefix 64:ff9b::/96, RFC 6052.
+
 		return net.IPv4(ip[12], ip[13], ip[14], ip[15])
 	case ip[0] == 0x20 && ip[1] == 0x02:
-		// 6to4, 2002::/16, RFC 3056: the IPv4 is bytes 2 through 5.
+
 		return net.IPv4(ip[2], ip[3], ip[4], ip[5])
 	case isZeros(ip[:12]) && !isZeros(ip[12:]):
-		// The deprecated IPv4-compatible form ::a.b.c.d, which
-		// ::127.0.0.1 uses and net.IP.IsLoopback does not recognise.
+
 		return net.IPv4(ip[12], ip[13], ip[14], ip[15])
 	}
 	return nil

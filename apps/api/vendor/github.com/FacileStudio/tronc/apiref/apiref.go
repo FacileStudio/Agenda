@@ -23,17 +23,23 @@ package apiref
 import (
 	"html/template"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/FacileStudio/tronc/httpjson"
+	"github.com/FacileStudio/tronc/middleware"
 )
 
 // ScalarScriptURL is the pinned Scalar standalone bundle. Pinned rather than
 // floating so a Scalar release cannot change every suite app's reference page
 // without a commit.
 const ScalarScriptURL = "https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.64.0"
+
+// ScalarFontOrigin is where the Scalar bundle loads its fonts from, whichever
+// copy of the bundle is served.
+const ScalarFontOrigin = "https://fonts.scalar.com"
 
 // BasePath is where the reference is mounted, relative to the router passed to
 // Mount. Mounting on the root router therefore serves /docs.
@@ -77,7 +83,9 @@ func Mount(router chi.Router, cfg Config) {
 	cfg = cfg.withDefaults()
 	document := OpenAPI(cfg)
 
-	router.Get(BasePath, func(w http.ResponseWriter, request *http.Request) {
+	router.With(middleware.SecurityOverride(middleware.SecurityOverrideConfig{
+		CSPSources: pageSources(cfg.ScriptURL),
+	})).Get(BasePath, func(w http.ResponseWriter, request *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write([]byte(page(cfg, request.URL.Path+"/openapi.json")))
 	})
@@ -86,6 +94,25 @@ func Mount(router chi.Router, cfg Config) {
 		w.Header().Set("Cache-Control", "public, max-age=3600")
 		httpjson.WriteJSON(w, http.StatusOK, document)
 	})
+}
+
+// pageSources widens the app's CSP to the Scalar bundle and its fonts, in
+// whatever mode the app runs. script-src names the bundle's exact URL, not
+// its whole host: a CDN serves anyone's packages, so allowing the host would
+// allow every script published there. A ScriptURL that would corrupt the
+// policy is left out, not injected.
+func pageSources(scriptURL string) map[string][]string {
+	sources := map[string][]string{"font-src": {"'self'", ScalarFontOrigin}}
+	parsed, err := url.Parse(scriptURL)
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil {
+		return sources
+	}
+	pinned := "https://" + parsed.Host + parsed.EscapedPath()
+	withScript := map[string][]string{"font-src": sources["font-src"], "script-src": {pinned}}
+	if _, err := middleware.BuildCSP(withScript, ""); err != nil {
+		return sources
+	}
+	return withScript
 }
 
 var pageTemplate = template.Must(template.New("apiref").Parse(`<!doctype html>

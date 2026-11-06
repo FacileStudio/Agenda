@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext, onMount } from 'svelte';
+	import { getContext } from 'svelte';
 	import { goto } from '$app/navigation';
 	import {
 		Badge,
@@ -12,36 +12,17 @@
 	} from '@facile/muse';
 	import { toast } from 'svelte-sonner';
 	import { backend, type UserProfile } from '$lib/backend';
+	import { t } from '$lib/i18n/index.svelte';
+	import { formatDate } from '$lib/i18n/format';
 
 	const app = getContext<{ user: UserProfile | null; setUser: (u: UserProfile) => void }>('app');
 
 	let syncing = $state(false);
 	let loggingOut = $state(false);
-	let ssoOnly = $state(false);
-	let oidcEnabled = $state(false);
 
 	const displayName = $derived(app.user?.name?.trim() || app.user?.email || '');
 	const managedBySSO = $derived(app.user?.avatar_source === 'oidc');
-	const signedInWith = $derived(
-		ssoOnly ? 'Authentification unique' : oidcEnabled ? 'Mot de passe ou SSO' : 'Mot de passe'
-	);
-	const createdAt = $derived(
-		app.user?.created_at ? new Date(app.user.created_at).toLocaleDateString('fr-FR') : '—'
-	);
-
-	onMount(async () => {
-		try {
-			const response = await fetch(`${backend.apiBaseUrl}/auth/config`, {
-				credentials: 'include'
-			});
-			const config = (await response.json()) as { sso_only: boolean; oidc_enabled: boolean };
-			ssoOnly = config.sso_only;
-			oidcEnabled = config.oidc_enabled;
-		} catch {
-			ssoOnly = false;
-			oidcEnabled = false;
-		}
-	});
+	const createdAt = $derived(app.user?.created_at ? formatDate(app.user.created_at) : '—');
 
 	async function syncProfile() {
 		syncing = true;
@@ -50,12 +31,12 @@
 			if (result.synced) {
 				const fresh = await backend.me();
 				app.setUser(fresh.user);
-				toast.success('Profil synchronisé depuis SSO.');
+				toast.success(t('profile.synced'));
 			} else {
-				toast.info('Profil déjà à jour.');
+				toast.info(t('profile.upToDate'));
 			}
 		} catch {
-			toast.error('Échec de la synchronisation.');
+			toast.error(t('profile.syncFailed'));
 		} finally {
 			syncing = false;
 		}
@@ -66,14 +47,14 @@
 		try {
 			await backend.logout();
 		} catch {
-			toast.warning('Le serveur n’a pas confirmé la déconnexion, la session est fermée ici.');
+			toast.warning(t('menu.logoutUnconfirmed'));
 		}
 		await goto('/login');
 	}
 </script>
 
 <svelte:head>
-	<title>Paramètres — Agenda</title>
+	<title>{t('settings.title')} — Agenda</title>
 </svelte:head>
 
 <div class="flex flex-col gap-10">
@@ -82,26 +63,23 @@
 		email={app.user?.email ?? ''}
 		avatar={app.user?.avatar_url ?? ''}
 		meta={[
-			{ label: 'Connecté via', value: signedInWith },
-			{ label: 'Compte créé le', value: createdAt }
+			{ label: t('profile.signedInVia'), value: t('profile.facileAccount') },
+			{ label: t('profile.createdOn'), value: createdAt }
 		]}
 	>
 		{#snippet actions()}
 			{#if app.user?.avatar_source}
 				<Button variant="outline" icon={icons.refresh} disabled={syncing} onclick={syncProfile}>
-					{syncing ? 'Synchronisation…' : 'Sync. profil SSO'}
+					{syncing ? t('profile.syncing') : t('profile.sync')}
 				</Button>
 			{/if}
 		{/snippet}
 	</ProfileCard>
 
-	<SettingsSection
-		title="Identité"
-		description="Le nom et l’adresse que voient les autres membres de vos calendriers."
-	>
+	<SettingsSection title={t('profile.identity')} description={t('profile.identityText')}>
 		<SettingsRow
-			label="Nom"
-			description="Affiché sur les événements que vous créez et dans les listes de membres."
+			label={t('common.name')}
+			description={t('profile.nameText')}
 			for="profile-name"
 			stacked
 		>
@@ -109,8 +87,8 @@
 		</SettingsRow>
 
 		<SettingsRow
-			label="Email"
-			description="Votre identifiant CalDAV et l’adresse par laquelle on vous partage un calendrier."
+			label={t('common.email')}
+			description={t('profile.emailText')}
 			for="profile-email"
 			stacked
 		>
@@ -118,55 +96,24 @@
 		</SettingsRow>
 
 		{#if managedBySSO}
-			<SettingsRow
-				label="Photo de profil"
-				description="Elle vient de Registre et vaut pour toute la suite. Changez-la sur votre compte, elle s’affiche ici au prochain chargement."
-			>
-				<Button variant="outline" href="https://sso.facile.studio/account">Modifier sur Registre</Button>
+			<SettingsRow label={t('profile.photo')} description={t('profile.photoText')}>
+				<Button variant="outline" href="https://sso.facile.studio/account">
+					{t('profile.photoEdit')}
+				</Button>
 			</SettingsRow>
 		{/if}
 	</SettingsSection>
 
-	<SettingsSection
-		title="Authentification"
-		description="Comment cette instance vous laisse entrer. C’est le serveur qui le décide, pas vous."
-	>
-		{#if ssoOnly}
-			<SettingsRow
-				label="Authentification unique seule"
-				description="Les mots de passe sont désactivés sur cette instance. Vos identifiants appartiennent à votre fournisseur d’identité — changez-les là-bas."
-			>
-				<Badge tone="info">Gérée par votre fournisseur d’identité</Badge>
-			</SettingsRow>
-		{:else}
-			<SettingsRow
-				label="Mot de passe"
-				description="Agenda ne réaffiche jamais un mot de passe. Il sert aussi de mot de passe CalDAV pour les comptes locaux."
-			>
-				<Badge tone="neutral">Compte local</Badge>
-			</SettingsRow>
-
-			{#if oidcEnabled}
-				<SettingsRow
-					label="Authentification unique"
-					description="Cette instance accepte aussi le SSO. S’y connecter rejoint le même compte tant que le sub OIDC correspond."
-				>
-					<Badge tone="neutral">Disponible à la connexion</Badge>
-				</SettingsRow>
-			{/if}
-		{/if}
+	<SettingsSection title={t('profile.auth')} description={t('profile.authText')}>
+		<SettingsRow label={t('profile.authRow')} description={t('profile.authRowText')}>
+			<Badge tone="info">{t('profile.authBadge')}</Badge>
+		</SettingsRow>
 	</SettingsSection>
 
-	<SettingsSection
-		title="Session"
-		description="Les sessions sont par navigateur. Vous déconnecter ici laisse vos autres appareils tranquilles."
-	>
-		<SettingsRow
-			label="Se déconnecter"
-			description="Termine cette session et renvoie vers la page de connexion. Le token API continue de fonctionner — révoquez-le depuis l’onglet API."
-		>
+	<SettingsSection title={t('profile.session')} description={t('profile.sessionText')}>
+		<SettingsRow label={t('menu.logout')} description={t('profile.logoutText')}>
 			<Button variant="outline" icon={icons.logout} disabled={loggingOut} onclick={logout}>
-				{loggingOut ? 'Déconnexion…' : 'Se déconnecter'}
+				{loggingOut ? t('profile.loggingOut') : t('menu.logout')}
 			</Button>
 		</SettingsRow>
 	</SettingsSection>

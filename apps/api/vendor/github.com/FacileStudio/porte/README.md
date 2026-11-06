@@ -33,6 +33,8 @@ reasoning behind both.
   and leaves CLI and API tokens alone because a nightly job is idle by design
 - Gives every CLI the same login: browser opens, user signs in, a one-time code comes back.
   The listener is included, in `porte/loopback`, so five CLIs stop each writing their own
+- Signs a CLI in over SSH too: `porte/devicelogin` runs the device grant against Registre and
+  trades the token at the app's device exchange, with one link to open and nothing to paste
 - Draws the two pages it cannot hand back to the app, the code page and a CLI's loopback
   page, with the app's own name and logo, derived from `OIDC_SUCCESS_URL` and needing no
   deployment to set them
@@ -54,9 +56,12 @@ reasoning behind both.
 | `porte/pg` | The identity tables and the stores over them | `database/sql` |
 | `porte/avatarfs` | A filesystem `AvatarStore`: atomic writes, a guarded key, and an `http.Handler` that serves them | the standard library |
 | `porte/loopback` | The CLI's half of the CLI login: the loopback listener, the login URL, the pages a browser lands on | the standard library |
+| `porte/devicelogin` | The CLI's default login: the RFC 8628 device grant against Registre, then the app's device exchange | the standard library |
 | `porte/spaces` | Space membership authorization: the role ladder, `Resolve`, `Require`, `CanLeave`, `AssignableBy`/`AssignableOver`. No CRUD, no routes, no ORM | the standard library |
 | `porte/spaces/spacestest` | `Conformance(t, newStore)` and `ConformanceWithLadder`: the invariants, run against an app's own `Store` and its own role vocabulary | `porte/spaces`, `testing` |
 | `porte/magiclink/magiclinktest` | `Conformance(t, newStore, newUser)`: single use, supersession and the rate counts, run against an app's own `MagicLinkStore` | `porte`, `testing` |
+| `porte/directory` | Nested module: Registre's spaces, members and plan entitlements, pulled as one snapshot and nudged on change | the standard library |
+| `porte/forfait` | Nested module: plan enforcement over the directory snapshot. `Enabled`, `Limit`, `Check`, fail-open until the first snapshot | `porte/directory` |
 
 The contract package depends on nothing outside the standard library, and that is a constraint
 rather than a coincidence: an app's stores and domain code never compile against `go-oidc`,
@@ -124,6 +129,75 @@ cfg.ScopePrefix = "courrier"
 A GET then needs `courrier.read` or `courrier.write`, any other method needs `courrier.write`, and
 a token with no `scope` claim gets a 403. `porte.ActorFrom(ctx)` returns the client acting for the
 user, for audit lines. Cookie sessions are never gated.
+
+## Plan limits
+
+Ardoise computes each space's plan and Registre serves it in the directory snapshot, so an app
+only declares the features it enforces and asks before it creates something:
+
+```go
+plans := forfait.NewStore(
+	forfait.Feature{Key: "nuage.storage_gb", Kind: forfait.Limit, Default: json.RawMessage(`5`)},
+	forfait.Feature{Key: "glouton.access", Kind: forfait.Bool, Default: json.RawMessage(`false`)},
+)
+plans.Issuer = cfg.Issuer
+
+syncer := &directory.Syncer{Client: client, Apply: func(ctx context.Context, s directory.Snapshot) error {
+	plans.Apply(s)
+	return applySpaces(ctx, s)
+}}
+
+err := plans.Check(forfait.Scope{SpaceID: space.RegistreID}, "nuage.storage_gb", usedGB, addingGB)
+var refusal *forfait.LimitError
+if errors.As(err, &refusal) {
+	// 402 with the suite error envelope and upgrade_url = refusal.UpgradeURL
+}
+```
+
+An empty `SpaceID` reads the personal scope of `Subject`, never a space: pass the Registre id for
+a space's resources and refuse a space that is not linked to Registre yet. Only new creation is
+gated; reading, downloading and deleting never are. `adding == 0` always passes, so round counts up
+(a 1 KiB upload against a GB limit adds 1). `Check` and the create are not atomic: an app that
+needs strictness checks again inside the transaction that creates the resource.
+
+Until a snapshot with a non-zero `EntitlementsRevision` arrives the store allows everything and
+logs one warning; after that it keeps the last values it applied, through any outage, and refuses
+an older snapshot with a warning: a lower revision, or a lower directory version at the same
+revision.
+
+The store lives in memory, so persist it to avoid failing open again after a restart:
+
+```go
+saved, err := loadPlans(ctx)
+if err != nil {
+	return err
+}
+if err := plans.Import(saved); err != nil {
+	return err
+}
+
+syncer := &directory.Syncer{Client: client, Apply: func(ctx context.Context, s directory.Snapshot) error {
+	plans.Apply(s)
+	state, err := plans.Export()
+	if err != nil {
+		return err
+	}
+	if err := savePlans(ctx, state); err != nil {
+		return err
+	}
+	return applySpaces(ctx, s)
+}}
+go syncer.Run(ctx)
+```
+
+`loadPlans` and `savePlans` are the app's: one row or one file. `Import` of empty input (nothing
+saved yet) is a no-op, and `Import` after an `Apply` answers `forfait.ErrAlreadyApplied` without
+changing anything. `Import` also refuses a document over four `directory.MaxSnapshotBytes`, an
+unknown version or unknown fields, and filters every value through the same rules as `Apply`.
+
+After Registre's database is restored from a backup, the entitlements revision can go back, and
+`Apply` then refuses every snapshot with a logged warning. Call `plans.Reset()` and delete the
+saved state; the next pull applies normally.
 
 ## Why
 

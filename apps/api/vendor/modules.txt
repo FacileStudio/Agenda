@@ -4,21 +4,20 @@ github.com/FacileStudio/Journal/sdk/journal
 # github.com/FacileStudio/antenne-client/go v0.0.0-20260824150250-7681849d44f9
 ## explicit; go 1.24.0
 github.com/FacileStudio/antenne-client/go
-# github.com/FacileStudio/porte v0.7.0
+# github.com/FacileStudio/porte v0.11.0
 ## explicit; go 1.26
 github.com/FacileStudio/porte
 github.com/FacileStudio/porte/internal/handoff
 github.com/FacileStudio/porte/keys
-github.com/FacileStudio/porte/local
 github.com/FacileStudio/porte/oidc
 github.com/FacileStudio/porte/oidc/jwt
 github.com/FacileStudio/porte/pg
 github.com/FacileStudio/porte/session
-# github.com/FacileStudio/porte/directory v0.1.0
+# github.com/FacileStudio/porte/directory v0.2.1
 ## explicit; go 1.22
 github.com/FacileStudio/porte/directory
-# github.com/FacileStudio/tronc v0.16.0
-## explicit; go 1.24.0
+# github.com/FacileStudio/tronc v0.17.1
+## explicit; go 1.26
 github.com/FacileStudio/tronc/apiref
 github.com/FacileStudio/tronc/env
 github.com/FacileStudio/tronc/errors

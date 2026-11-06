@@ -38,6 +38,10 @@ type Config struct {
 	// Pass an explicitly empty, non-nil slice to trust no proxy at all and
 	// key everything on the connection address.
 	TrustedProxies []netip.Prefix
+	// Security shapes the security headers every response carries. They are
+	// always on; the zero value is the suite default with the CSP in
+	// report-only mode. Security.Trusted defaults to the trusted proxies.
+	Security middleware.SecurityConfig
 }
 
 // RootAPI is Config.APIPrefix for an app serving its API from the root.
@@ -58,6 +62,15 @@ func (c Config) realIP() middleware.RealIPConfig {
 	}
 }
 
+// security fills Security.Trusted from the router's trust set when unset.
+func (c Config) security() middleware.SecurityConfig {
+	security := c.Security
+	if security.Trusted == nil {
+		security.Trusted = c.trustedProxies()
+	}
+	return security
+}
+
 // trustedProxies resolves the configured set, distinguishing "unset" from
 // "deliberately empty". A nil slice means the app said nothing and gets the
 // default; a non-nil empty slice means it said none, and is honoured.
@@ -71,7 +84,8 @@ func (c Config) trustedProxies() []netip.Prefix {
 // Chain applies the standard middleware stack to any handler, in the same order
 // NewRouter uses. It exists for apps that route with something other than chi —
 // Go 1.22's http.ServeMux, for instance — so they get the same request logging,
-// panic recovery and CORS without being rewritten onto a router they do not use.
+// panic recovery, security headers and CORS without being rewritten onto a
+// router they do not use.
 func Chain(cfg Config, next http.Handler) http.Handler {
 	logger := cfg.Logger
 	if logger == nil {
@@ -84,6 +98,7 @@ func Chain(cfg Config, next http.Handler) http.Handler {
 		handler = middleware.CORS(cfg.CORS)(handler)
 	}
 	handler = middleware.RealIPWith(cfg.realIP())(handler)
+	handler = middleware.SecurityHeaders(cfg.security())(handler)
 	handler = middleware.Recoverer(logger)(handler)
 	handler = middleware.RequestID(handler)
 	return handler
@@ -92,7 +107,11 @@ func Chain(cfg Config, next http.Handler) http.Handler {
 // NewRouter returns a chi router with the suite's middleware already applied,
 // in this order:
 //
-//	RequestID -> Recoverer -> RealIP -> CORS -> RequestLogger
+//	RequestID -> Recoverer -> SecurityHeaders -> RealIP -> CORS -> RequestLogger
+//
+// SecurityHeaders sits outside RealIP because the HSTS decision trusts
+// X-Forwarded-Proto only from a trusted peer, and RealIP replaces the peer
+// address with the visitor's.
 //
 // RealIP and RequestID are tronc's, not chi's. chi's RealIP rewrites
 // RemoteAddr from X-Forwarded-For whatever the peer, which makes every per-IP
@@ -115,6 +134,7 @@ func NewRouter(cfg Config) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(middleware.RequestID)
 	router.Use(middleware.Recoverer(logger))
+	router.Use(middleware.SecurityHeaders(cfg.security()))
 	router.Use(middleware.RealIPWith(cfg.realIP()))
 	if len(cfg.CORS.AllowedOrigins) > 0 {
 		router.Use(middleware.CORS(cfg.CORS))

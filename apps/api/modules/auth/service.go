@@ -8,7 +8,6 @@ import (
 
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
 	"github.com/FacileStudio/porte"
-	"github.com/FacileStudio/porte/local"
 	"github.com/FacileStudio/porte/session"
 	"github.com/FacileStudio/tronc/errors"
 
@@ -16,22 +15,18 @@ import (
 )
 
 // Service is what is left of Agenda's authentication after porte took the
-// credential: the profile lookup the rest of the app reads, and a thin wrapper
-// over porte/local so the register and login routes keep their response shape.
+// credential: the profile lookup the rest of the app reads and the session
+// manager the other modules authenticate through.
 type Service struct {
-	orm        *gorm.DB
-	sessions   *session.Manager
-	passwords  *local.Kit
-	logger     *slog.Logger
-	controller *Controller
+	orm      *gorm.DB
+	sessions *session.Manager
+	logger   *slog.Logger
 }
 
-// NewService wires the auth service onto the given database, session manager
-// and porte/local kit.
-func NewService(orm *gorm.DB, sessions *session.Manager, passwords *local.Kit, logger *slog.Logger) *Service {
-	service := &Service{orm: orm, sessions: sessions, passwords: passwords, logger: logger}
-	service.controller = newController(service)
-	return service
+// NewService wires the auth service onto the given database and session
+// manager.
+func NewService(orm *gorm.DB, sessions *session.Manager, logger *slog.Logger) *Service {
+	return &Service{orm: orm, sessions: sessions, logger: logger}
 }
 
 // RequireAuth is porte's session middleware, re-exported so the module routers
@@ -66,61 +61,6 @@ func (service *Service) IdentityForUser(ctx context.Context, userID int64) (stri
 		return "", "", errors.Unauthorized("invalid auth token")
 	}
 	return strconv.FormatInt(out.ID, 10), out.Email, nil
-}
-
-// Register creates an account through porte/local and signs it in. The cookie
-// is set on the way out and the token comes back in the body, so one call
-// serves the browser and anything holding the old {user_id, token} shape.
-func (service *Service) Register(ctx context.Context, w http.ResponseWriter, r *http.Request, email, password string) (string, string, error) {
-	userID, token, err := service.passwords.Register(ctx, w, r, email, "", password)
-	if err != nil {
-		return "", "", TranslateError(err)
-	}
-	return strconv.FormatInt(userID, 10), token, nil
-}
-
-func (service *Service) Login(ctx context.Context, w http.ResponseWriter, r *http.Request, email, password string) (string, string, error) {
-	userID, token, err := service.passwords.Login(ctx, w, r, email, password)
-	if err != nil {
-		return "", "", TranslateError(err)
-	}
-	return strconv.FormatInt(userID, 10), token, nil
-}
-
-// VerifyPassword checks a password and returns the user id, issuing nothing.
-//
-// CalDAV clients send Basic credentials on every request, so this cannot be
-// Login: a session row per PROPFIND is an unbounded write to the credential
-// table and a Set-Cookie no CalDAV client will ever read. porte/local exposes
-// Verify for exactly this, which keeps the enumeration guarantees — an unknown
-// address costs a real hash — instead of the app re-deriving argon2 against
-// the identity table.
-func (service *Service) VerifyPassword(ctx context.Context, email, password string) (int64, error) {
-	userID, err := service.passwords.Verify(ctx, email, password)
-	return userID, TranslateError(err)
-}
-
-// SetPassword gives a first password to an account that has none, and refuses
-// with porte.ErrPasswordSet if one is already there.
-//
-// It takes no address: since porte v0.3.0 a password identity is keyed on the
-// account id, so an email change no longer has to drag the credential along
-// with it.
-func (service *Service) SetPassword(ctx context.Context, userID int64, password string) error {
-	return TranslateError(service.passwords.SetPassword(ctx, userID, password))
-}
-
-// ChangePassword replaces an existing password after confirming the current
-// one, ends the account's other logins and rotates the caller's own session.
-// It returns the new session token and how many other logins it ended.
-//
-// It needs w and r because porte writes the rotated cookie itself, which is
-// why no service method holding only a context can reach it.
-func (service *Service) ChangePassword(
-	ctx context.Context, w http.ResponseWriter, r *http.Request, userID int64, current, next string,
-) (string, int64, error) {
-	token, revoked, err := service.passwords.ChangePassword(ctx, w, r, userID, current, next)
-	return token, revoked, TranslateError(err)
 }
 
 // Issue mints a named API token: a porte session with a label and no expiry,

@@ -373,6 +373,7 @@ Authentik → in-house IdP swap a config change rather than a rewrite.
 | `OIDC_MACHINE_AUDIENCE` | no | This app's own client id. Its presence enables bearer-JWT verification on the header path |
 | `OIDC_SCOPE_PREFIX` | no | Gates bearer JWTs by their `scope` claim: `<prefix>.read` or `<prefix>.write` for GET, HEAD and OPTIONS, `<prefix>.write` for every other method. A JWT with no scope claim gets 403. Requires `OIDC_MACHINE_AUDIENCE`. Never touches cookie or opaque sessions |
 | `OIDC_CLI_AUDIENCE` | no | The CLI's client id. Its presence mounts `POST /auth/oidc/device/exchange`, and nothing else does |
+| `OIDC_MOBILE_REDIRECT` | no | Where the mobile login sends the browser with the code. Absolute https URL or custom scheme URI, no fragment. Empty refuses the mobile flow |
 | `SSO_ONLY` | no | When true, local password routes are not registered at all |
 
 A verified bearer JWT also exposes `Identity.Scopes` (the space-separated `scope` claim) and `Identity.Actor` (`act.sub`, the client acting for the user; a nested `act` is ignored). `porte.ActorFrom(ctx)` reads the actor so an app can log "client X on behalf of user Y".
@@ -446,6 +447,14 @@ receives it directly and the paste is the fallback. The CLI exchanges it at
 `POST /auth/oidc/exchange` for a bearer token. This is Plume's existing flow with the `sync.Map`
 replaced by the database, so it survives redeploys and replicas.
 
+**Mobile login** is the same flow with PKCE bound to the code, because a custom-scheme redirect
+can be claimed by another app on the device. The app generates a verifier, sends
+`/auth/oidc?flow=mobile&challenge=<S256 of the verifier>&state=<nonce>`, and the callback
+redirects to `OIDC_MOBILE_REDIRECT` (config only, never the request) with `code` and `state`.
+The code is stored as `HashToken(code + ":" + challenge)`, so `POST /auth/oidc/exchange` with
+`{"code", "verifier"}` finds it only when the verifier matches. A missing or wrong verifier
+answers the same 401 as an unknown code.
+
 **API tokens** are not a separate mechanism: an API token is a session row with a `label`, a
 long or absent expiry, and `last_used_at` for auditability. Courrier and Agenda have already
 each grown their own `ApiToken` types — same drift pattern as everything else in this document.
@@ -474,6 +483,11 @@ never reaches `session.Manager.WithJWT`, so a CLI token is not a credential on e
 the exchange stays a boundary. Its 404 when unset is the signal `facile login` reads as
 "not shipped". The client half lives in `facile`, which probes the route before running the
 grant so a tool without it never makes a human read a code off one screen for nothing.
+
+**The client half moved into `porte/devicelogin` in v0.9.0.** Every suite CLI had a loopback
+login that fails over SSH, and two had their own copy of the grant. The package is the default
+login for all of them: probe the exchange, run the grant, print one link, trade the token. A 404
+on the probe is `ErrExchangeNotMounted` and the CLI falls back to `porte/loopback`.
 
 ### 5c. Claims, roles, and freshness
 
@@ -762,6 +776,8 @@ porte/local     email and password: argon2id, register, login, set-password
 porte/magiclink  passwordless sign-in: an emailed one-time link, request and consume
 porte/pg        the identity tables and the four stores. database/sql only, no ORM
 porte/avatarfs  a filesystem AvatarStore and the handler that serves it
+porte/loopback  the CLI's loopback listener for ?flow=cli. standard library only
+porte/devicelogin  the CLI's default login: device grant, then device exchange. standard library only
 porte/spaces    v0.5. membership and role resolution. no models, no routes, standard library only
 porte/spaces/spacestest  the conformance suite an adopter runs against its own Store
 porte/magiclink/magiclinktest  the conformance suite for a MagicLinkStore, plus an in-memory one

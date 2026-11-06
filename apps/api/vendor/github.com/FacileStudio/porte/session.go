@@ -37,6 +37,20 @@ type Session struct {
 	// ExpiresAt zero means no expiry, which is what a long-lived API token
 	// wants. Browser sessions always carry one.
 	ExpiresAt time.Time
+
+	// Provider and Subject name the identity a login session was issued
+	// for: a federated one, or ProviderLocal and LocalSubject for a password
+	// login. Set, they bind the session: SessionStore.Create stores it only
+	// while that identity still exists for UserID, and answers ErrNotFound
+	// otherwise.
+	Provider string
+	Subject  string
+
+	// IssuedBy is the session that minted this one, for a named API token
+	// created from a signed-in request. Set, it binds the token the same
+	// way: stored only while that session still exists for UserID. Neither
+	// binding is persisted; both are checked at insert time.
+	IssuedBy int64
 }
 
 // Expired reports whether the session may no longer authenticate a request. A
@@ -56,6 +70,12 @@ func (s Session) IsAPIToken() bool { return s.Label != "" }
 // the store interface is what stops it reaching a log line or a query
 // parameter.
 type SessionStore interface {
+	// Create stores a session. When Provider is set it must store it only if
+	// the identity (Provider, Subject) still belongs to UserID at insert
+	// time, and when IssuedBy is set only if that session still does, each
+	// atomically with the check, and answer ErrNotFound otherwise:
+	// that is what stops a login whose identity was purged meanwhile from
+	// landing a session on somebody else's account.
 	Create(ctx context.Context, session Session) (Session, error)
 
 	// Find returns the session for a token hash, or ErrNotFound. It must
@@ -125,6 +145,13 @@ type LoginCode struct {
 	UserID int64
 
 	ExpiresAt time.Time
+
+	// Provider and Subject bind the code to the identity it was issued for,
+	// as on Session: LoginCodeStore.Create stores it only while that
+	// identity still belongs to UserID, and the exchange binds the session
+	// it mints to the same identity.
+	Provider string
+	Subject  string
 }
 
 // Expired reports whether the code is past its window.
@@ -132,12 +159,15 @@ func (c LoginCode) Expired(now time.Time) bool { return now.After(c.ExpiresAt) }
 
 // LoginCodeStore persists pending CLI login codes.
 type LoginCodeStore interface {
+	// Create stores a code, bound like SessionStore.Create when Provider is
+	// set: ErrNotFound when the identity no longer belongs to UserID.
 	Create(ctx context.Context, code LoginCode) error
 
 	// Consume returns the code and deletes it in one operation, so a
 	// replay finds nothing. It returns ErrCodeConsumed when the row is
 	// gone but the code was well-formed, and ErrNotFound otherwise —
 	// distinguishing a replay from a typo is worth one error value.
+	// The code comes back with the Provider and Subject it was stored with.
 	Consume(ctx context.Context, codeHash string) (LoginCode, error)
 
 	DeleteExpired(ctx context.Context, now time.Time) (deleted int64, err error)

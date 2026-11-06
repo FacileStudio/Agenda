@@ -1,17 +1,13 @@
 const backendBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') || '';
 const apiBaseUrl = `${backendBaseUrl}/api`;
 
-export type AuthResponse = {
-	user_id: string;
-	token: string;
-};
-
 export type UserProfile = {
 	id: string;
 	email: string;
 	name: string;
 	avatar_url: string;
 	avatar_source: string;
+	locale: string;
 	created_at: string;
 };
 
@@ -183,18 +179,6 @@ export const backend = {
 	baseUrl: backendBaseUrl,
 	apiBaseUrl,
 
-	register(email: string, password: string) {
-		return apiFetch<AuthResponse>('/auth/register', {
-			method: 'POST',
-			body: JSON.stringify({ email, password })
-		});
-	},
-	login(email: string, password: string) {
-		return apiFetch<AuthResponse>('/auth/login', {
-			method: 'POST',
-			body: JSON.stringify({ email, password })
-		});
-	},
 	logout() {
 		return apiFetch<{ ok: boolean }>('/auth/logout', { method: 'POST' });
 	},

@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { Input, Select } from '@facile/muse';
+	import { t } from '$lib/i18n/index.svelte';
+	import { weekdayName } from '$lib/i18n/format';
 	import {
 		WEEKDAYS,
-		WEEKDAY_LETTERS,
 		buildRule,
 		describeRule,
 		intervalWords,
@@ -20,8 +21,6 @@
 		start: Date;
 		allDay: boolean;
 	} = $props();
-
-	const WEEKDAY_LABELS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
 	const summary = $derived(
 		recurrence.freq === 'none' ? '' : describeRule(buildRule(recurrence, start, allDay), start)
@@ -52,16 +51,16 @@
 </script>
 
 <div class="flex flex-col gap-3">
-	<span class="text-fc-sm text-fc-fg">Répétition</span>
+	<span class="text-fc-sm text-fc-fg">{t('rec.label')}</span>
 
 	<Select value={recurrence.freq} onchange={(e) => setFrequency(e.currentTarget.value)}>
-		<option value="none">Ne se répète pas</option>
-		<option value="DAILY">Tous les jours</option>
-		<option value="WEEKLY">Toutes les semaines</option>
-		<option value="MONTHLY">Tous les mois</option>
-		<option value="YEARLY">Tous les ans</option>
+		<option value="none">{t('rec.none')}</option>
+		<option value="DAILY">{t('rec.daily')}</option>
+		<option value="WEEKLY">{t('rec.weekly')}</option>
+		<option value="MONTHLY">{t('rec.monthly')}</option>
+		<option value="YEARLY">{t('rec.yearly')}</option>
 		{#if recurrence.freq === 'custom'}
-			<option value="custom">Personnalisée (client CalDAV)</option>
+			<option value="custom">{t('rec.custom')}</option>
 		{/if}
 	</Select>
 
@@ -73,7 +72,7 @@
 					type="number"
 					min="1"
 					max="99"
-					aria-label="Intervalle"
+					aria-label={t('rec.interval')}
 					class="h-9 w-16 px-2 text-center"
 					value={String(recurrence.interval)}
 					oninput={(e) => (recurrence.interval = Math.max(1, Number(e.currentTarget.value) || 1))}
@@ -82,44 +81,44 @@
 			</div>
 
 			{#if recurrence.freq === 'WEEKLY'}
-				<div class="flex flex-wrap gap-1.5" role="group" aria-label="Jours de la semaine">
+				<div class="flex flex-wrap gap-1.5" role="group" aria-label={t('rec.weekdays')}>
 					{#each WEEKDAYS as day, i (day)}
 						{@const active = recurrence.byDay.includes(day)}
 						<button
 							type="button"
 							aria-pressed={active}
-							aria-label={WEEKDAY_LABELS[i]}
-							title={WEEKDAY_LABELS[i]}
+							aria-label={weekdayName(i)}
+							title={weekdayName(i)}
 							onclick={() => toggleDay(day)}
 							class="flex size-9 cursor-pointer items-center justify-center rounded-full text-fc-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fc-ring
 								{active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}"
 						>
-							{WEEKDAY_LETTERS[i]}
+							{weekdayName(i, 'narrow')}
 						</button>
 					{/each}
 				</div>
 			{/if}
 
 			<div class="flex flex-wrap items-center gap-2 text-fc-sm text-fc-fg">
-				<span class="shrink-0">Se termine</span>
+				<span class="shrink-0">{t('rec.ends')}</span>
 				<Select class="h-9 w-auto" value={recurrence.end} onchange={(e) => setEnd(e.currentTarget.value)}>
-					<option value="never">jamais</option>
-					<option value="until">le</option>
-					<option value="count">après</option>
+					<option value="never">{t('rec.endNever')}</option>
+					<option value="until">{t('rec.endUntil')}</option>
+					<option value="count">{t('rec.endCount')}</option>
 				</Select>
 				{#if recurrence.end === 'until'}
-					<Input type="date" aria-label="Date de fin" class="h-9 w-auto" bind:value={recurrence.until} />
+					<Input type="date" aria-label={t('rec.endDate')} class="h-9 w-auto" bind:value={recurrence.until} />
 				{:else if recurrence.end === 'count'}
 					<Input
 						type="number"
 						min="1"
 						max="999"
-						aria-label="Nombre d'occurrences"
+						aria-label={t('rec.occurrencesAria')}
 						class="h-9 w-20 px-2 text-center"
 						value={String(recurrence.count)}
 						oninput={(e) => (recurrence.count = Math.max(1, Number(e.currentTarget.value) || 1))}
 					/>
-					<span>fois</span>
+					<span>{t('rec.times')}</span>
 				{/if}
 			</div>
 		</div>

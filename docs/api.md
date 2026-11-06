@@ -41,18 +41,15 @@ probe answers whether or not the edge proxy forwards only `/api/*`.
 
 | Method | Path | Auth | Body | Response |
 |---|---|---|---|---|
-| GET | `/api/auth/config` | no | — | `{"sso_only": bool, "oidc_enabled": bool}` |
-| POST | `/api/auth/register` | no | `{"email","password"}` | 201 `{"user_id","token"}`, sets the `session` cookie |
-| POST | `/api/auth/login` | no | `{"email","password"}` | 200 `{"user_id","token"}`, sets the `session` cookie |
+| GET | `/api/auth/config` | no | — | `{"sso_only": true, "oidc_enabled": bool}`; `sso_only` is always true while an issuer is configured |
 | POST | `/api/auth/logout` | no | — | `{"ok":true}`, deletes the session row and clears the cookie |
 | GET | `/api/auth/oidc` | no | — | 302 to the provider |
 | GET | `/api/auth/oidc/callback` | no | — | 302 to `OIDC_SUCCESS_URL` |
 | POST | `/api/auth/sync-profile` | yes | — | Re-pulls name and avatar from the provider |
 
-`register` is rate-limited to 3 requests per minute and `login` to 10, per client. Neither
-is registered when `SSO_ONLY=true`, so they answer 404 rather than 403. The three OIDC
-routes exist only when `OIDC_ISSUER` is configured and the provider's discovery document
-loaded successfully.
+There is no register or login route: people sign in through Registre only, and
+`/api/auth/register` and `/api/auth/login` answer 404. The OIDC routes exist only when
+`OIDC_ISSUER` is configured and the provider's discovery document loaded successfully.
 
 The session cookie is `HttpOnly`, `SameSite=Lax`, `Path=/`, with a 30-day `Max-Age`, and
 `Secure` whenever the request arrived over TLS or carried `X-Forwarded-Proto: https`.
@@ -66,16 +63,17 @@ All routes require authentication.
 | GET | `/api/users` | — | `{"users":[User]}` |
 | GET | `/api/users/me` | — | `{"user":User}` |
 | GET | `/api/users/{id}` | — | `{"user":User}` |
-| PATCH | `/api/users/me` | any of `name`, `email`, `password` | `{"user":User}` |
+| PATCH | `/api/users/me` | any of `name`, `email` | `{"user":User}` |
 | GET | `/api/users/me/api-token` | — | `{"has_token", "name"?, "created_at"?}` |
 | POST | `/api/users/me/api-token` | `{"name"}` | 201 `{"token","name","created_at"}` — the only time the token is returned |
 | DELETE | `/api/users/me/api-token` | — | `{"deleted":true}` |
 
-`User` is `{id, email, name, avatar_url, avatar_source, created_at}`. `avatar_source` is
+`User` is `{id, email, name, avatar_url, avatar_source, locale, created_at}`. `locale` is
+`fr`, `en`, `es` or `de`, taken from the person's Registre profile at each sign-in. `avatar_source` is
 `oidc` for a picture pulled from the identity provider.
 
-The API token doubles as a CalDAV password, which is how an SSO-only user with no account
-password connects Apple Calendar.
+The API token is the CalDAV password: nobody has an Agenda password, so it is how a person
+connects Apple Calendar.
 
 ## Spaces
 
@@ -203,14 +201,14 @@ Not a JSON API. `/dav` is a real CalDAV server backed by
 | `/dav/{email}/calendars/{calendarID}` | Calendar collection |
 | `/dav/{email}/calendars/{calendarID}/{uid}.ics` | Event |
 
-Authentication is HTTP Basic — username is the account email, password is either the
-account password or an API token — or a `session` cookie. A failure answers 401 with
+Authentication is HTTP Basic — username is the account email, password is an API token —
+or a `session` cookie. A failure answers 401 with
 `WWW-Authenticate: Basic realm="Agenda CalDAV"`. The endpoint is rate-limited to 100
 requests per minute per client, which is well clear of a typical client's traffic of under
 10 per minute.
 
 Configure a client with the server URL `https://agenda.facile.studio/dav/`, your email as
-the username, and your account password or API token as the password. Apple Calendar, iOS
+the username, and your API token as the password. Apple Calendar, iOS
 Calendar, Thunderbird, and DAVx⁵ are the clients the implementation has been shaped
 around; see [architecture.md](architecture.md#caldav) for the compatibility fixes that
 made each of them work.

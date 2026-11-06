@@ -10,6 +10,7 @@
 	import type { CalendarItem, UserProfile } from '$lib/backend';
 	import CreateCalendarModal from '$lib/components/CreateCalendarModal.svelte';
 	import ManageCalendarModal from '$lib/components/ManageCalendarModal.svelte';
+	import { t } from '$lib/i18n/index.svelte';
 
 	const app = getContext<{
 		user: UserProfile | null;
@@ -21,13 +22,16 @@
 	let manageOpen = $state(false);
 	let managedCalendar = $state<CalendarItem | null>(null);
 
+	const roleLabelKeys = {
+		owner: 'role.owner',
+		admin: 'role.admin',
+		writer: 'role.writer',
+		reader: 'role.reader'
+	} as const;
 
-	const roleLabels: Record<string, string> = {
-		owner: 'Propriétaire',
-		admin: 'Administrateur',
-		writer: 'Éditeur',
-		reader: 'Lecteur'
-	};
+	function roleLabel(role: string): string {
+		return role in roleLabelKeys ? t(roleLabelKeys[role as keyof typeof roleLabelKeys]) : role;
+	}
 
 	function roleTone(role: string) {
 		if (role === 'owner') return 'owner' as const;
@@ -36,8 +40,8 @@
 	}
 
 	function typeLabel(calendar: CalendarItem) {
-		if (calendar.space_id) return 'Espace';
-		return calendar.is_personal ? 'Personnel' : 'Partagé';
+		if (calendar.space_id) return t('members.typeSpace');
+		return calendar.is_personal ? t('members.typePersonal') : t('members.typeShared');
 	}
 
 	function openManage(calendar: CalendarItem) {
@@ -47,31 +51,31 @@
 </script>
 
 <svelte:head>
-	<title>Membres — Agenda</title>
+	<title>{t('settings.tab.members')} — Agenda</title>
 </svelte:head>
 
 <div class="flex flex-col gap-10">
 	<SettingsSection
-		title="Calendriers"
-		description="Un calendrier personnel se partage par adresse email. Celui d’un espace est partagé avec tous ses membres."
+		title={t('members.calendars')}
+		description={t('members.calendarsText')}
 		bare
 	>
 		{#snippet actions()}
-			<Button icon={icons.plus} onclick={() => (createOpen = true)}>Nouveau calendrier</Button>
+			<Button icon={icons.plus} onclick={() => (createOpen = true)}>{t('members.newCalendar')}</Button>
 		{/snippet}
 
 		{#if app.calendars.length === 0}
 			<div class="rounded-fc-md bg-fc-component p-6 text-fc-sm text-fc-fg-muted">
-				Aucun calendrier pour l’instant. Créez-en un pour commencer à partager.
+				{t('members.empty')}
 			</div>
 		{:else}
 			<Table>
 				<thead>
 					<tr>
-						<th>Calendrier</th>
-						<th class="hidden sm:table-cell">Type</th>
-						<th>Votre rôle</th>
-						<th class="text-right">Action</th>
+						<th>{t('members.colCalendar')}</th>
+						<th class="hidden sm:table-cell">{t('members.colType')}</th>
+						<th>{t('members.colRole')}</th>
+						<th class="text-right">{t('api.colAction')}</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -96,7 +100,7 @@
 							<td class="hidden text-fc-fg-muted sm:table-cell">{typeLabel(calendar)}</td>
 							<td>
 								<Badge tone={roleTone(calendar.role)}>
-									{roleLabels[calendar.role] ?? calendar.role}
+									{roleLabel(calendar.role)}
 								</Badge>
 							</td>
 							<td class="text-right">
@@ -106,9 +110,9 @@
 										size="sm"
 										icon={icons.space}
 										href="/spaces/{calendar.space_id}"
-										aria-label="Membres de l’espace"
+										aria-label={t('members.spaceMembers')}
 									>
-										<span class="hidden sm:inline">Membres</span>
+										<span class="hidden sm:inline">{t('common.members')}</span>
 									</Button>
 								{:else if calendar.role === 'owner'}
 									<Button
@@ -116,12 +120,12 @@
 										size="sm"
 										icon={icons.usersGroup}
 										onclick={() => openManage(calendar)}
-										aria-label="Gérer {calendar.name}"
+										aria-label={t('members.manageAria', { name: calendar.name })}
 									>
-										<span class="hidden sm:inline">Gérer</span>
+										<span class="hidden sm:inline">{t('members.manage')}</span>
 									</Button>
 								{:else}
-									<span class="text-fc-xs text-fc-fg-muted">Partagé</span>
+									<span class="text-fc-xs text-fc-fg-muted">{t('members.typeShared')}</span>
 								{/if}
 							</td>
 						</tr>
@@ -132,18 +136,18 @@
 	</SettingsSection>
 
 	<SettingsSection
-		title="Espaces"
-		description="Chaque espace a son calendrier, partagé avec tous ses membres. Il naît avec l’espace et en porte le nom."
+		title={t('members.spaces')}
+		description={t('members.spacesText')}
 	>
 		{#snippet actions()}
-			<Button variant="outline" href="/spaces" icon={icons.space}>Tous les espaces</Button>
+			<Button variant="outline" href="/spaces" icon={icons.space}>{t('members.allSpaces')}</Button>
 		{/snippet}
 
 		<SettingsRow
-			label="Membres d’un espace"
-			description="Inviter, changer un rôle ou retirer quelqu’un se fait dans Registre, pour toutes les apps Facile à la fois. Le calendrier de l’espace suit."
+			label={t('members.spaceRow')}
+			description={t('members.spaceRowText')}
 		>
-			<Button variant="outline" href="/spaces" icon={icons.usersGroup}>Voir les espaces</Button>
+			<Button variant="outline" href="/spaces" icon={icons.usersGroup}>{t('members.seeSpaces')}</Button>
 		</SettingsRow>
 	</SettingsSection>
 </div>
@@ -153,7 +157,7 @@
 	onCreated={() => {
 		createOpen = false;
 		app.refreshCalendars();
-		toast.success('Calendrier créé.');
+		toast.success(t('members.toastCreated'));
 	}}
 	onClose={() => (createOpen = false)}
 />
@@ -163,13 +167,13 @@
 	calendar={managedCalendar}
 	onUpdated={() => {
 		app.refreshCalendars();
-		toast.success('Calendrier mis à jour.');
+		toast.success(t('members.toastUpdated'));
 	}}
 	onDeleted={() => {
 		manageOpen = false;
 		managedCalendar = null;
 		app.refreshCalendars();
-		toast.success('Calendrier supprimé.');
+		toast.success(t('members.toastDeleted'));
 	}}
 	onClose={() => {
 		manageOpen = false;

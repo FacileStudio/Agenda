@@ -94,6 +94,8 @@ CREATE TABLE IF NOT EXISTS porte_login_codes (
 	consumed_at timestamptz
 );
 ALTER TABLE porte_login_codes ADD COLUMN IF NOT EXISTS consumed_at timestamptz;
+ALTER TABLE porte_login_codes ADD COLUMN IF NOT EXISTS provider text NOT NULL DEFAULT '',
+                              ADD COLUMN IF NOT EXISTS subject text NOT NULL DEFAULT '';
 `
 
 // carryLegacySessionsOver moves the pre-porte sessions table across instead of
