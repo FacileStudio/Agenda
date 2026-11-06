@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { backend } from '$lib/backend';
 	import { Button, icons } from '@facile/muse';
+	import LandingOffers from '$lib/components/LandingOffers.svelte';
 
 	let ready = $state(false);
 	let ssoOnly = $state(false);
@@ -125,6 +126,7 @@
 					</Button>
 				</div>
 			</section>
+			<LandingOffers />
 		</main>
 
 		<footer>

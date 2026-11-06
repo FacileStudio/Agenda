@@ -4,6 +4,14 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- feat(client): show the live plans on the landing page with muse's `PricingPlans` (a `LandingOffers` component below the existing content, hidden while the catalog is empty)
+
+### Changed
+
+- build(client): bump muse to v0.11.0; muse's built-in strings are now English by default (v0.10.0)
+
 ## [0.10.0] - 2026-11-03
 
 ### Changed
