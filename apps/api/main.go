@@ -130,7 +130,7 @@ func run() int {
 	userService := users.NewService(db, authService)
 	settingsService := settings.NewService(db)
 
-	registreSync, stopSync := startDirectory(db, appEnv, appLogger)
+	registreSync, deletions, stopSync := startDirectory(db, appEnv, appLogger)
 	defer stopSync()
 
 	if appEnv.Antenne.Enabled() {
@@ -166,6 +166,7 @@ func run() int {
 		users:     userService,
 		settings:  settingsService,
 		directory: registreSync,
+		deletions: deletions,
 	})
 
 	if spa.Available(clientDir) {
@@ -224,25 +225,37 @@ type mounts struct {
 	users     *users.Service
 	settings  *settings.Service
 	directory *spaces.Directory
+	deletions *spaces.Deletions
 }
 
-// startDirectory follows Registre's spaces when SSO is configured, signing
-// its pulls with the app's own OIDC client. It returns at once: the import
-// and the sync run in the background, so a Registre that is down or not yet
-// serving the directory never holds up boot. Without SSO there is no sync,
-// a nil directory and a stop that does nothing.
-func startDirectory(db *gorm.DB, appEnv env.Config, appLogger *slog.Logger) (*spaces.Directory, context.CancelFunc) {
+// startDirectory follows Registre's spaces and its GDPR deletions when SSO is
+// configured, signing its pulls with the app's own OIDC client. It returns at
+// once: the import, the sync and the deletion poll run in the background, so a
+// Registre that is down or not yet serving the directory never holds up boot.
+// Without SSO there is nothing to follow, nil receivers and a stop that does
+// nothing. All suite apps run one replica, so this is the one deletion poller.
+func startDirectory(
+	db *gorm.DB, appEnv env.Config, appLogger *slog.Logger,
+) (*spaces.Directory, *spaces.Deletions, context.CancelFunc) {
 	if appEnv.OIDC == nil {
-		return nil, func() {}
+		return nil, nil, func() {}
 	}
-	sync := spaces.NewDirectory(db, directory.Client{
+	client := directory.Client{
 		Issuer:       appEnv.OIDC.Issuer,
 		ClientID:     appEnv.OIDC.ClientID,
 		ClientSecret: appEnv.OIDC.ClientSecret,
-	}, appLogger)
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		appLogger.Error("deletion receiver not started", slog.Any("error", err))
+		return nil, nil, func() {}
+	}
+	sync := spaces.NewDirectory(db, client, appLogger)
+	deletions := spaces.NewDeletions(db, client, portepg.New(sqlDB).EraseIdentity, appEnv.StorageDir, appLogger)
 	ctx, stop := context.WithCancel(context.Background())
 	go sync.Run(ctx)
-	return sync, stop
+	go deletions.Run(ctx)
+	return sync, deletions, stop
 }
 
 // buildAuth constructs porte: one session manager and the OIDC kit over the
@@ -295,8 +308,9 @@ func mountRoutes(router chi.Router, m mounts) {
 		calendars.RegisterRoutes(r, m.calendars, m.auth)
 		events.RegisterRoutes(r, m.events, m.auth)
 		spaces.RegisterRoutes(r, m.spaces, m.auth)
-		if m.directory != nil {
+		if m.directory != nil && m.deletions != nil {
 			spaces.RegisterSync(r, m.directory)
+			spaces.RegisterDeletions(r, m.deletions)
 		}
 		users.RegisterRoutes(r, m.users, m.auth)
 		settings.RegisterRoutes(r, m.settings, m.auth)

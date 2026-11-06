@@ -30,3 +30,11 @@ func RegisterRoutes(router chi.Router, service *Service, authService *auth.Servi
 func RegisterSync(router chi.Router, sync *Directory) {
 	router.Method(http.MethodPost, "/registre/sync", sync.Handler())
 }
+
+// RegisterDeletions mounts Registre's signed user.deleted push at
+// /registre/deletions under the /api router, which is directory.DeletionsPath.
+// It sits outside RequireAuth: the handler verifies the notice's signature
+// itself.
+func RegisterDeletions(router chi.Router, deletions *Deletions) {
+	router.Method(http.MethodPost, "/registre/deletions", deletions.Handler())
+}

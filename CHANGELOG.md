@@ -6,7 +6,8 @@ All notable changes to Agenda are documented here.
 
 ### Changed
 
-- build(api): bump porte to v0.11.0, porte/directory to v0.2.1 and tronc to v0.17.1. tronc's security headers replace Agenda's own middleware: HSTS, nosniff, a report-only CSP carrying the built client's inline script hashes, and enforced anti-framing. `connect-src` also allows Ardoise's plan catalog and the icon API.
+- build(api): bump porte to v0.12.0, porte/directory to v0.3.0 and tronc to v0.17.1. tronc's security headers replace Agenda's own middleware: HSTS, nosniff, a report-only CSP carrying the built client's inline script hashes, and enforced anti-framing. `connect-src` also allows Ardoise's plan catalog and the icon API.
+- build(client): bump muse to v0.12.1. The public landing page uses `LandingHeader` and `LandingFooter`; every sign-in button is `SignInWithFacile` with its canonical label.
 - Sign-in goes through Registre only. The login page is muse's `AuthScreen` and the landing page uses `SignInWithFacile`. A person who already has a local account links to it by verified email on their first Facile sign-in.
 - The API token is the CalDAV password for everyone. Account passwords no longer work over Basic Auth (porte refuses them under OIDC; `AllowProtocolPasswords` stays off).
 - The whole UI is in fr, en, es and de, in the locale of the person's Registre profile (`GET /api/users/me` returns `locale`). Dates, times, weekday names and recurrence summaries use `Intl`. es and de need native review.
@@ -14,6 +15,7 @@ All notable changes to Agenda are documented here.
 
 ### Added
 
+- GDPR deletion receiver: Agenda polls Registre's deletion list with its OIDC client credentials and accepts the signed `user.deleted` push on `POST /api/registre/deletions`. A deleted person loses their account, personal calendars with their events, shares, memberships and attendances; events they wrote in space or other people's calendars stay with no author. The receiver's cursor lives in `directory_deletion_state`, created idempotently at boot.
 - `users.locale` (`fr`, `en`, `es` or `de`, default `en`), filled from the `locale` claim at each sign-in.
 - `porte_login_codes.provider` and `porte_login_codes.subject`, added idempotently at boot by `schemas.AdoptPorte`, as porte v0.10.0 requires for CLI and mobile logins.
 - `GET /version`, answering the `APP_VERSION` build arg (`dev` by default).

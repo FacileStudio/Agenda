@@ -49,5 +49,15 @@ var Documentation = documentation.Module{
 			Auth:   "none",
 			Status: 202,
 		},
+		{
+			Method:  "POST",
+			Path:    "/registre/deletions",
+			Summary: "Receive a GDPR deletion notice",
+			Description: "Registre posts a signed user.deleted security event here when a person erases " +
+				"their account. Agenda verifies the signature, deletes that person's data and answers 202; " +
+				"a notice that does not verify is a 400.",
+			Auth:   "signed security event",
+			Status: 202,
+		},
 	},
 }
