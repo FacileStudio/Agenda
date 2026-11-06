@@ -4,6 +4,8 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-06
+
 ### Changed
 
 - build(api): bump porte to v0.12.0, porte/directory to v0.3.0 and tronc to v0.17.1. tronc's security headers replace Agenda's own middleware: HSTS, nosniff, a report-only CSP carrying the built client's inline script hashes, and enforced anti-framing. `connect-src` also allows Ardoise's plan catalog and the icon API.
