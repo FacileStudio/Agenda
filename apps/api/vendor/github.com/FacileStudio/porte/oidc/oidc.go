@@ -16,6 +16,7 @@ package oidc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -151,8 +152,7 @@ func New(ctx context.Context, cfg porte.Config, deps Deps) (*Kit, error) {
 		}
 		kit.cliTokens = cliTokens
 	}
-	// The manager fills Identity.Roles through this kit, and this kit
-	// needs the manager to issue sessions. Something has to be built first.
+
 	if cfg.ClaimsEnabled() {
 		deps.Sessions.WithClaims(kit)
 	}
@@ -267,6 +267,7 @@ func (k *Kit) claimsFromIDToken(idToken *gooidc.IDToken) (porte.Claims, error) {
 		GivenName         string `json:"given_name"`
 		FamilyName        string `json:"family_name"`
 		Picture           string `json:"picture"`
+		Locale            any    `json:"locale"`
 	}
 	if err := idToken.Claims(&raw); err != nil {
 		return porte.Claims{}, fmt.Errorf("porte/oidc: cannot parse ID token claims: %w", err)
@@ -281,9 +282,7 @@ func (k *Kit) claimsFromIDToken(idToken *gooidc.IDToken) (porte.Claims, error) {
 			return porte.Claims{}, fmt.Errorf("porte/oidc: cannot parse the roles claim: %w", err)
 		}
 		if rolesOnly.Roles == nil {
-			// The other half of the startup guard. The scope was granted,
-			// so the mapping is what is missing, and the app would
-			// otherwise deny every role check without a single error.
+
 			return porte.Claims{}, fmt.Errorf(
 				"porte/oidc: scope %q was granted but no roles claim arrived — the provider is missing its scope mapping",
 				k.cfg.ClaimsScope)
@@ -291,17 +290,24 @@ func (k *Kit) claimsFromIDToken(idToken *gooidc.IDToken) (porte.Claims, error) {
 		roles = rolesOnly.Roles
 	}
 
+	extra, err := extraClaims(k.cfg.ExtraClaims, idToken.Claims)
+	if err != nil {
+		return porte.Claims{}, err
+	}
+
 	return porte.Claims{
 		Provider:          k.cfg.Issuer,
 		Subject:           idToken.Subject,
-		Email:             raw.Email,
+		Email:             normalizeEmail(raw.Email),
 		EmailVerified:     k.emailTrusted(raw.EmailVerified),
 		Name:              raw.Name,
 		PreferredUsername: raw.PreferredUsername,
 		GivenName:         raw.GivenName,
 		FamilyName:        raw.FamilyName,
 		Picture:           raw.Picture,
+		Locale:            localeClaim(raw.Locale),
 		Roles:             roles,
+		Extra:             extra,
 	}, nil
 }
 
@@ -346,4 +352,25 @@ func emailClaimAsserted(value any) (verified, asserted bool) {
 		}
 	}
 	return false, false
+}
+
+// extraClaims copies the claims an app asked for in Config.ExtraClaims out of
+// the verified token, raw. It decodes the whole claim set once and keeps only
+// the named keys, so a token carrying more than the app asked for leaks
+// nothing into Claims.
+func extraClaims(names []string, decode func(any) error) (map[string]json.RawMessage, error) {
+	if len(names) == 0 {
+		return nil, nil
+	}
+	var all map[string]json.RawMessage
+	if err := decode(&all); err != nil {
+		return nil, fmt.Errorf("porte/oidc: cannot read the extra claims: %w", err)
+	}
+	extra := make(map[string]json.RawMessage, len(names))
+	for _, name := range names {
+		if value, ok := all[name]; ok {
+			extra[name] = value
+		}
+	}
+	return extra, nil
 }

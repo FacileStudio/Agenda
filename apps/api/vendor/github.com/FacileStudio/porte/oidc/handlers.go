@@ -2,6 +2,8 @@ package oidc
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	stderrors "errors"
 	"fmt"
 	"log/slog"
@@ -63,7 +65,7 @@ func (k *Kit) Mount(router chi.Router) {
 func (k *Kit) handleConfig(w http.ResponseWriter, _ *http.Request) {
 	if k.deps.ConfigExtra == nil {
 		httpjson.WriteJSON(w, http.StatusOK, porte.ConfigResponse{
-			SSOOnly:     k.cfg.SSOOnly,
+			SSOOnly:     k.cfg.SSOOnly || k.Enabled(),
 			OIDCEnabled: k.Enabled(),
 		})
 		return
@@ -72,7 +74,7 @@ func (k *Kit) handleConfig(w http.ResponseWriter, _ *http.Request) {
 	for key, value := range k.deps.ConfigExtra() {
 		body[key] = value
 	}
-	body["sso_only"] = k.cfg.SSOOnly
+	body["sso_only"] = k.cfg.SSOOnly || k.Enabled()
 	body["oidc_enabled"] = k.Enabled()
 	httpjson.WriteJSON(w, http.StatusOK, body)
 }
@@ -116,10 +118,20 @@ func (k *Kit) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pending := flow{State: state, Nonce: nonce, Verifier: oauth2.GenerateVerifier()}
-	if r.URL.Query().Get(porte.FlowParam) == porte.FlowCLI {
+	switch r.URL.Query().Get(porte.FlowParam) {
+	case porte.FlowCLI:
 		pending.CLI = true
 		pending.Port = loopbackPort(r.URL.Query().Get(porte.PortParam))
 		pending.CLIState = cliState(r.URL.Query().Get(porte.StateParam))
+	case porte.FlowMobile:
+		challenge := r.URL.Query().Get(porte.ChallengeParam)
+		if k.cfg.MobileRedirect == "" || !validChallenge(challenge) {
+			k.fail(w, r, "could not start the login")
+			return
+		}
+		pending.Mobile = true
+		pending.Challenge = challenge
+		pending.CLIState = cliState(r.URL.Query().Get("state"))
 	}
 
 	encoded, err := pending.encode()
@@ -130,10 +142,9 @@ func (k *Kit) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	k.sessions.SetCookie(w, r, flowCookie, encoded, int(flowTTL.Seconds()))
 
-	http.Redirect(w, r, k.oauth.AuthCodeURL(state,
-		oauth2.S256ChallengeOption(pending.Verifier),
-		gooidc.Nonce(nonce),
-	), http.StatusFound)
+	options := append([]oauth2.AuthCodeOption{oauth2.S256ChallengeOption(pending.Verifier), gooidc.Nonce(nonce)},
+		uiLocales(r.URL.Query().Get(porte.UILocalesParam))...)
+	http.Redirect(w, r, k.oauth.AuthCodeURL(state, options...), http.StatusFound)
 }
 
 // maxCLIState bounds the echoed nonce. It is opaque to the server, so the only
@@ -155,6 +166,39 @@ func cliState(value string) string {
 		}
 	}
 	return value
+}
+
+// validChallenge accepts exactly what an S256 PKCE challenge looks like: the
+// unpadded base64url of a 32-byte SHA-256 digest, 43 characters.
+func validChallenge(value string) bool {
+	if len(value) != 43 {
+		return false
+	}
+	decoded, err := base64.RawURLEncoding.DecodeString(value)
+	return err == nil && len(decoded) == sha256.Size
+}
+
+// validVerifier accepts what RFC 7636 §4.1 allows for a code verifier: 43 to
+// 128 characters from the unreserved set. The challenge travels in a URL anyone
+// can read, so a short verifier from a careless client could be guessed offline.
+func validVerifier(value string) bool {
+	if len(value) < 43 || len(value) > 128 {
+		return false
+	}
+	for _, r := range value {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '.', r == '_', r == '~':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// pkceChallenge is the S256 transform of RFC 7636 §4.2.
+func pkceChallenge(verifier string) string {
+	sum := sha256.Sum256([]byte(verifier))
+	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
 // loopbackPort returns the port a CLI is listening on, or "" if the value is
@@ -190,7 +234,7 @@ func (k *Kit) handleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := k.persist(r.Context(), claims, tokens)
+	bound, err := k.persist(r.Context(), claims, tokens)
 	if err != nil {
 		k.logger.Warn("porte: could not record the identity", slog.Any("error", err))
 		k.fail(w, r, failureReason(err))
@@ -198,11 +242,15 @@ func (k *Kit) handleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if pending.CLI {
-		k.issueLoginCode(w, r, userID, pending.Port, pending.CLIState)
+		k.issueLoginCode(w, r, bound, pending.Port, pending.CLIState)
+		return
+	}
+	if pending.Mobile {
+		k.issueMobileCode(w, r, bound, pending)
 		return
 	}
 
-	if _, _, err := k.sessions.IssueCookie(r.Context(), w, r, userID); err != nil {
+	if _, _, err := k.sessions.IssueCookieFor(r.Context(), w, r, bound); err != nil {
 		k.logger.Error("porte: could not issue the session", slog.Any("error", err))
 		k.fail(w, r, "could not sign you in")
 		return
@@ -244,13 +292,13 @@ func (k *Kit) completeFlow(ctx context.Context, code string, pending flow) (port
 // persist runs the avatar fetch, the app's upsert and the identity row, in
 // that order. The avatar first, so its URL rides into the upsert and the whole
 // callback stays one write on the app's side.
-func (k *Kit) persist(ctx context.Context, claims porte.Claims, tokens porte.TokenSet) (int64, error) {
+func (k *Kit) persist(ctx context.Context, claims porte.Claims, tokens porte.TokenSet) (porte.Session, error) {
 	claims.AvatarURL = k.syncAvatar(ctx, claims)
 	claims.Tokens = tokens
 
 	userID, err := k.deps.Users.UpsertFromOIDC(ctx, claims)
 	if err != nil {
-		return 0, err
+		return porte.Session{}, err
 	}
 
 	stored := porte.StoredIdentity{
@@ -265,9 +313,9 @@ func (k *Kit) persist(ctx context.Context, claims porte.Claims, tokens porte.Tok
 		stored.RolesSyncedAt = k.now()
 	}
 	if err := k.deps.Identities.Save(ctx, stored); err != nil {
-		return 0, errors.Internal("failed to record the identity", err)
+		return porte.Session{}, errors.Internal("failed to record the identity", err)
 	}
-	return userID, nil
+	return porte.Session{UserID: userID, Provider: claims.Provider, Subject: claims.Subject}, nil
 }
 
 // syncAvatar is best effort by design: a provider that serves a broken picture
@@ -301,26 +349,32 @@ func (k *Kit) syncAvatar(ctx context.Context, claims porte.Claims) string {
 //
 // The response answers no-store because it carries the credential itself,
 // which is what OAuth 2.1 §7.1 asks of any response that does.
-func (k *Kit) issueLoginCode(w http.ResponseWriter, r *http.Request, userID int64, port, cliState string) {
+// loginCode is the pending code for a login, bound to its identity.
+func (k *Kit) loginCode(hash string, bound porte.Session) porte.LoginCode {
+	return porte.LoginCode{
+		CodeHash:  hash,
+		UserID:    bound.UserID,
+		ExpiresAt: k.now().Add(k.cfg.LoginCodeTTL),
+		Provider:  bound.Provider,
+		Subject:   bound.Subject,
+	}
+}
+
+func (k *Kit) issueLoginCode(w http.ResponseWriter, r *http.Request, bound porte.Session, port, cliState string) {
 	code, err := porte.NewToken()
 	if err != nil {
 		k.logger.Error("porte: failed to issue a login code", slog.Any("error", err))
 		k.fail(w, r, "could not complete the login")
 		return
 	}
-	if err := k.deps.Codes.Create(r.Context(), porte.LoginCode{
-		CodeHash:  porte.HashToken(code),
-		UserID:    userID,
-		ExpiresAt: k.now().Add(k.cfg.LoginCodeTTL),
-	}); err != nil {
+	if err := k.deps.Codes.Create(r.Context(), k.loginCode(porte.HashToken(code), bound)); err != nil {
 		k.logger.Error("porte: failed to store the login code", slog.Any("error", err))
 		k.fail(w, r, "could not complete the login")
 		return
 	}
 
 	if port != "" {
-		// The host is ours, only the port came from the request, so
-		// this cannot be pointed anywhere but at the local machine.
+
 		query := url.Values{"code": {code}}
 		if cliState != "" {
 			query.Set("state", cliState)
@@ -347,6 +401,38 @@ func (k *Kit) issueLoginCode(w http.ResponseWriter, r *http.Request, userID int6
 	})
 }
 
+// issueMobileCode ends the mobile flow. The code is bound to the challenge by
+// hashing them together, so a code intercepted on the custom-scheme redirect
+// is useless without the verifier that never left the app. The redirect target
+// is Config.MobileRedirect and nothing from the request.
+func (k *Kit) issueMobileCode(w http.ResponseWriter, r *http.Request, bound porte.Session, pending flow) {
+	code, err := porte.NewToken()
+	if err != nil {
+		k.logger.Error("porte: failed to issue a login code", slog.Any("error", err))
+		k.fail(w, r, "could not complete the login")
+		return
+	}
+	if err := k.deps.Codes.Create(r.Context(), k.loginCode(porte.HashToken(code+":"+pending.Challenge), bound)); err != nil {
+		k.logger.Error("porte: failed to store the login code", slog.Any("error", err))
+		k.fail(w, r, "could not complete the login")
+		return
+	}
+	target, err := url.Parse(k.cfg.MobileRedirect)
+	if err != nil {
+		k.logger.Error("porte: the mobile redirect is not a URL", slog.Any("error", err))
+		k.fail(w, r, "could not complete the login")
+		return
+	}
+	query := target.Query()
+	query.Set("code", code)
+	if pending.CLIState != "" {
+		query.Set("state", pending.CLIState)
+	}
+	target.RawQuery = query.Encode()
+	w.Header().Set("Cache-Control", "no-store")
+	http.Redirect(w, r, target.String(), http.StatusFound)
+}
+
 // handleExchange is the CLI's half: one-time code in, bearer token out. This
 // is porte's token endpoint in everything but name, so it answers under the
 // no-store OAuth 2.1 §7.1 requires of any response carrying a credential.
@@ -363,12 +449,19 @@ func (k *Kit) handleExchange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	code, err := k.deps.Codes.Consume(r.Context(), porte.HashToken(request.Code))
+	lookup := request.Code
+	if request.Verifier != "" {
+		if !validVerifier(request.Verifier) {
+			httpjson.WriteError(w, errors.Unauthorized("invalid or expired code"))
+			return
+		}
+		lookup += ":" + pkceChallenge(request.Verifier)
+	}
+	code, err := k.deps.Codes.Consume(r.Context(), porte.HashToken(lookup))
 	switch {
 	case err == nil:
 	case isErr(err, porte.ErrCodeConsumed):
-		// A replay, not a typo. Worth a log line: the code was valid
-		// once, so either the CLI retried or someone else has it.
+
 		k.logger.Warn("porte: login code replayed")
 		httpjson.WriteError(w, errors.Unauthorized("invalid or expired code"))
 		return
@@ -384,7 +477,7 @@ func (k *Kit) handleExchange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, _, err := k.sessions.Issue(r.Context(), code.UserID, "")
+	token, _, err := k.sessions.IssueFor(r.Context(), porte.Session{UserID: code.UserID, Provider: code.Provider, Subject: code.Subject})
 	if err != nil {
 		httpjson.WriteError(w, err)
 		return
@@ -481,7 +574,7 @@ func (k *Kit) handleDeviceExchange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, _, err := k.sessions.Issue(r.Context(), identity.UserID, "")
+	token, _, err := k.sessions.IssueFor(r.Context(), porte.Session{UserID: identity.UserID, Provider: k.cfg.Issuer, Subject: identity.Subject})
 	if err != nil {
 		httpjson.WriteError(w, err)
 		return
@@ -516,8 +609,7 @@ func (k *Kit) handleBackchannelLogout(w http.ResponseWriter, r *http.Request) {
 
 	stored, err := k.deps.Identities.Find(r.Context(), k.cfg.Issuer, subject)
 	if isErr(err, porte.ErrNotFound) {
-		// This user never signed in here. Nothing to revoke, and
-		// saying so would confirm who does have an account.
+
 		httpjson.WriteJSON(w, http.StatusOK, porte.LogoutResponse{LoggedOut: true})
 		return
 	}
@@ -559,9 +651,7 @@ func (k *Kit) verifyLogoutToken(ctx context.Context, rawToken string) (string, e
 		return "", errors.Unauthorized("logout token is missing the back-channel logout event")
 	}
 	if idToken.Subject == "" {
-		// A sid-only token would need a session index porte does not
-		// keep. Revoking every session of a subject is the coarser and
-		// safer answer, so the subject is required.
+
 		return "", errors.Unauthorized("logout token carries no subject")
 	}
 	return idToken.Subject, nil
@@ -592,8 +682,7 @@ func (k *Kit) handleSyncProfile(w http.ResponseWriter, r *http.Request) {
 	source := k.tokenSource(r.Context(), stored.Tokens)
 	info, err := k.provider.UserInfo(r.Context(), source)
 	if err != nil {
-		// The refresh token is dead. Clearing it stops this call
-		// retrying a doomed round trip every five minutes forever.
+
 		k.logger.Warn("porte: profile sync failed, clearing tokens",
 			slog.Int64("user_id", identity.UserID), slog.Any("error", err))
 		stored.Tokens = porte.TokenSet{}
@@ -603,11 +692,6 @@ func (k *Kit) handleSyncProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// OpenID Connect Core §5.3.2: the sub in a UserInfo response MUST be
-	// compared to the sub of the ID token, and the response rejected when
-	// they differ. go-oidc does not do it — it fetches and parses, nothing
-	// more — so without this line a provider or anything sitting between it
-	// and here can rewrite one user's profile with another user's claims.
 	if !porte.SecureCompare(info.Subject, stored.Subject) {
 		k.logger.Warn("porte: userinfo returned a different subject, refusing the sync",
 			slog.Int64("user_id", identity.UserID))
@@ -623,23 +707,32 @@ func (k *Kit) handleSyncProfile(w http.ResponseWriter, r *http.Request) {
 		GivenName         string `json:"given_name"`
 		FamilyName        string `json:"family_name"`
 		Picture           string `json:"picture"`
+		Locale            any    `json:"locale"`
 	}
 	if err := info.Claims(&raw); err != nil {
 		httpjson.WriteError(w, errors.Internal("failed to parse the userinfo claims", err))
 		return
 	}
 
+	extra, err := extraClaims(k.cfg.ExtraClaims, info.Claims)
+	if err != nil {
+		httpjson.WriteError(w, errors.Internal("failed to parse the extra userinfo claims", err))
+		return
+	}
+
 	claims := porte.Claims{
 		Provider:          stored.Provider,
 		Subject:           stored.Subject,
-		Email:             raw.Email,
+		Email:             normalizeEmail(raw.Email),
 		EmailVerified:     k.emailTrusted(raw.EmailVerified),
 		Name:              raw.Name,
 		PreferredUsername: raw.PreferredUsername,
 		GivenName:         raw.GivenName,
 		FamilyName:        raw.FamilyName,
 		Picture:           raw.Picture,
+		Locale:            localeClaim(raw.Locale),
 		Roles:             stored.Roles,
+		Extra:             extra,
 	}
 	if claims.Email == "" {
 		claims.Email = identity.Email
@@ -651,9 +744,6 @@ func (k *Kit) handleSyncProfile(w http.ResponseWriter, r *http.Request) {
 	claims.AvatarURL = k.syncAvatar(r.Context(), claims)
 	claims.Tokens = stored.Tokens
 
-	// The same upsert the callback uses. Reusing it is why the app's
-	// product behaviour on first login — a display colour, first-user
-	// admin — cannot drift away from what a sync does.
 	if _, err := k.deps.Users.UpsertFromOIDC(r.Context(), claims); err != nil {
 		httpjson.WriteError(w, err)
 		return

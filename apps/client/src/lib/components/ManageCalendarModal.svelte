@@ -14,6 +14,7 @@
 		icons
 	} from '@facile/muse';
 	import { backend, ApiError, resolveFileUrl, type CalendarItem, type CalendarMember } from '$lib/backend';
+	import { t } from '$lib/i18n/index.svelte';
 
 	let {
 		open = $bindable(false),
@@ -86,7 +87,7 @@
 	}
 
 	async function handleSave() {
-		if (!calendar || !editName.trim()) { error = 'Le nom est requis.'; return; }
+		if (!calendar || !editName.trim()) { error = t('calendarModal.nameRequired'); return; }
 		saving = true; error = '';
 		try {
 			await backend.updateCalendar(calendar.id, {
@@ -97,7 +98,7 @@
 			});
 			onUpdated();
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : 'Erreur.';
+			error = e instanceof Error ? e.message : t('common.error');
 		} finally {
 			saving = false;
 		}
@@ -110,7 +111,7 @@
 			await backend.deleteCalendar(calendar.id);
 			onDeleted();
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : 'Erreur.';
+			error = e instanceof Error ? e.message : t('common.error');
 			deleting = false;
 			throw e;
 		}
@@ -118,8 +119,8 @@
 
 	async function handleInvite() {
 		const email = inviteEmail.trim().toLowerCase();
-		if (!calendar || !email) { inviteError = 'Email requis.'; return; }
-		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { inviteError = 'Adresse email invalide.'; return; }
+		if (!calendar || !email) { inviteError = t('member.emailRequired'); return; }
+		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { inviteError = t('member.emailInvalid'); return; }
 		inviting = true; inviteError = '';
 		try {
 			await backend.shareCalendar(calendar.id, email, inviteRole);
@@ -134,12 +135,12 @@
 
 	function inviteErrorMessage(e: unknown): string {
 		if (e instanceof ApiError) {
-			if (e.status === 404) return 'Aucun compte trouve avec cet email. La personne doit d\'abord se connecter a Agenda.';
-			if (e.status === 403) return 'Vous n\'avez pas la permission de partager ce calendrier.';
-			if (e.message.includes('yourself')) return 'Vous ne pouvez pas vous inviter vous-meme.';
-			if (e.status === 400) return 'Invitation invalide. Verifiez l\'email et le role.';
+			if (e.status === 404) return t('member.err404');
+			if (e.status === 403) return t('member.err403');
+			if (e.message.includes('yourself')) return t('member.errSelf');
+			if (e.status === 400) return t('member.err400');
 		}
-		return 'L\'invitation a echoue. Reessayez.';
+		return t('member.errFailed');
 	}
 
 	async function handleRemoveMember() {
@@ -156,10 +157,10 @@
 
 	function roleLabel(role: string) {
 		switch (role) {
-			case 'owner': return 'Proprietaire';
-			case 'admin': return 'Admin';
-			case 'writer': return 'Editeur';
-			default: return 'Lecteur';
+			case 'owner': return t('role.owner');
+			case 'admin': return t('role.admin');
+			case 'writer': return t('role.writer');
+			default: return t('role.reader');
 		}
 	}
 
@@ -176,26 +177,26 @@
 			{#if editColor}
 				<span class="size-3 shrink-0 rounded-full" style="background-color: {editColor}"></span>
 			{/if}
-			<h2 id={titleId} class="text-fc-lg font-semibold">Gerer le calendrier</h2>
+			<h2 id={titleId} class="text-fc-lg font-semibold">{t('calendarModal.manageTitle')}</h2>
 		</div>
 	{/snippet}
 
 	{#if calendar?.role === 'owner'}
 		<div class="flex flex-col gap-4">
-			<Field label="Nom">
-				<Input bind:value={editName} placeholder="Nom du calendrier" />
+			<Field label={t('common.name')}>
+				<Input bind:value={editName} placeholder={t('calendarModal.nameLong')} />
 			</Field>
 
 			<div class="flex flex-col gap-1.5">
-				<span class="text-fc-sm text-fc-fg">Couleur</span>
-				<SwatchPicker bind:value={editColor} colors={COLORS} label="Couleur du calendrier" />
+				<span class="text-fc-sm text-fc-fg">{t('common.color')}</span>
+				<SwatchPicker bind:value={editColor} colors={COLORS} label={t('calendarModal.colorLabel')} />
 			</div>
 
-			<Field label="Description">
-				<Input bind:value={editDescription} placeholder="Description (optionnelle)" />
+			<Field label={t('common.description')}>
+				<Input bind:value={editDescription} placeholder={t('calendarModal.descriptionPlaceholder')} />
 			</Field>
 
-			<Field label="Echo (visioconférence)" helper="URL de l'instance Echo pour ce calendrier">
+			<Field label={t('calendarModal.echo')} helper={t('calendarModal.echoHelper')}>
 				<Input bind:value={editEchoUrl} placeholder="https://echo.facile.studio" />
 			</Field>
 
@@ -205,7 +206,7 @@
 
 			<div class="flex justify-end">
 				<Button icon={icons.check} onclick={handleSave} disabled={saving}>
-					{saving ? 'Enregistrement…' : 'Enregistrer'}
+					{saving ? t('common.saving') : t('common.save')}
 				</Button>
 			</div>
 		</div>
@@ -217,13 +218,13 @@
 		<div class="flex items-center gap-2">
 			<iconify-icon icon={icons.usersGroup} width="16" height="16" class="block size-4 text-fc-fg-muted"
 			></iconify-icon>
-			<h3 class="text-fc-sm font-medium">Membres</h3>
+			<h3 class="text-fc-sm font-medium">{t('common.members')}</h3>
 		</div>
 
 		{#if loadingMembers}
-			<p class="text-fc-sm text-fc-fg-muted">Chargement…</p>
+			<p class="text-fc-sm text-fc-fg-muted">{t('common.loadingDots')}</p>
 		{:else if members.length === 0}
-			<p class="text-fc-sm text-fc-fg-muted">Aucun membre partage.</p>
+			<p class="text-fc-sm text-fc-fg-muted">{t('member.none')}</p>
 		{:else}
 			<div class="flex flex-col">
 				{#each members as member (member.user_id)}
@@ -243,7 +244,7 @@
 								variant="ghost-danger"
 								size="sm"
 								icon={icons.remove}
-								aria-label="Retirer {member.name || member.email}"
+								aria-label={t('member.removeAria', { name: member.name || member.email })}
 								disabled={removingId === member.user_id}
 								onclick={() => { memberToRemove = member; confirmRemoveOpen = true; }}
 							/>
@@ -255,22 +256,22 @@
 
 		{#if calendar?.role === 'owner'}
 			<div class="flex flex-col gap-2 rounded-fc-md bg-fc-surface p-3">
-				<p class="text-fc-xs font-medium text-fc-fg-muted">Inviter un membre</p>
+				<p class="text-fc-xs font-medium text-fc-fg-muted">{t('member.invite')}</p>
 				<div class="flex flex-col gap-2 sm:flex-row">
 					<Input
 						bind:value={inviteEmail}
-						placeholder="email@exemple.com"
+						placeholder={t('member.emailPlaceholder')}
 						type="email"
-						aria-label="Email du membre à inviter"
+						aria-label={t('member.emailAria')}
 						class="flex-1"
 						onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter') handleInvite(); }}
 					/>
-					<Select bind:value={inviteRole} aria-label="Rôle" class="sm:w-32">
-						<option value="reader">Lecteur</option>
-						<option value="writer">Editeur</option>
+					<Select bind:value={inviteRole} aria-label={t('member.roleAria')} class="sm:w-32">
+						<option value="reader">{t('role.reader')}</option>
+						<option value="writer">{t('role.writer')}</option>
 					</Select>
 					<Button size="lg" icon={icons.plus} onclick={handleInvite} disabled={inviting}>
-						Inviter
+						{t('member.inviteButton')}
 					</Button>
 				</div>
 				{#if inviteError}
@@ -283,7 +284,7 @@
 	{#if calendar?.role === 'owner' && !calendar?.is_personal}
 		<Divider class="my-5" />
 		<div class="flex items-center justify-between gap-3">
-			<p class="text-fc-xs text-fc-fg-muted">Zone dangereuse</p>
+			<p class="text-fc-xs text-fc-fg-muted">{t('calendarModal.dangerZone')}</p>
 			<Button
 				variant="danger"
 				size="sm"
@@ -291,7 +292,7 @@
 				onclick={() => (confirmDeleteOpen = true)}
 				disabled={deleting}
 			>
-				{deleting ? 'Suppression…' : 'Supprimer ce calendrier'}
+				{deleting ? t('common.deleting') : t('calendarModal.deleteButton')}
 			</Button>
 		</div>
 	{/if}
@@ -300,18 +301,20 @@
 <ConfirmModal
 	bind:open={confirmDeleteOpen}
 	tone="danger"
-	title="Supprimer ce calendrier ?"
-	description={`« ${calendar?.name ?? ''} » et tous ses événements seront supprimés pour chaque membre. Cette action est irréversible.`}
-	confirmLabel="Supprimer"
+	title={t('calendarModal.deleteTitle')}
+	description={t('calendarModal.deleteText', { name: calendar?.name ?? '' })}
+	confirmLabel={t('common.delete')}
 	onConfirm={handleDelete}
 />
 
 <ConfirmModal
 	bind:open={confirmRemoveOpen}
 	tone="danger"
-	title="Retirer ce membre ?"
-	description={`${memberToRemove?.name || memberToRemove?.email || 'Cette personne'} perdra immédiatement l'accès à ce calendrier.`}
-	confirmLabel="Retirer"
+	title={t('member.removeTitle')}
+	description={t('member.removeText', {
+		name: memberToRemove?.name || memberToRemove?.email || t('member.thisPerson')
+	})}
+	confirmLabel={t('common.remove')}
 	onConfirm={handleRemoveMember}
 	onCancel={() => (memberToRemove = null)}
 />

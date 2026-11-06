@@ -1,0 +1,85 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: agenda
+          POSTGRES_PASSWORD: agenda
+          POSTGRES_DB: agenda_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      TEST_DATABASE_URL: postgres://agenda:agenda@127.0.0.1:5432/agenda_test?sslmode=disable
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+
+      - name: gofmt
+        run: test -z "$(gofmt -l . | grep -v '^vendor/')" || { gofmt -l . | grep -v '^vendor/'; exit 1; }
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: build
+        run: go build -mod=vendor -o /dev/null .
+
+      - name: tests
+        run: go test -race -count=1 ./...
+
+  client:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/client
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+
+      - name: install
+        run: bun install --frozen-lockfile
+
+      - name: svelte-check
+        run: bun run check
+
+      - name: tests
+        run: bun run test
+
+      - name: build
+        run: bun run build
+
+  filet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: FacileStudio/filet@v0.3.0
+        with:
+          version: v0.3.0
+          fail-on: error
+          antenne-url: ${{ secrets.ANTENNE_FILET_SECRET != '' && 'https://antenne.facile.studio/webhook/filet' || '' }}
+          antenne-secret: ${{ secrets.ANTENNE_FILET_SECRET }}

@@ -28,6 +28,9 @@ type flow struct {
 	// redirect. It rides in this cookie rather than through the IdP because
 	// the IdP has no business seeing it and would not return it anyway.
 	CLIState string `json:"cs,omitempty"`
+
+	Mobile    bool   `json:"m,omitempty"`
+	Challenge string `json:"ch,omitempty"`
 }
 
 func (f flow) encode() (string, error) {

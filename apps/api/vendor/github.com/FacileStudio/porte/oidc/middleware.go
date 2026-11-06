@@ -44,12 +44,7 @@ func (k *Kit) Attach(ctx context.Context, identity *porte.Identity) {
 	}
 	refreshed, err := k.refreshRoles(ctx, stored)
 	if err != nil {
-		// Keeping the stale roles is the right failure: an IdP blip
-		// must not silently strip everyone's permissions. The stamp is
-		// still moved so a dead refresh token is not retried on every
-		// single request — through the narrow write, because `stored`
-		// is a pre-refresh read and saving it whole would roll back a
-		// token another request may have rotated in the meantime.
+
 		k.logger.Warn("porte: role refresh failed, keeping the cached claim",
 			slog.Int64("user_id", identity.UserID), slog.Any("error", err))
 		if err := k.deps.Identities.MarkRolesSynced(ctx, stored.Provider, stored.Subject, k.now()); err != nil {

@@ -24,6 +24,8 @@
 	} from '@facile/muse';
 	import { toast } from 'svelte-sonner';
 	import { backend, type ApiTokenStatus, type UserProfile } from '$lib/backend';
+	import { t } from '$lib/i18n/index.svelte';
+	import { formatDate } from '$lib/i18n/format';
 
 	const app = getContext<{ user: UserProfile | null }>('app');
 
@@ -34,62 +36,59 @@
 	let tokenName = $state('CalDAV');
 	let issuedToken = $state('');
 
-	const isSSOUser = $derived(app.user?.avatar_source === 'oidc');
 	const serverOrigin = $derived(backend.baseUrl || (browser ? window.location.origin : ''));
 	const caldavPath = $derived(`/dav/${app.user?.email ?? ''}`);
 	const caldavUrl = $derived(`${serverOrigin}${caldavPath}`);
 	const serverHost = $derived(serverOrigin.replace(/^https?:\/\//, ''));
-	const passwordHint = $derived(isSSOUser ? 'le token API ci-dessus' : 'votre mot de passe');
-
-	const clients = [
+	const clients = $derived([
 		{
 			id: 'ios',
-			label: 'iOS — Calendrier',
+			label: t('api.client.ios'),
 			icon: 'solar:iphone-linear',
-			steps: () => [
-				'Réglages → Calendrier → Comptes → Ajouter un compte → Autre',
-				'Ajouter un compte CalDAV',
-				`Serveur : ${serverHost}`,
-				'Nom d’utilisateur : votre email',
-				`Mot de passe : ${passwordHint}`
+			steps: [
+				t('api.step.ios1'),
+				t('api.step.ios2'),
+				t('api.step.server', { value: serverHost }),
+				t('api.step.user'),
+				t('api.step.password')
 			]
 		},
 		{
 			id: 'macos',
-			label: 'macOS — Calendrier',
+			label: t('api.client.macos'),
 			icon: 'solar:monitor-linear',
-			steps: () => [
-				'Calendrier → Réglages → Comptes → + → CalDAV (Avancé)',
-				'Nom d’utilisateur : votre email',
-				`Mot de passe : ${passwordHint}`,
-				`Adresse du serveur : ${serverHost}`,
-				`Chemin d’accès : ${caldavPath}`,
-				'Port : 443 — SSL activé'
+			steps: [
+				t('api.step.macos1'),
+				t('api.step.user'),
+				t('api.step.password'),
+				t('api.step.serverAddress', { value: serverHost }),
+				t('api.step.macosPath', { value: caldavPath }),
+				t('api.step.macosPort')
 			]
 		},
 		{
 			id: 'davx5',
-			label: 'Android — DAVx⁵',
+			label: t('api.client.davx5'),
 			icon: 'solar:smartphone-linear',
-			steps: () => [
-				'DAVx⁵ → + → Connexion avec URL et nom d’utilisateur',
-				`URL de base : ${caldavUrl}`,
-				'Nom d’utilisateur : votre email',
-				`Mot de passe : ${passwordHint}`
+			steps: [
+				t('api.step.davx51'),
+				t('api.step.baseUrl', { value: caldavUrl }),
+				t('api.step.user'),
+				t('api.step.password')
 			]
 		},
 		{
 			id: 'thunderbird',
-			label: 'Thunderbird',
+			label: t('api.client.thunderbird'),
 			icon: 'solar:letter-linear',
-			steps: () => [
-				'Agenda → Nouveau calendrier → Sur le réseau → CalDAV',
-				`Emplacement : ${caldavUrl}`,
-				'Identifiant : votre email',
-				`Mot de passe : ${passwordHint}`
+			steps: [
+				t('api.step.tb1'),
+				t('api.step.location', { value: caldavUrl }),
+				t('api.step.tbUser'),
+				t('api.step.password')
 			]
 		}
-	];
+	]);
 
 	onMount(async () => {
 		try {
@@ -112,9 +111,9 @@
 			const created = await backend.createApiToken(tokenName || 'CalDAV');
 			issuedToken = created.token;
 			apiToken = { has_token: true, name: created.name, created_at: created.created_at };
-			toast.success(wasReplacing ? 'Token remplacé.' : 'Token généré.');
+			toast.success(wasReplacing ? t('api.toastReplaced') : t('api.toastGenerated'));
 		} catch (error: unknown) {
-			toast.error(error instanceof Error ? error.message : 'Erreur.');
+			toast.error(error instanceof Error ? error.message : t('common.error'));
 		} finally {
 			tokenBusy = false;
 		}
@@ -126,105 +125,75 @@
 			await backend.deleteApiToken();
 			apiToken = { has_token: false };
 			issuedToken = '';
-			toast.success('Token révoqué.');
+			toast.success(t('api.toastRevoked'));
 		} catch (error: unknown) {
-			toast.error(error instanceof Error ? error.message : 'Erreur.');
+			toast.error(error instanceof Error ? error.message : t('common.error'));
 		} finally {
 			tokenBusy = false;
 		}
 	}
 
-	function formatDate(value?: string) {
-		return value ? new Date(value).toLocaleDateString('fr-FR') : '—';
+	function formatDay(value?: string) {
+		return value ? formatDate(value) : '—';
 	}
 </script>
 
 <svelte:head>
-	<title>API — Agenda</title>
+	<title>{t('settings.tab.api')} — Agenda</title>
 </svelte:head>
 
 <div class="flex flex-col gap-10">
 	<SettingsSection
-		title="Connexion CalDAV"
-		description="Synchronisez vos calendriers avec Calendrier iOS, Calendrier macOS, DAVx⁵, Thunderbird ou tout autre client CalDAV."
+		title={t('api.caldav')}
+		description={t('api.caldavText')}
 	>
-		<SettingsRow
-			label="Serveur"
-			description="L’hôte à saisir quand le client demande une adresse plutôt qu’une URL complète."
-			stacked
-		>
+		<SettingsRow label={t('api.server')} description={t('api.serverText')} stacked>
 			<SecretField value={serverOrigin} sensitive={false} class="w-full" />
 		</SettingsRow>
 
-		<SettingsRow
-			label="Chemin d’accès"
-			description="Requis par Calendrier macOS en mode CalDAV avancé."
-			stacked
-		>
+		<SettingsRow label={t('api.path')} description={t('api.pathText')} stacked>
 			<SecretField value={caldavPath} sensitive={false} class="w-full" />
 		</SettingsRow>
 
-		<SettingsRow
-			label="URL complète"
-			description="L’URL de base pour DAVx⁵ et Thunderbird — serveur et chemin d’un seul tenant."
-			stacked
-		>
+		<SettingsRow label={t('api.fullUrl')} description={t('api.fullUrlText')} stacked>
 			<SecretField value={caldavUrl} sensitive={false} class="w-full" />
 		</SettingsRow>
 
-		<SettingsRow
-			label="Identifiant"
-			description="Votre adresse email. L’authentification CalDAV est un Basic Auth classique."
-			stacked
-		>
+		<SettingsRow label={t('api.username')} description={t('api.usernameText')} stacked>
 			<SecretField value={app.user?.email ?? ''} sensitive={false} class="w-full" />
 		</SettingsRow>
 
-		<SettingsRow
-			label="Mot de passe"
-			description={isSSOUser
-				? 'Vous vous connectez par SSO, vous n’avez donc pas de mot de passe Agenda : le token API ci-dessous en tient lieu.'
-				: 'Votre mot de passe Agenda. Il n’est jamais réaffiché — s’il est perdu, générez plutôt un token API.'}
-		>
-			<StatusDot
-				tone={isSSOUser ? 'warning' : 'success'}
-				label={isSSOUser ? 'Token API requis' : 'Mot de passe Agenda'}
-			/>
+		<SettingsRow label={t('api.password')} description={t('api.passwordText')}>
+			<StatusDot tone="warning" label={t('api.tokenRequired')} />
 		</SettingsRow>
 	</SettingsSection>
 
-	<SettingsSection
-		title="Token API"
-		description="Un identifiant machine pour les clients CalDAV et les appels HTTP. Agenda en garde un seul par compte."
-	>
+	<SettingsSection title={t('api.token')} description={t('api.tokenText')}>
 		{#snippet actions()}
 			<Button icon={icons.plus} onclick={openCreate}>
-				{apiToken?.has_token ? 'Remplacer le token' : 'Générer un token'}
+				{apiToken?.has_token ? t('api.tokenReplace') : t('api.tokenGenerate')}
 			</Button>
 		{/snippet}
 
-		{#if isSSOUser && !apiToken?.has_token}
-			<Alert tone="warning">
-				Vous êtes connecté via SSO — vous n’avez pas de mot de passe Agenda. Générez un token API
-				et utilisez-le comme mot de passe dans votre client CalDAV.
-			</Alert>
+		{#if !apiToken?.has_token}
+			<Alert tone="warning">{t('api.tokenAlert')}</Alert>
 		{/if}
 
 		{#if apiToken?.has_token}
 			<Table>
 				<thead>
 					<tr>
-						<th>Nom</th>
-						<th>Créé le</th>
-						<th>Portée</th>
-						<th class="text-right">Action</th>
+						<th>{t('api.colName')}</th>
+						<th>{t('api.colCreated')}</th>
+						<th>{t('api.colScope')}</th>
+						<th class="text-right">{t('api.colAction')}</th>
 					</tr>
 				</thead>
 				<tbody>
 					<tr>
 						<td class="font-fc-mono">{apiToken.name ?? 'Token'}</td>
-						<td>{formatDate(apiToken.created_at)}</td>
-						<td>CalDAV et API — votre compte</td>
+						<td>{formatDay(apiToken.created_at)}</td>
+						<td>{t('api.scope')}</td>
 						<td class="text-right">
 							<Button
 								variant="ghost-danger"
@@ -233,25 +202,22 @@
 								disabled={tokenBusy}
 								onclick={() => (revokeOpen = true)}
 							>
-								Révoquer
+								{t('common.revoke')}
 							</Button>
 						</td>
 					</tr>
 				</tbody>
 			</Table>
 		{:else}
-			<SettingsRow
-				label="Aucun token"
-				description="Le token n’est affiché qu’une fois, à sa création. Agenda n’en stocke qu’un hash — il ne peut pas vous le rappeler ensuite."
-			>
-				<StatusDot tone="neutral" label="Non généré" />
+			<SettingsRow label={t('api.noToken')} description={t('api.noTokenText')}>
+				<StatusDot tone="neutral" label={t('api.notGenerated')} />
 			</SettingsRow>
 		{/if}
 	</SettingsSection>
 
 	<SettingsSection
-		title="Instructions par client"
-		description="Les mêmes identifiants, dans l’ordre où chaque application les demande."
+		title={t('api.instructions')}
+		description={t('api.instructionsText')}
 		bare
 	>
 		<div class="overflow-hidden rounded-fc-md bg-fc-component">
@@ -271,7 +237,7 @@
 						></iconify-icon>
 					</summary>
 					<ol class="list-decimal space-y-1 px-4 pt-1 pb-4 pl-10 text-fc-sm text-fc-fg-muted">
-						{#each client.steps() as step (step)}
+						{#each client.steps as step (step)}
 							<li>{step}</li>
 						{/each}
 					</ol>
@@ -283,44 +249,38 @@
 
 <Drawer
 	bind:open={createOpen}
-	title={apiToken?.has_token && !issuedToken ? 'Remplacer le token API' : 'Générer un token API'}
+	title={apiToken?.has_token && !issuedToken ? t('api.drawerReplaceTitle') : t('api.drawerGenerateTitle')}
 	description={apiToken?.has_token && !issuedToken
-		? 'Générer un nouveau token invalidera immédiatement l’ancien. Nommez-le d’après la machine qui s’en servira.'
-		: 'Nommez-le d’après la machine qui s’en servira — c’est la seule façon de savoir plus tard ce que vous révoquez.'}
+		? t('api.drawerReplaceText')
+		: t('api.drawerGenerateText')}
 	onClose={() => (issuedToken = '')}
 >
 	{#if issuedToken}
 		<div class="flex flex-col gap-4">
-			<Alert tone="warning" title="Copiez-le maintenant">
-				Ce token ne sera plus jamais affiché. Agenda n’en conserve qu’un hash : une fois ce
-				tiroir fermé, il est irrécupérable et il faudra en générer un autre.
-			</Alert>
+			<Alert tone="warning" title={t('api.copyNow')}>{t('api.copyNowText')}</Alert>
 			<SecretField
 				value={issuedToken}
-				label="Token"
-				helper="À utiliser comme mot de passe dans votre client CalDAV."
+				label={t('api.tokenLabel')}
+				helper={t('api.tokenHelper')}
 				visible
 				autoHideMs={0}
 			/>
 		</div>
 	{:else}
 		<div class="flex flex-col gap-2">
-			<label for="token-name" class="text-fc-sm font-medium text-fc-fg">Nom du token</label>
-			<Input id="token-name" bind:value={tokenName} placeholder="MacBook, iPhone, serveur CI…" />
-			<p class="text-fc-xs text-fc-fg-muted">
-				Agenda n’attache ni portée ni expiration à un token : il vaut votre compte, pour CalDAV
-				comme pour l’API. Révoquez-le dès qu’une machine n’en a plus besoin.
-			</p>
+			<label for="token-name" class="text-fc-sm font-medium text-fc-fg">{t('api.tokenName')}</label>
+			<Input id="token-name" bind:value={tokenName} placeholder={t('api.tokenNamePlaceholder')} />
+			<p class="text-fc-xs text-fc-fg-muted">{t('api.tokenScopeNote')}</p>
 		</div>
 	{/if}
 
 	{#snippet footer()}
 		{#if issuedToken}
-			<Button variant="outline" onclick={() => (createOpen = false)}>Fermer</Button>
+			<Button variant="outline" onclick={() => (createOpen = false)}>{t('common.close')}</Button>
 		{:else}
-			<Button variant="outline" onclick={() => (createOpen = false)}>Annuler</Button>
+			<Button variant="outline" onclick={() => (createOpen = false)}>{t('common.cancel')}</Button>
 			<Button icon={icons.key} disabled={tokenBusy} onclick={generateToken}>
-				{tokenBusy ? 'Génération…' : apiToken?.has_token ? 'Remplacer' : 'Générer'}
+				{tokenBusy ? t('api.generating') : apiToken?.has_token ? t('api.replaceButton') : t('api.generateButton')}
 			</Button>
 		{/if}
 	{/snippet}
@@ -328,10 +288,9 @@
 
 <ConfirmModal
 	bind:open={revokeOpen}
-	title="Révoquer le token API ?"
-	description="Tout client CalDAV et tout script qui s’en sert cesse de se synchroniser immédiatement, et un token révoqué ne se restaure pas — il faudra en générer un nouveau et le ressaisir sur chaque appareil."
-	confirmLabel="Révoquer"
-	cancelLabel="Annuler"
+	title={t('api.revokeTitle')}
+	description={t('api.revokeText')}
+	confirmLabel={t('common.revoke')}
 	tone="danger"
 	icon={icons.revoke}
 	onConfirm={revokeToken}

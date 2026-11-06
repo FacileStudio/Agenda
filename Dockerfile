@@ -7,8 +7,9 @@ RUN bun run build
 
 FROM golang:1.26-alpine AS api-build
 WORKDIR /app
+ARG APP_VERSION=dev
 COPY apps/api/ .
-RUN go build -mod=vendor -trimpath -ldflags="-s -w" -o /agenda .
+RUN go build -mod=vendor -trimpath -ldflags="-s -w -X main.version=${APP_VERSION}" -o /agenda .
 
 FROM gcr.io/distroless/static-debian12
 WORKDIR /app

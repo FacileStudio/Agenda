@@ -6,6 +6,10 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/FacileStudio/Agenda/apps/api/internal/env"
@@ -28,8 +32,6 @@ var clientCalls = []struct {
 	path   string
 }{
 	{http.MethodGet, "/api/auth/config"},
-	{http.MethodPost, "/api/auth/register"},
-	{http.MethodPost, "/api/auth/login"},
 	{http.MethodPost, "/api/auth/logout"},
 	{http.MethodPost, "/api/auth/sync-profile"},
 	{http.MethodGet, "/api/auth/oidc"},
@@ -67,6 +69,7 @@ var clientCalls = []struct {
 	{http.MethodGet, "/api/ready"},
 	{http.MethodGet, "/health"},
 	{http.MethodGet, "/ready"},
+	{http.MethodGet, "/version"},
 	{http.MethodGet, "/files/avatars/user-1.png"},
 	{http.MethodGet, "/.well-known/caldav"},
 	{http.MethodGet, "/dav/"},
@@ -74,7 +77,7 @@ var clientCalls = []struct {
 }
 
 // stubIssuer serves just enough OpenID discovery for newOIDCHandler to succeed,
-// so the router under test carries the /auth/oidc routes SSO_ONLY depends on.
+// so the router under test carries the /auth/oidc routes.
 func stubIssuer(t *testing.T) string {
 	t.Helper()
 	server := httptest.NewServer(nil)
@@ -125,7 +128,7 @@ func testRouter(t *testing.T) chi.Router {
 	if err != nil {
 		t.Fatalf("oidc.New: %v", err)
 	}
-	authService := auth.NewService(nil, sessions, nil, appLogger)
+	authService := auth.NewService(nil, sessions, appLogger)
 
 	router := chi.NewRouter()
 	mountRoutes(router, mounts{
@@ -146,6 +149,30 @@ func TestEveryCalledURLIsRouted(t *testing.T) {
 		if !router.Match(routeContext, call.method, call.path) {
 			t.Errorf("%s %s matches no route", call.method, call.path)
 		}
+	}
+}
+
+func TestNoLocalSignInRouteIsMounted(t *testing.T) {
+	router := testRouter(t)
+
+	for _, path := range []string{"/api/auth/register", "/api/auth/login", "/auth/register", "/auth/login"} {
+		for _, method := range []string{http.MethodPost, http.MethodGet} {
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, httptest.NewRequest(method, path, nil))
+			if recorder.Code != http.StatusNotFound {
+				t.Errorf("%s %s = %d, want 404; sign-in goes through Registre only", method, path, recorder.Code)
+			}
+		}
+	}
+}
+
+func TestVersionReportsTheBuild(t *testing.T) {
+	router := testRouter(t)
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/version", nil))
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), version) {
+		t.Errorf("GET /version = %d %q, want 200 carrying %q", recorder.Code, recorder.Body.String(), version)
 	}
 }
 
@@ -193,5 +220,23 @@ func TestRegistreNudgeIsAcceptedWithoutCredentials(t *testing.T) {
 	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, directory.SyncPath, nil))
 	if recorder.Code != http.StatusAccepted {
 		t.Errorf("POST %s = %d, want 202; Registre's nudge carries no credentials", directory.SyncPath, recorder.Code)
+	}
+}
+
+func TestSecurityConfigAllowsTheClientsInlineScripts(t *testing.T) {
+	dir := t.TempDir()
+	page := "<html><body><script>window.boot = 1</script></body></html>"
+	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte(page), 0o600); err != nil {
+		t.Fatalf("write page: %v", err)
+	}
+
+	config := securityConfig(dir, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	scripts := config.CSPSources["script-src"]
+	if len(scripts) != 1 || !strings.HasPrefix(scripts[0], "'sha256-") {
+		t.Errorf("script-src = %v, want the page's inline script hash", scripts)
+	}
+	if !slices.Contains(config.CSPSources["connect-src"], "https://api-ardoise.facile.studio") {
+		t.Errorf("connect-src = %v, want the Ardoise catalog origin", config.CSPSources["connect-src"])
 	}
 }

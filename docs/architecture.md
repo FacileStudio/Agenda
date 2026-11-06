@@ -102,7 +102,7 @@ appear, plus the root-level redirect described above.
 `DOMAIN`, which deployments set to a bare hostname; redirecting to a bare hostname would
 resolve relative to the callback path instead of leaving the site.
 
-`SSO_ONLY=true` removes register and login from the router entirely — they 404, not 403.
+Register and login do not exist: porte mounts no password routes while an issuer is configured, so they 404. `SSO_ONLY` is no longer read, and the API refuses to boot in production without `OIDC_ISSUER`.
 
 ### Encryption at rest
 
@@ -158,9 +158,9 @@ Three things the registration does that are easy to miss:
   be reachable before a client has credentials, and the redirect is deliberately 302 rather
   than 308 because iOS has known problems with 308 on well-known redirects.
 
-Authentication accepts a `session` cookie, or HTTP Basic with the user's email plus either
-their account password or an API token — the API token path is what lets SSO-only users,
-who have no password, connect a CalDAV client at all. iOS 18.4 and later percent-encode
+Authentication accepts a `session` cookie, or HTTP Basic with the user's email plus
+an API token. There are no account passwords, so the API token path is how every person
+connects a CalDAV client. iOS 18.4 and later percent-encode
 `@` in the Basic Auth username, so the username is URL-decoded before lookup.
 
 The vendored go-webdav copy carries local patches. They are documented in

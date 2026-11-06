@@ -3,7 +3,6 @@ package users
 import (
 	"context"
 	stderrors "errors"
-	"net/http"
 	"strconv"
 	"time"
 
@@ -27,15 +26,10 @@ type Service struct {
 // A named API token is a porte session with a label on it and no expiry, so
 // there is no second table and no second branch in the authentication path —
 // which is what there used to be, and what made api_tokens a credential store
-// porte's middleware would not have known to read. The password is porte's for
-// the same reason.
+// porte's middleware would not have known to read.
 type Auth interface {
 	Issue(ctx context.Context, userID int64, label string) (string, porte.Session, error)
 	Sessions() *session.Manager
-	SetPassword(ctx context.Context, userID int64, password string) error
-	ChangePassword(
-		ctx context.Context, w http.ResponseWriter, r *http.Request, userID int64, current, next string,
-	) (string, int64, error)
 }
 
 // NewService builds a user service over the given database.
@@ -77,13 +71,6 @@ func (service *Service) listUsers(context context.Context) ([]User, error) {
 }
 
 // updateUser applies profile and email changes to an account.
-//
-// It no longer touches the password identity. porte keyed a local credential
-// on the email address until v0.3.0 and now keys it on the account id, so
-// changing an address writes this row and nothing else — the hand-written
-// `UPDATE porte_identities SET subject = ?` that used to drag the credential
-// onto the new address went with the upgrade, along with the read of the
-// current address that existed only to feed it.
 func (service *Service) updateUser(context context.Context, userID string, name *string, email *string) (*User, error) {
 	id, err := strconv.ParseInt(userID, 10, 64)
 	if err != nil {
@@ -119,35 +106,6 @@ func (service *Service) updateUser(context context.Context, userID string, name 
 	return mapUser(record), nil
 }
 
-// setPassword gives the account its first password, or replaces an existing
-// one after confirming the current.
-//
-// The two are separate porte calls rather than one, and that is what makes the
-// confirmation impossible to skip: SetPassword refuses an account that already
-// has a password, so a body carrying `password` alone can never replace one.
-// porte answers that refusal with a 409, which is the wrong story to tell here
-// — the caller left a field out rather than losing a race — so it becomes a
-// 400 naming the field.
-func (service *Service) setPassword(w http.ResponseWriter, r *http.Request, userID string, req *UpdateRequest) error {
-	id, err := strconv.ParseInt(userID, 10, 64)
-	if err != nil {
-		return errors.Internal("failed to parse user id", err)
-	}
-
-	if req.CurrentPassword != nil {
-		_, _, err := service.tokens.ChangePassword(r.Context(), w, r, id, *req.CurrentPassword, *req.Password)
-		return err
-	}
-
-	if err := service.tokens.SetPassword(r.Context(), id, *req.Password); err != nil {
-		if stderrors.Is(err, porte.ErrPasswordSet) {
-			return errors.Invalid("current_password is required to replace an existing password")
-		}
-		return err
-	}
-	return nil
-}
-
 func mapUser(record schemas.User) *User {
 	return &User{
 		ID:           strconv.FormatInt(record.ID, 10),
@@ -155,6 +113,7 @@ func mapUser(record schemas.User) *User {
 		Name:         record.Name,
 		AvatarURL:    record.Avatar(),
 		AvatarSource: record.AvatarOrigin(),
+		Locale:       record.Locale,
 		CreatedAt:    record.CreatedAt.UTC().Format(time.RFC3339),
 	}
 }

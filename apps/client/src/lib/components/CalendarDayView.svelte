@@ -5,6 +5,8 @@
 	import { eventKey } from '$lib/recurrence';
 	import EventAvatar from '$lib/components/EventAvatar.svelte';
 	import { calendarColor, inkOn } from '$lib/calendar-colors';
+	import { t } from '$lib/i18n/index.svelte';
+	import { capitalize, formatDate, formatTime } from '$lib/i18n/format';
 
 	let {
 		events,
@@ -92,7 +94,7 @@
 					>
 						<EventAvatar creator={event.created_by} class="size-3.5" />
 						<span class="min-w-0 truncate">{event.title}</span>
-						{#if event.recurrence_rule}<iconify-icon icon="solar:repeat-linear" width="12" height="12" aria-label="Récurrent" class="block size-3 shrink-0 opacity-80"></iconify-icon>{/if}
+						{#if event.recurrence_rule}<iconify-icon icon="solar:repeat-linear" width="12" height="12" aria-label={t('calendar.recurring')} class="block size-3 shrink-0 opacity-80"></iconify-icon>{/if}
 					</button>
 				{/each}
 			</div>
@@ -102,10 +104,10 @@
 	<!-- Day column header -->
 	<div class="flex items-center px-4 py-2">
 		<div class="w-12"></div>
-		<div class="flex flex-1 items-center justify-center gap-2 text-sm font-medium capitalize text-foreground">
-			{currentDate.toDate(tz).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+		<div class="flex flex-1 items-center justify-center gap-2 text-sm font-medium text-foreground">
+			{capitalize(formatDate(currentDate.toDate(tz), { weekday: 'long', day: 'numeric', month: 'long' }))}
 			{#if isToday}
-				<Badge tone="accent">Aujourd'hui</Badge>
+				<Badge tone="accent">{t('common.today')}</Badge>
 			{/if}
 		</div>
 	</div>
@@ -117,7 +119,7 @@
 			{#each HOURS as hour}
 				<button
 					type="button"
-					aria-label={`Créer un événement à ${hour}h`}
+					aria-label={t('calendar.createAt', { time: formatTime(new Date(2000, 0, 1, hour)) })}
 					class="absolute right-0 left-0 cursor-pointer border-b border-dashed border-border transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
 					style="top: {hour * SLOT_HEIGHT_PX}px; height: {SLOT_HEIGHT_PX}px;"
 					onclick={() => onSlotClick(hour)}
@@ -142,13 +144,13 @@
 				>
 					<span class="flex w-full items-center gap-1.5">
 						<span class="min-w-0 flex-1 truncate font-semibold">{event.title}</span>
-						{#if event.recurrence_rule}<iconify-icon icon="solar:repeat-linear" width="12" height="12" aria-label="Récurrent" class="block size-3 shrink-0 opacity-80"></iconify-icon>{/if}
+						{#if event.recurrence_rule}<iconify-icon icon="solar:repeat-linear" width="12" height="12" aria-label={t('calendar.recurring')} class="block size-3 shrink-0 opacity-80"></iconify-icon>{/if}
 						<EventAvatar creator={event.created_by} class="size-5 text-[0.6rem]!" />
 					</span>
 					<span class="mt-0.5 block w-full truncate opacity-90">
-						{new Date(event.start_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+						{formatTime(event.start_at)}
 						–
-						{new Date(event.end_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+						{formatTime(event.end_at)}
 					</span>
 					{#if event.location}
 						<span class="block w-full truncate opacity-75">{event.location}</span>

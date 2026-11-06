@@ -6,15 +6,19 @@ package errors
 import (
 	stderrors "errors"
 	"net/http"
+	"net/url"
+	"strings"
+	"unicode"
 )
 
 // Error is the envelope every Facile API returns for a failure. Code is the
 // stable identifier clients branch on, Message is for humans, and Cause is the
 // underlying error, kept out of the JSON payload.
 type Error struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Cause   error  `json:"-"`
+	Code       string `json:"code"`
+	Message    string `json:"message"`
+	UpgradeURL string `json:"upgrade_url,omitempty"`
+	Cause      error  `json:"-"`
 }
 
 // Error returns the human-readable message, satisfying the error interface.
@@ -28,6 +32,31 @@ func (e *Error) Unwrap() error {
 	return e.Cause
 }
 
+// WithUpgradeURL sets where the caller can upgrade, and returns e. Only an
+// absolute https URL or a same-origin path is kept; anything else, such as a
+// javascript: or protocol-relative URL, leaves the field empty, because a
+// client renders it as a link.
+func (e *Error) WithUpgradeURL(rawURL string) *Error {
+	if SafeUpgradeURL(rawURL) {
+		e.UpgradeURL = rawURL
+	}
+	return e
+}
+
+// SafeUpgradeURL reports whether rawURL is a same-origin path or an https URL
+// with a host and no credentials. httpjson.WriteError checks it again, so an
+// UpgradeURL assigned directly cannot bypass it.
+func SafeUpgradeURL(rawURL string) bool {
+	if rawURL == "" || strings.ContainsFunc(rawURL, unicode.IsControl) || strings.ContainsAny(rawURL, " \\") {
+		return false
+	}
+	if strings.HasPrefix(rawURL, "/") {
+		return !strings.HasPrefix(rawURL, "//")
+	}
+	parsed, err := url.Parse(rawURL)
+	return err == nil && parsed.Scheme == "https" && parsed.Host != "" && parsed.User == nil
+}
+
 // New builds an Error from a code, a message and an optional cause. Prefer one
 // of the named constructors below unless the code is not one of them.
 func New(code, message string, cause error) *Error {
@@ -39,6 +68,10 @@ func Invalid(message string) *Error { return New("invalid_argument", message, ni
 
 // Unauthorized reports a missing or unusable credential. HTTP 401.
 func Unauthorized(message string) *Error { return New("unauthenticated", message, nil) }
+
+// PaymentRequired reports a feature or quota the caller's plan does not
+// include. HTTP 402. Attach where to upgrade with WithUpgradeURL.
+func PaymentRequired(message string) *Error { return New("payment_required", message, nil) }
 
 // Forbidden reports a valid credential that lacks the right. HTTP 403.
 func Forbidden(message string) *Error { return New("permission_denied", message, nil) }
@@ -72,6 +105,7 @@ func Internal(message string, cause error) *Error {
 var statusByCode = map[string]int{
 	"invalid_argument":    http.StatusBadRequest,
 	"unauthenticated":     http.StatusUnauthorized,
+	"payment_required":    http.StatusPaymentRequired,
 	"permission_denied":   http.StatusForbidden,
 	"not_found":           http.StatusNotFound,
 	"already_exists":      http.StatusConflict,

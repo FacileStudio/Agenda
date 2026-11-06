@@ -68,7 +68,7 @@ func WriteJSON(w http.ResponseWriter, status int, value any) {
 }
 
 // WriteError writes err as {"error":{"code":...,"message":...}} with the status
-// its code maps to. Any error that is not an *errors.Error becomes a generic
+// its code maps to, plus "upgrade_url" when the error carries a safe one. Any error that is not an *errors.Error becomes a generic
 // internal error, so a raw failure can never leak its text to a client.
 func WriteError(w http.ResponseWriter, err error) {
 	var appErr *errors.Error
@@ -76,10 +76,12 @@ func WriteError(w http.ResponseWriter, err error) {
 		appErr = errors.Internal("internal server error", err)
 	}
 
-	WriteJSON(w, errors.Status(appErr), map[string]any{
-		"error": map[string]string{
-			"code":    appErr.Code,
-			"message": appErr.Message,
-		},
-	})
+	body := map[string]string{
+		"code":    appErr.Code,
+		"message": appErr.Message,
+	}
+	if errors.SafeUpgradeURL(appErr.UpgradeURL) {
+		body["upgrade_url"] = appErr.UpgradeURL
+	}
+	WriteJSON(w, errors.Status(appErr), map[string]any{"error": body})
 }

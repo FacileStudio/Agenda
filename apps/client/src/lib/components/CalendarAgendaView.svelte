@@ -4,6 +4,8 @@
 	import { calendarColor } from '$lib/calendar-colors';
 	import { describeRule, eventKey } from '$lib/recurrence';
 	import EventAvatar from '$lib/components/EventAvatar.svelte';
+	import { t } from '$lib/i18n/index.svelte';
+	import { capitalize, formatDate, formatTime } from '$lib/i18n/format';
 
 	let {
 		events,
@@ -19,19 +21,8 @@
 		return calendarColor(calendars, calendarId);
 	}
 
-	function formatTime(dateStr: string): string {
-		const d = new Date(dateStr);
-		return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-	}
-
-	function formatDate(dateStr: string): string {
-		const d = new Date(dateStr);
-		return d.toLocaleDateString('fr-FR', {
-			weekday: 'long',
-			day: 'numeric',
-			month: 'long',
-			year: 'numeric'
-		});
+	function formatDay(dateStr: string): string {
+		return formatDate(dateStr, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 	}
 
 	function dayKey(dateStr: string): string {
@@ -62,16 +53,16 @@
 			<EmptyState
 				bare
 				icon={icons.calendar}
-				title="Aucun événement à afficher"
-				description="Cliquez sur un créneau pour en créer un."
+				title={t('calendar.empty')}
+				description={t('calendar.emptyHint')}
 			/>
 		</div>
 	{:else}
 		{#each grouped() as group (group.key)}
 			<div>
 				<div class="sticky top-0 z-10 bg-background px-4 py-2">
-					<span class="text-sm font-medium capitalize text-foreground">
-						{formatDate(group.date)}
+					<span class="text-sm font-medium text-foreground">
+						{capitalize(formatDay(group.date))}
 					</span>
 				</div>
 				<div>
@@ -89,7 +80,7 @@
 								<p class="truncate text-sm font-medium text-foreground">{event.title}</p>
 								<p class="text-xs text-muted-foreground">
 									{#if event.is_all_day}
-										Toute la journée
+										{t('common.allDay')}
 									{:else}
 										{formatTime(event.start_at)} – {formatTime(event.end_at)}
 									{/if}

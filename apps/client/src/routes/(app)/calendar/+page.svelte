@@ -19,6 +19,8 @@
 	import UserMenu from '$lib/components/UserMenu.svelte';
 	import CalendarFilter from '$lib/components/CalendarFilter.svelte';
 	import { calendarFilter, visibleCalendars } from '$lib/calendar-filter.svelte';
+	import { MONDAY_FIRST, t } from '$lib/i18n/index.svelte';
+	import { capitalize, formatDate } from '$lib/i18n/format';
 
 	type AppContext = { calendars: CalendarItem[]; user: { id: string; email: string; name: string } };
 	const app = getContext<AppContext>('app');
@@ -42,13 +44,13 @@
 			case 'month': {
 				const ms = startOfMonth(currentDate);
 				const me = endOfMonth(currentDate);
-				const from = startOfWeek(ms, 'fr-FR').toDate(tz).toISOString();
-				const to = endOfWeek(me, 'fr-FR').add({ days: 7 }).toDate(tz).toISOString();
+				const from = startOfWeek(ms, MONDAY_FIRST).toDate(tz).toISOString();
+				const to = endOfWeek(me, MONDAY_FIRST).add({ days: 7 }).toDate(tz).toISOString();
 				return { from, to };
 			}
 			case 'week': {
-				const ws = startOfWeek(currentDate, 'fr-FR');
-				const we = endOfWeek(currentDate, 'fr-FR');
+				const ws = startOfWeek(currentDate, MONDAY_FIRST);
+				const we = endOfWeek(currentDate, MONDAY_FIRST);
 				return {
 					from: ws.toDate(tz).toISOString(),
 					to: we.toDate(tz).toISOString()
@@ -100,22 +102,22 @@
 	const periodTitle = $derived(() => {
 		switch (view) {
 			case 'month':
-				return currentDate.toDate(tz).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+				return formatDate(currentDate.toDate(tz), { month: 'long', year: 'numeric' });
 			case 'week': {
-				const ws = startOfWeek(currentDate, 'fr-FR').toDate(tz);
-				const we = endOfWeek(currentDate, 'fr-FR').toDate(tz);
+				const ws = startOfWeek(currentDate, MONDAY_FIRST).toDate(tz);
+				const we = endOfWeek(currentDate, MONDAY_FIRST).toDate(tz);
 				const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' };
-				return `${ws.toLocaleDateString('fr-FR', opts)} – ${we.toLocaleDateString('fr-FR', opts)} ${we.getFullYear()}`;
+				return `${formatDate(ws, opts)} – ${formatDate(we, opts)} ${we.getFullYear()}`;
 			}
 			case 'day':
-				return currentDate.toDate(tz).toLocaleDateString('fr-FR', {
+				return formatDate(currentDate.toDate(tz), {
 					weekday: 'long',
 					day: 'numeric',
 					month: 'long',
 					year: 'numeric'
 				});
 			case 'agenda':
-				return 'Agenda';
+				return t('view.agenda');
 		}
 	});
 
@@ -136,7 +138,7 @@
 			case 'month':
 				return currentDate.year === now.year && currentDate.month === now.month;
 			case 'week':
-				return startOfWeek(currentDate, 'fr-FR').compare(startOfWeek(now, 'fr-FR')) === 0;
+				return startOfWeek(currentDate, MONDAY_FIRST).compare(startOfWeek(now, MONDAY_FIRST)) === 0;
 			default:
 				return currentDate.compare(now) === 0;
 		}
@@ -180,12 +182,12 @@
 		selectedEvent = null;
 	}
 
-	const viewItems: { id: ViewType; label: string; icon: string }[] = [
-		{ id: 'month', label: 'Mois', icon: 'solar:calendar-minimalistic-linear' },
-		{ id: 'week', label: 'Semaine', icon: icons.calendar },
-		{ id: 'day', label: 'Jour', icon: 'solar:calendar-date-linear' },
-		{ id: 'agenda', label: 'Agenda', icon: 'solar:list-linear' }
-	];
+	const viewItems = [
+		{ id: 'month', key: 'view.month', icon: 'solar:calendar-minimalistic-linear' },
+		{ id: 'week', key: 'view.week', icon: icons.calendar },
+		{ id: 'day', key: 'view.day', icon: 'solar:calendar-date-linear' },
+		{ id: 'agenda', key: 'view.agenda', icon: 'solar:list-linear' }
+	] as const;
 </script>
 
 <div class="flex h-full flex-col">
@@ -199,19 +201,20 @@
 				<div class="flex min-w-0 items-center gap-1 rounded-fc-pill bg-muted p-1">
 					{#each viewItems as item}
 						{@const active = view === item.id}
+						{@const label = t(item.key)}
 						<button
 							type="button"
 							onclick={() => (view = item.id)}
 							aria-pressed={active}
-							aria-label={item.label}
-							title={item.label}
+							aria-label={label}
+							title={label}
 							class="flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-fc-pill px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring {active
 								? 'bg-primary text-primary-foreground'
 								: 'text-muted-foreground hover:text-foreground'}"
 						>
 							<iconify-icon icon={item.icon} width="16" height="16" class="block size-4 shrink-0"
 							></iconify-icon>
-							<span class="hidden xl:inline">{item.label}</span>
+							<span class="hidden xl:inline">{label}</span>
 						</button>
 					{/each}
 				</div>
@@ -220,26 +223,26 @@
 					onclick={() => openCreateModal()}
 					size="lg"
 					icon={icons.plus}
-					aria-label="Nouvel événement"
+					aria-label={t('calendar.newEvent')}
 				>
-					<span class="hidden sm:inline">Nouveau</span>
+					<span class="hidden sm:inline">{t('calendar.new')}</span>
 				</Button>
 			</div>
 		</div>
 
 		<div class="flex min-w-0 items-center gap-2 sm:gap-3">
 			<div class="flex items-center">
-				<IconButton variant="ghost" onclick={() => navigate(-1)} aria-label="Précédent">
+				<IconButton variant="ghost" onclick={() => navigate(-1)} aria-label={t('calendar.previous')}>
 					<iconify-icon icon={icons.chevronLeft} width="20" height="20" class="block size-5"
 					></iconify-icon>
 				</IconButton>
-				<IconButton variant="ghost" onclick={() => navigate(1)} aria-label="Suivant">
+				<IconButton variant="ghost" onclick={() => navigate(1)} aria-label={t('calendar.next')}>
 					<iconify-icon icon={icons.arrow} width="20" height="20" class="block size-5"></iconify-icon>
 				</IconButton>
 			</div>
 
-			<h1 class="shrink-0 whitespace-nowrap text-fc-lg font-semibold capitalize text-foreground sm:text-fc-xl">
-				{periodTitle()}
+			<h1 class="shrink-0 whitespace-nowrap text-fc-lg font-semibold text-foreground sm:text-fc-xl">
+				{capitalize(periodTitle())}
 			</h1>
 
 			{#if !showsToday}
@@ -249,14 +252,14 @@
 					icon="solar:calendar-minimalistic-linear"
 					class="shrink-0"
 					onclick={goToday}
-					aria-label="Revenir à aujourd'hui"
+					aria-label={t('calendar.backToToday')}
 				>
-					<span class="hidden sm:inline">Revenir à aujourd'hui</span>
+					<span class="hidden sm:inline">{t('calendar.backToToday')}</span>
 				</Button>
 			{/if}
 
 			{#if loading}
-				<Spinner size="sm" class="shrink-0" label="Chargement" />
+				<Spinner size="sm" class="shrink-0" label={t('common.loading')} />
 			{/if}
 		</div>
 	</header>

@@ -10,7 +10,7 @@ Self-hosted calendar for creative studios. Part of the Facile Suite.
 | Client   | SvelteKit 5 (Svelte 5 runes), Tailwind CSS 4, shadcn-svelte |
 | Build    | `go build -mod=vendor`, Bun                                 |
 | Deploy   | Docker Compose (single container: distroless Go binary)      |
-| Auth     | Session tokens + optional OIDC SSO + HTTP Basic Auth (CalDAV clients) |
+| Auth     | Sign-in through Registre (OIDC) only; API tokens over HTTP Basic Auth for CalDAV clients |
 | CalDAV   | go-webdav v0.7.0, go-ical — endpoint `/dav/`                |
 
 ## Project Structure
@@ -91,7 +91,7 @@ CalDAV endpoint: `/dav/`
 
 Supported clients: Apple Calendar, iOS Calendar, Thunderbird, DAVx⁵ (Android)
 
-Auth: HTTP Basic Auth (email + password) or session cookie
+Auth: HTTP Basic Auth (email + API token) or session cookie
 
 ## Routing
 
@@ -119,6 +119,7 @@ the root because their URLs are held outside this repo:
 - `APP_ENV` — `development` (default), `staging`, `production`
 - `PORT` — API port (default `4000`)
 - `LOG_LEVEL` — `debug`, `info`, `warn`, `error`
+- `APP_VERSION` — Build arg (set it in the Dokploy env at each release); `GET /version` answers it
 - `STORAGE_DIR` — File storage for avatars (default `./data`)
 - `CLIENT_DIR` — Static SvelteKit build served by the binary
 - `ENCRYPTION_KEY` — Optional, encrypts OIDC tokens at rest
@@ -126,8 +127,7 @@ the root because their URLs are held outside this repo:
   separate client deploy). `ALLOWED_ORIGINS`, `DOMAINS`, `DOMAIN`, `CORS_ORIGINS`,
   `TRUSTED_ORIGINS` and `CLIENT_ORIGIN` are read as fallbacks.
 - `ANTENNE_URL`, `ANTENNE_SECRET`, `ANTENNE_INSTANCE_ID` — Optional Antenne Pool; mirrors Opus tasks with a due date into a read-only "Opus tasks" calendar (`internal/pool`)
-- `OIDC_*` — OpenID Connect config (optional)
-- `SSO_ONLY` — Hide password auth when `true`
+- `OIDC_*` — OpenID Connect config; `OIDC_ISSUER` is required in production
 
 ## Conventions
 

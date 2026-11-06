@@ -10,7 +10,7 @@ import (
 // actually serves and fails when a route is missing from the reference
 // registry, so the two cannot quietly disagree.
 //
-// CalDAV, the avatar file server and the legacy OIDC callback are ignored. Their
+// CalDAV, the avatar file server, /version and the legacy OIDC callback are ignored. Their
 // URLs are held by external clients, stored rows and Authentik rather than by
 // this API's own contract, and CalDAV speaks WebDAV verbs OpenAPI cannot express.
 //
@@ -20,7 +20,7 @@ import (
 func TestEveryRouteIsDocumented(t *testing.T) {
 	router := testRouter(t)
 
-	missing := apiref.Undocumented(router, referenceConfig(), "/dav", "/.well-known", "/files", "/auth/oidc/callback")
+	missing := apiref.Undocumented(router, referenceConfig(), "/dav", "/.well-known", "/files", "/auth/oidc/callback", "/version")
 	if len(missing) > 0 {
 		t.Errorf("routes missing from the API registry: %v", missing)
 	}

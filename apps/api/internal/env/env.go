@@ -43,12 +43,11 @@ func (c AntenneConfig) Enabled() bool {
 }
 
 // Config is the assembled application configuration: shared tronc settings
-// plus Agenda-specific storage, OIDC, SSO-only and encryption settings.
+// plus Agenda-specific storage, OIDC and encryption settings.
 type Config struct {
 	troncenv.Core
 	StorageDir    string
 	OIDC          *OIDCConfig
-	SSOOnly       bool
 	EncryptionKey []byte
 	Antenne       AntenneConfig
 }
@@ -71,10 +70,6 @@ func Load() (Config, error) {
 		},
 	}
 
-	if cfg.SSOOnly, err = troncenv.Bool("SSO_ONLY", false); err != nil {
-		return Config{}, err
-	}
-
 	if issuer := troncenv.String("OIDC_ISSUER", ""); issuer != "" {
 		oidc := &OIDCConfig{
 			Issuer:       issuer,
@@ -94,6 +89,10 @@ func Load() (Config, error) {
 			oidc.SuccessURL = firstAbsoluteOrigin(cfg.CORSAllowedOrigins)
 		}
 		cfg.OIDC = oidc
+	}
+
+	if cfg.IsProduction() && cfg.OIDC == nil {
+		return Config{}, fmt.Errorf("OIDC_ISSUER is required in production: sign-in goes through Registre only")
 	}
 
 	if key := troncenv.String("ENCRYPTION_KEY", ""); key != "" {
@@ -193,7 +192,6 @@ func firstAbsoluteOrigin(origins []string) string {
 // the new one is written.
 func (c Config) Porte() porte.Config {
 	cfg := porte.Config{
-		SSOOnly:            c.SSOOnly,
 		AcceptLegacyCookie: true,
 	}
 	if c.OIDC == nil {

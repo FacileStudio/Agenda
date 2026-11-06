@@ -6,6 +6,8 @@
 	import { visibleCalendars } from '$lib/calendar-filter.svelte';
 	import { eventKey } from '$lib/recurrence';
 	import EventAvatar from '$lib/components/EventAvatar.svelte';
+	import { t } from '$lib/i18n/index.svelte';
+	import { formatDate, formatTime } from '$lib/i18n/format';
 
 	let events = $state<(AgendaEvent & { calendar_name?: string })[]>([]);
 	let loading = $state(true);
@@ -35,38 +37,32 @@
 		loading = false;
 	});
 
-	function formatDate(iso: string) {
-		const d = new Date(iso);
-		return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
-	}
-
-	function formatTime(iso: string) {
-		const d = new Date(iso);
-		return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+	function formatDay(iso: string) {
+		return formatDate(iso, { weekday: 'short', day: 'numeric', month: 'short' });
 	}
 </script>
 
 <svelte:head>
-	<title>Événements — Agenda</title>
+	<title>{t('events.title')} — Agenda</title>
 </svelte:head>
 
 <div class="flex h-full flex-col">
 	<div class="px-4 py-4 md:px-8 md:py-5">
-		<h1 class="text-lg font-semibold">Événements</h1>
-		<p class="mt-0.5 text-sm text-muted-foreground">Vos événements des 30 prochains jours</p>
+		<h1 class="text-lg font-semibold">{t('events.title')}</h1>
+		<p class="mt-0.5 text-sm text-muted-foreground">{t('events.subtitle')}</p>
 	</div>
 
 	<div class="flex-1 overflow-auto p-4 md:p-8">
 		{#if loading}
 			<div class="flex items-center justify-center py-12">
-				<Spinner label="Chargement" />
+				<Spinner label={t('common.loading')} />
 			</div>
 		{:else if events.length === 0}
 			<div class="mx-auto max-w-2xl">
 				<EmptyState
 					icon={icons.calendar}
-					title="Aucun événement à venir"
-					description="Vos rendez-vous des 30 prochains jours apparaîtront ici."
+					title={t('events.empty')}
+					description={t('events.emptyHint')}
 				/>
 			</div>
 		{:else}
@@ -82,13 +78,13 @@
 							></iconify-icon>
 						</div>
 						<div class="min-w-0 flex-1">
-							<p class="truncate text-sm font-medium text-foreground">{event.title || 'Sans titre'}</p>
+							<p class="truncate text-sm font-medium text-foreground">{event.title || t('common.untitled')}</p>
 							<div class="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-								<span>{formatDate(event.start_at)}</span>
+								<span>{formatDay(event.start_at)}</span>
 								{#if !event.is_all_day}
 									<span>{formatTime(event.start_at)} — {formatTime(event.end_at)}</span>
 								{:else}
-									<span>Toute la journée</span>
+									<span>{t('common.allDay')}</span>
 								{/if}
 								{#if event.calendar_name}
 									<span class="truncate">· {event.calendar_name}</span>

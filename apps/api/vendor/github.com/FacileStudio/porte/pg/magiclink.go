@@ -16,14 +16,16 @@ type MagicLinkStore struct{ db *sql.DB }
 // Create stores the link and ends the user's older unconsumed links in one
 // transaction.
 //
-// The transaction takes a row lock on the user first, FOR NO KEY UPDATE and not
-// FOR UPDATE: a session insert references the user and takes FOR KEY SHARE,
-// which only the stronger lock conflicts with, so the weaker one serialises
-// link creation without ever stalling a sign-in. Without it two requests
-// for one account, a double click or a retried form, would each find nothing
-// to end, each insert, and leave two live links where the contract promises
-// one: under READ COMMITTED neither statement sees the other's insert. The
-// lock serialises them per user and costs nothing across users.
+// The transaction takes two advisory locks first, both keyed on the account
+// id and naming no table, so it works whatever table an adopter keeps its
+// accounts in. The account's shared lock orders the link against a purge, as
+// a bound session insert is ordered: a purge either deletes the link or
+// commits first. An exclusive lock in its own magic-link namespace serialises
+// link creation per account without stalling a sign-in. Without it two
+// requests for one account, a double click or a retried form, would each find
+// nothing to end, each insert, and leave two live links where the contract
+// promises one: under READ COMMITTED neither statement sees the other's
+// insert.
 func (s *MagicLinkStore) Create(ctx context.Context, link porte.MagicLink) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -31,8 +33,11 @@ func (s *MagicLinkStore) Create(ctx context.Context, link porte.MagicLink) error
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	if _, err := tx.ExecContext(ctx, `SELECT id FROM porte_users WHERE id = $1 FOR NO KEY UPDATE`, link.UserID); err != nil {
-		return fmt.Errorf("porte/pg: lock user for magic link: %w", err)
+	if err := lockUser(ctx, tx, link.UserID, true); err != nil {
+		return err
+	}
+	if err := lockAdvisory(ctx, tx, "porte/magiclink:", link.UserID, false); err != nil {
+		return err
 	}
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE porte_magic_links SET consumed_at = $2

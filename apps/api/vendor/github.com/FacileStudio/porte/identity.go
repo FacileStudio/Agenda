@@ -2,6 +2,7 @@ package porte
 
 import (
 	"context"
+	"encoding/json"
 	"strconv"
 	"strings"
 	"time"
@@ -142,6 +143,11 @@ type Claims struct {
 	GivenName         string
 	FamilyName        string
 	Picture           string
+	// Locale is the `locale` claim normalised by NormalizeLocale: one of
+	// fr, en, es or de, DefaultLocale for a tag the suite does not speak.
+	// It is empty when the provider sent no locale, and a UserStore then
+	// keeps the one it holds.
+	Locale string
 
 	// AvatarURL is filled by porte, not by the provider: when an
 	// [AvatarStore] is wired, the picture is fetched through the SSRF
@@ -152,6 +158,10 @@ type Claims struct {
 	// Roles is the flat roles claim, absent unless Config.ClaimsScope is
 	// set and the provider actually emitted it.
 	Roles []string
+
+	// Extra holds the claims named in Config.ExtraClaims, undecoded, so an
+	// app reads its own claim without porte knowing its shape.
+	Extra map[string]json.RawMessage
 
 	// Tokens is the OIDC token material, needed to refresh the profile and
 	// the claims later without a second login.

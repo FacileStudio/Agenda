@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
 	import { backend, registreSpaceUrl, type SpaceItem } from '$lib/backend';
+	import { t } from '$lib/i18n/index.svelte';
 
 	let spaces = $state<SpaceItem[]>([]);
 	let loading = $state(true);
@@ -32,29 +33,29 @@
 		}
 	}
 
-	const roleLabelMap: Record<string, string> = {
-		owner: 'Propriétaire',
-		admin: 'Administrateur',
-		member: 'Membre'
-	};
+	const roleLabelKeys = { owner: 'role.owner', admin: 'role.admin', member: 'role.member' } as const;
+
+	function roleLabel(role: string): string {
+		return role in roleLabelKeys ? t(roleLabelKeys[role as keyof typeof roleLabelKeys]) : role;
+	}
 </script>
 
 <svelte:head>
-	<title>Espaces — Agenda</title>
+	<title>{t('spaces.title')} — Agenda</title>
 </svelte:head>
 
 <div class="flex h-full flex-col">
 	<div class="px-4 py-4 md:px-8 md:py-5">
 		<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 			<div class="min-w-0">
-				<h1 class="text-lg font-semibold">Espaces</h1>
+				<h1 class="text-lg font-semibold">{t('spaces.title')}</h1>
 				<p class="mt-1 text-sm text-muted-foreground">
-					Vos espaces partagés, les mêmes dans toutes les apps Facile. Ils se créent et se gèrent dans Registre.
+					{t('spaces.subtitle')}
 				</p>
 			</div>
 			<Button href={registreSpaceUrl()} target="_blank" rel="noopener" class="shrink-0 cursor-pointer gap-2 self-start sm:self-auto">
 				<iconify-icon icon="solar:square-top-down-linear" width="16"></iconify-icon>
-				Gérer dans Registre
+				{t('common.manageInRegistre')}
 			</Button>
 		</div>
 	</div>
@@ -67,10 +68,10 @@
 		{:else if spaces.length === 0}
 			<div class="flex flex-col items-center justify-center py-16 text-center">
 				<iconify-icon icon="solar:share-circle-bold-duotone" width="48" class="text-muted-foreground/50"></iconify-icon>
-				<p class="mt-4 text-sm text-muted-foreground">Aucun espace pour le moment.</p>
+				<p class="mt-4 text-sm text-muted-foreground">{t('spaces.empty')}</p>
 				<Button href={registreSpaceUrl()} target="_blank" rel="noopener" variant="outline" class="mt-4 cursor-pointer gap-2">
 					<iconify-icon icon="solar:square-top-down-linear" width="16"></iconify-icon>
-					Créer un espace dans Registre
+					{t('spaces.create')}
 				</Button>
 			</div>
 		{:else}
@@ -90,7 +91,7 @@
 							{/if}
 						</div>
 						<span class="shrink-0 rounded-full px-2.5 py-0.5 text-xs {roleBadgeClass(space.role)}">
-							{roleLabelMap[space.role] ?? space.role}
+							{roleLabel(space.role)}
 						</span>
 						<iconify-icon icon="solar:alt-arrow-right-linear" width="16" class="shrink-0 text-muted-foreground"></iconify-icon>
 					</button>

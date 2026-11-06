@@ -3,6 +3,359 @@
 Decisions are recorded with their reasoning. The reasoning is the part that stops a future
 session from undoing a deliberate choice.
 
+## [Unreleased]
+
+## v0.11.0 — 2026-11-06
+
+Root module: **v0.11.0**. Additive; no migration.
+
+**Provider-specific claims, without forking porte.** `Config.ExtraScopes` adds scopes to the
+standard four and `Config.ExtraClaims` names top-level claims that land, undecoded, in
+`Claims.Extra`. Registre's `connections` claim (the Discord id a person linked) is the first
+user: the app asks for the scope, names the claim, and decodes the JSON itself. Only the named
+keys are copied, so a token carrying more than the app asked for leaks nothing into `Claims`.
+Both the login callback and the userinfo refresh fill it. Additive: with neither field set
+nothing changes.
+
+## v0.10.1 — 2026-11-06
+
+Root module: **v0.10.1**. Additive; no migration.
+
+- **The sign-in page's language reaches Registre.** `GET /auth/oidc` forwards
+  `?ui_locales=<fr|en|es|de>` (`porte.UILocalesParam`) to the provider's authorization request as
+  the OIDC `ui_locales` parameter, so Registre's pages open in the language the app showed. muse
+  v0.10.1's sign-in link sends it. Any other value, a list or a regional tag included, is dropped
+  rather than forwarded, and the provider uses its own default. It covers the browser, CLI and
+  mobile starts, which share the route.
+- **Named tokens minted by a bearer JWT are bound too.** `session.Manager.IssueFor` already bound
+  a named token issued from a cookie session to that session. A caller authenticated by a bearer
+  JWT has no session, so its token was unbound and could outlive a purge of the identity it came
+  through. It is now bound to `(Config.Issuer, Subject)`, the identity the JWT resolved through,
+  and stored only while that identity still belongs to the account.
+- **`pg.MagicLinkStore` no longer assumes `porte_users`.** `Create` locked the user row in
+  `porte_users`, so it failed (42P01) for the 13 adopters whose accounts live in their own
+  `users`. It now takes the account's shared advisory lock, ordering it against a purge as a
+  bound session is ordered, and an exclusive lock in its own `porte/magiclink:` namespace, which
+  serialises link creation per account without stalling a sign-in.
+- **CI's race tests carry an explicit `-timeout`**, so a hang fails in 20 minutes with a
+  goroutine dump instead of running to the job's limit.
+
+## directory/v0.2.1 and forfait/v0.1.1 — 2026-11-06
+
+### directory/v0.2.1 and forfait/v0.1.1
+
+Patch releases from the full review. Both are compatible with v0.2.0 and v0.1.0;
+`forfait/v0.1.1` requires `directory v0.2.1`, so an app that bumps only forfait also gets the serialised `Sync`.
+
+- **A Registre restore no longer freezes forfait.** `Apply` refused any snapshot with a lower
+  `Version` or `EntitlementsRevision`, silently, so a restore from backup left every app on its
+  old plans for good, and `Import` carried the freeze across restarts. Now a higher revision is
+  applied whatever its version (held v900/rev40, then v850/rev41 with an upgrade: applied). A lower
+  version is refused only at the same revision, and every refusal logs a warning with both sets
+  of versions. When the revision itself went back, call the new `Store.Reset` and delete the
+  saved `Export` state; the next pull then applies normally.
+- **`directory.Syncer.Sync` is serialised, the pull included.** A boot `Sync` overlapping `Run`
+  could run `Apply` twice at once and commit an older snapshot after a newer one.
+- **A burst of nudges costs one pull, not two.** The nudge that queued during the debounce is
+  now dropped, because the pull about to run covers it.
+- **`directory.ErrSnapshotTooLarge`** replaces `ErrUnavailable` for a body over
+  `MaxSnapshotBytes`: retrying cannot help, and the log should say so. The client reads one byte
+  past the cap to tell the two apart. The default HTTP timeout is 10 s, down from 15 s.
+- **`forfait.ErrAlreadyApplied` is exported**, and `Import` of empty input (nothing saved yet) is
+  a no-op that returns nil, so an app passes whatever its storage holds.
+- **`NewStore` logs each skipped or denying declaration** to `slog.Default()`: a malformed or
+  duplicate key, and a missing or malformed `Default`.
+- **`Apply` skips a space with no id and a person with no subject**, so an unlinked lookup cannot
+  land on them.
+- **Godoc**: `Scope` values must come from server-side state, never from the client; fail-open
+  covers the window before Registre serves entitlements, not an outage.
+- **CI** lints and vets the nested modules too.
+
+## v0.10.0 — 2026-11-06
+
+Root module: **v0.10.0**. Read the breaking notes and run the checklist before bumping.
+
+### Upgrade checklist
+
+1. **Merge case-duplicate accounts first.** Addresses are now lowercased before matching, so two
+   rows that differ only by case collide: the older one's next login fails on the unique index.
+   Before upgrading, run
+
+   ```sql
+   SELECT lower(email) FROM porte_users GROUP BY 1 HAVING count(*) > 1;
+   ```
+
+   and merge every address it returns into one row (move the app's own foreign keys and the
+   `porte_identities` rows, then delete the duplicate). An app that keeps porte's tables under
+   another name runs the same query there.
+2. **Agenda keeps `AllowProtocolPasswords` off.** Its CalDAV already accepts API tokens, so
+   `Verify` refusing under OIDC costs it nothing.
+3. **Nuage needs another confirmation for an email change.** It confirms the change with
+   `Kit.Verify`, which now refuses under OIDC. Confirm through the issuer instead (a fresh login,
+   or a link to the new address), or the change endpoint answers 404 for everyone.
+4. **Boutique needs the migration below and `CustomerAccounts`.** Set
+   `local.Config{CustomerAccounts: true}` if the shop keeps OIDC on for staff.
+5. **Fourteen apps keep porte's tables in their own DDL and must migrate before bumping.** porte
+   cannot add columns there, because they never apply `pg.Schema`. What each needs:
+
+   - **Agenda, Antenne, Casier, Courrier, Echo, Field, Journal, Nuage, Opus, Plume, Sablier, Sonde
+     and Vision** keep their accounts in their own `users` table, have no `porte_users`, and use
+     their own `UserStore`. They need only the two binding columns on `porte_login_codes`:
+
+     ```sql
+     -- +goose Up
+     ALTER TABLE porte_login_codes ADD COLUMN IF NOT EXISTS provider text NOT NULL DEFAULT '',
+                                   ADD COLUMN IF NOT EXISTS subject text NOT NULL DEFAULT '';
+
+     -- +goose Down
+     ALTER TABLE porte_login_codes DROP COLUMN IF EXISTS subject, DROP COLUMN IF EXISTS provider;
+     ```
+
+     Without them the CLI and mobile logins fail, because their codes are bound. The browser OIDC
+     login, password sessions and API tokens keep working on the old columns: the identity,
+     session and code stores those apps use never name an accounts table, and the serialisation
+     lock is a PostgreSQL advisory lock keyed on the account id, not a row lock. *Corrected in
+     v0.10.1:* this also claimed magic-link sessions, but in v0.10.0 `pg.MagicLinkStore.Create`
+     still locked `porte_users` and fails without it. No magic link is mounted under OIDC, so only
+     a no-OIDC app using `porte/pg`'s link store over its own `users` is affected; v0.10.1 fixes it.
+   - **Boutique** uses `porte/pg`'s `UserStore` over its own `porte_users`, so it needs the same
+     two columns and `porte_users.locale`, without which every OIDC login fails:
+
+     ```sql
+     -- +goose Up
+     ALTER TABLE porte_users ADD COLUMN IF NOT EXISTS locale text NOT NULL DEFAULT 'en';
+     ALTER TABLE porte_login_codes ADD COLUMN IF NOT EXISTS provider text NOT NULL DEFAULT '',
+                                   ADD COLUMN IF NOT EXISTS subject text NOT NULL DEFAULT '';
+
+     -- +goose Down
+     ALTER TABLE porte_login_codes DROP COLUMN IF EXISTS subject, DROP COLUMN IF EXISTS provider;
+     ALTER TABLE porte_users DROP COLUMN IF EXISTS locale;
+     ```
+
+6. **Review legacy federated rows that say their address is unverified.** A verified login now
+   takes over a row whose `email_verified` is false, purging its identities. Rows written before
+   porte tracked verification can hold their real owner's federated identity with the flag still
+   false, and a newcomer asserting the same verified address would evict that owner. Before
+   upgrading, list them:
+
+   ```sql
+   SELECT u.id, u.email, i.provider, i.subject
+     FROM porte_users u
+     JOIN porte_identities i ON i.user_id = u.id AND i.provider <> 'local'
+    WHERE NOT u.email_verified
+    ORDER BY u.id;
+   ```
+
+   The 13 apps with their own `users` table run it against that table and its verified flag,
+   wherever their own `UserStore` matches on it. For each row whose federated identity is its genuine owner (the issuer verifies addresses, as
+   Registre does), run `UPDATE porte_users SET email_verified = true WHERE id = <id>`. Leave a row
+   false only when nobody ever proved its address.
+
+### Breaking: an issuer closes every local sign-in
+
+- **Password login.** With `OIDC_ISSUER` set in the session manager's config, `porte/local` mounts
+  neither `/auth/register` nor `/auth/login`, ignores `AllowRegistration`, and `Kit.Register` and
+  `Kit.Login` answer `porte.ErrLocalLoginDisabled` as a 404. `New` logs one line saying so. Sign-in
+  goes through Registre only. `SSO_ONLY` remains only for setups without OIDC.
+  `GET /auth/config` answers `sso_only: true` whenever OIDC is enabled.
+- **`Kit.Verify` follows the same rule.** CalDAV, IMAP and every other Basic-auth path built on it
+  answer `ErrLocalLoginDisabled` under OIDC. `local.Config{AllowProtocolPasswords: true}` reopens
+  `Verify` alone, for a protocol client that cannot do OIDC and has no API-token alternative.
+  Agenda's CalDAV already accepts API tokens and should not opt in. `SetPassword` and
+  `ChangePassword` are unchanged.
+- **Magic links.** `porte/magiclink` mounts nothing under OIDC, and `Request` and `Consume` answer
+  `ErrLocalLoginDisabled`. No app mounts it today.
+- **`local.Config{CustomerAccounts: true}` is the only way back**, and it is not for suite apps.
+  It keeps register, login and `Verify` working with an issuer configured, for a customer-facing
+  app built on a client template, such as a shop made from Boutique, whose customers sign up with
+  a password while its staff use the issuer. `New` logs a WARN line when it is set. A Facile suite
+  app that sets it reopens the path the issuer exists to close.
+
+Renamed before release: the sentinel shipped on this branch as `ErrPasswordLoginDisabled` is
+`ErrLocalLoginDisabled`, since it now covers magic links too.
+
+### Breaking: account linking in `porte/pg`
+
+`UserStore.UpsertFromOIDC` used to link any verified address into whatever row held it. That let
+an attacker take an address and wait for its owner. Now:
+
+- **Onto a verified row, the email fallback only links when the row has no identity from this
+  provider.** A second subject of the same issuer whose address matches is refused, so a recycled
+  address is not handed over. The row is locked before the check, so two racing subjects cannot
+  both link into it.
+- **A row whose address was never verified is taken over by the verified login**, whatever
+  identities it holds, and purged first in the same transaction: every identity on it (a password
+  included), its sessions and named API tokens, its login codes and its magic links. Whoever
+  created it, through a local self-registration or an unverified first login, never proved the
+  address, so a squat is neither a takeover nor a lockout.
+- **A session is bound to the identity that vouched for it.** `porte.Session` and
+  `porte.LoginCode` gain `Provider` and `Subject`; the OIDC callback, the CLI and mobile codes,
+  the code exchange and the device exchange all set them. `porte/pg` inserts a bound session or
+  code only while that identity row exists, checked under a shared PostgreSQL advisory lock keyed
+  on the account id, which the purge's exclusive one excludes. A holder whose login committed
+  just before the owner's purge gets no session, no code and a generic 401, however the two
+  interleave. Every writer takes that lock before touching a row, so they cannot deadlock, and it
+  names no table, so it works for adopters that keep accounts in their own `users`.
+- **Password logins and API tokens are bound too.** `porte/local` binds every session it issues
+  to the account's password identity, and `session.Manager` binds a named token issued from a
+  signed-in request to the caller's session (`Session.IssuedBy`). A password squatter's login or
+  token loop racing the owner's first verified login leaves nothing behind. A session's binding is checked, not stored; a code stores it, so the exchange
+  can bind the session it mints. An unbound session or code is inserted with the v0.9.0 column
+  list. `session.Manager` gains `IssueFor` and `IssueCookieFor` for bound sessions; `Issue` and
+  `IssueCookie` keep issuing unbound ones.
+- **`IdentityStore.Save` never re-points or resurrects a federated identity.** It still inserts
+  one that is absent, which thirteen adopters' own `UpsertFromOIDC` relies on at first login. It
+  refuses, with `porte.ErrNotFound`, to move an identity onto another account, or to create one
+  on an account that already holds another subject of the same provider. It takes the account's exclusive
+  advisory lock first, as the purge does, so a late token write after a purge cannot write the
+  purged identity back.
+- **An unverified claim never rewrites the stored address and never clears `email_verified`.**
+  An account can no longer switch its IdP address to a victim's and sit on the row, nor re-open a
+  verified row to the takeover above.
+- **Addresses are trimmed and lowercased** in `porte/oidc` and again in `porte/pg`, as
+  `porte/local` already did, and an empty one is refused.
+
+An app that implements `porte.UserStore` over its own tables should apply the same rules; porte
+cannot enforce them there. An app with its own stores also owes porte three contract changes, all
+silent if ignored, so check them before bumping:
+
+- `SessionStore.Create` and `LoginCodeStore.Create` must store a row whose `Provider` is set only
+  while `(Provider, Subject)` still belongs to `UserID`, and a session whose `IssuedBy` is set only
+  while that session still does, atomically with the insert, and answer `porte.ErrNotFound`
+  otherwise. `LoginCodeStore.Consume` must return both fields.
+- `IdentityStore.Save` must never move a non-`local` identity onto another account, nor create
+  one on an account holding another subject of the same provider, and answers
+  `porte.ErrNotFound` when it refuses.
+- A store that ignores the new fields keeps working, and keeps the race this release closes.
+
+### The `locale` claim
+
+porte reads the standard OIDC `locale` claim at the callback and at `/auth/sync-profile` and
+normalises it with `porte.NormalizeLocale` to `fr`, `en`, `es` or `de` by primary subtag
+(`fr-FR` is `fr`). An unsupported tag is `en`. A missing or non-string claim leaves
+`Claims.Locale` empty, so the stored value is kept, and a new row takes the column default `en`.
+porte serves no `/auth/me`; an app reads the column, or stores `Claims.Locale` in its own table.
+
+`porte/pg` adds `porte_users.locale text NOT NULL DEFAULT 'en'` and `porte_login_codes.provider` and `.subject`. Every column porte added after a
+table first shipped is now guarded by an `information_schema` check inside one `DO` block, so a
+boot with nothing to add takes no `ACCESS EXCLUSIVE` lock and never queues behind a long read.
+
+**Boutique must migrate before bumping.** It keeps porte's DDL in its own
+`apps/api/migrations/00004_identity.sql` and never applies `pg.Schema`, so porte cannot add the
+columns there. Add the migration from checklist item 5 as the next file, for example
+`apps/api/migrations/00008_porte_locale.sql`, then regenerate `schema.sql` (the command is in its header), and set
+`local.Config{CustomerAccounts: true}` if the shop keeps OIDC on for staff.
+
+### Fixed
+
+**A racing first login no longer refuses itself.** Two first logins with the same subject both
+found no user, and the loser then saw the winner's row at a separate "email taken" check and got
+the unverified-link refusal. The insert's `ON CONFLICT (email) DO NOTHING` now settles the race:
+the loser waits for the winner's commit and resolves again by subject.
+
+## directory/v0.2.0 and forfait/v0.1.0 — 2026-11-04
+
+**Paid plans, enforced the same way in every app.** Ardoise computes each space's entitlements and
+pushes them to Registre, which serves them inside the directory snapshot apps already sync. Two
+nested modules move: `directory/v0.2.0` carries the values, and the new `forfait/v0.1.0` enforces
+them. The root module does not change.
+
+- **`directory`: `Space.Entitlements`, `Snapshot.People` and `Snapshot.EntitlementsRevision`.**
+  Each value is raw JSON, a bool or an integer limit where -1 is unlimited. `People` holds the
+  personal scope, the resources a person keeps outside any space. The revision is that of the last
+  entitlements push Registre applied, 0 when none was. All additive: an older snapshot decodes
+  unchanged. `MaxSnapshotBytes` exports the 8 MiB read cap, and `Syncer`'s applied version is now
+  an atomic, so a boot `Sync` overlapping `Run` is race-free.
+- **Only `EntitlementsRevision` ends fail-open.** A first version guessed from the shape of the
+  snapshot (any person or entitlements map); an empty map is dropped by `omitempty`, so the shape
+  could not say "Registre pushed and this space is free". From the first revision on, every
+  accepted snapshot is the whole truth, and the last one stays in force while Registre is
+  unreachable.
+- **`Apply` ignores an older snapshot**: a lower revision, or a lower non-zero version. A reordered
+  or replayed pull cannot roll a downgrade or an upgrade back.
+- **Anything malformed reads as the free default, and nothing panics.** A value that is not a
+  JSON bool or an integer of at least -1, a scope with more than 200 keys, an undeclared key in
+  the snapshot: each falls back to the feature's `Default`. A malformed `Default` denies.
+- **An undeclared key is a programmer error and answers the zero value**: false, 0, and a
+  refusal from `Check`. A typo must not grant a paid feature.
+- **`Check` cannot overflow.** It compares `used <= limit-adding`, refuses negative counts with
+  `ErrInvalidUsage`, and always allows `adding == 0`, so an over-limit space can still read and
+  delete. Refusals are `*LimitError`, matching `ErrLimit`, with `UpgradeURL` built from
+  `Store.Issuer`. Apps map them to 402; porte has no 402 in tronc's envelope to reuse.
+- **`Store.Export` and `Store.Import` persist the applied state**, so a restart never fails open
+  again. The app saves `Export` after each `Apply` and calls `Import` at boot, before the first
+  pull. The document is versioned and carries the snapshot version and entitlements revision,
+  which then guard `Apply` like an applied snapshot does. `Import` is a trust boundary: it rejects
+  unknown fields, trailing data, negative versions and any other document version, and filters
+  values with `Apply`'s rules. Its cap is four `MaxSnapshotBytes` (32 MiB), not a fixed 4 MiB: a
+  4 MiB cap refused what a valid 8 MiB snapshot exported, which failed open after a restart, and
+  re-encoding can triple an invalid UTF-8 id. It refuses to run after an `Apply`, so a stale file
+  cannot replace what Registre served, and leaves the Store untouched on error.
+- **What an integrator must do.** An empty `SpaceID` is the person's scope, so pass the Registre
+  id for a space resource and refuse a space not yet linked to Registre rather than falling back.
+  `adding == 0` always passes, so round counts up (1 KiB against a GB limit adds 1). `Check` and
+  the create are not atomic; an app that needs strictness checks again inside its transaction.
+- **`forfait` is a nested module**, like `directory`, so an app adopts it without moving its pin
+  on porte. It requires `directory/v0.2.0`; its `replace ../directory` serves this repo's builds
+  and tests and is ignored by consumers, so `directory/v0.2.0` must be tagged first.
+
+## v0.9.0 — 2026-11-03
+
+**`porte/devicelogin`: the CLI login that works over SSH.** Every suite CLI signed in through
+`porte/loopback`, which redirects the browser to `127.0.0.1`. On a remote machine that address is
+the user's laptop, not the CLI's host, so the login failed. The new package runs the RFC 8628
+device grant against Registre (`facile-cli`, `openid email profile`) and trades the access token
+at the app's `POST /auth/oidc/device/exchange`. The user opens one link; nothing is typed or
+pasted.
+
+Decisions, with their reasons:
+
+- **`Login` probes the exchange before anything else.** An empty-body POST answers 404 only when
+  the route is not mounted, and porte guarantees a mounted route never does. So
+  `ErrExchangeNotMounted` arrives before a line is printed, and the CLI falls back to loopback
+  without having asked the user to approve something it cannot use.
+- **A 401 on the exchange is `ErrAccountNotLinked`.** The exchange looks the subject up in
+  `porte_identities` and never provisions, so the usual cause is an account that has never signed
+  in to that app in a browser. The CLI says so instead of "invalid access token".
+- **Discovery reads the root document only.** Registre answers per-app discovery paths with its
+  dashboard's HTML.
+- **Plaintext is refused everywhere but loopback**: the issuer, the endpoints it names, the
+  verification URIs the CLI opens, and the app origin the token is posted to.
+- **Standard library only**, enforced by a test, as for `porte/loopback`. It reuses
+  `loopback.OpenBrowser` and nothing else.
+
+Ported from `sonde-cli/internal/devicegrant` and `facile/internal/authflow`. Additive, so a minor
+bump: **v0.9.0**.
+
+## directory/v0.1.0 — 2026-11-03
+
+**Shared spaces from Registre.** `github.com/FacileStudio/porte/directory` is a nested module with
+its own tag, so an app adopts it without moving its pin on porte itself. Registre owns spaces,
+members and roles; an app pulls the whole snapshot with its own OIDC client credentials and
+applies it. The snapshot is the full state rather than a change stream, so applying it is
+idempotent and a lost, repeated or reordered nudge costs nothing: delivery is at-least-once and
+the next pull carries the truth. The app pulls at boot, every five minutes, and two seconds after
+Registre posts to `/api/registre/sync`. That nudge is unauthenticated on purpose, because it
+carries nothing; the pull it triggers is the authenticated part. `Import` hands Registre an app's
+pre-existing shared spaces once, and Registre remembers the app imported, so a restart can never
+re-add someone an owner removed.
+
+## v0.8.0 — 2026-11-02
+
+**Mobile login.** `?flow=mobile` lets a native app sign in through the system browser and get
+its code back on a custom-scheme redirect, such as `dev.facile.app:/auth`. Another app on the
+device can register the same scheme and read that redirect, so the code is bound to a PKCE
+challenge: the app sends `challenge` (S256 of a secret verifier) at login and `verifier` at
+`POST /auth/oidc/exchange`. A stolen code is useless without the verifier, and a missing or
+wrong verifier answers the same 401 as an unknown code. The verifier must be 43 to 128
+unreserved characters (RFC 7636 section 4.1), because the challenge travels in a URL anyone can
+read and a short verifier could be guessed offline.
+
+The redirect target is `Config.MobileRedirect` (`OIDC_MOBILE_REDIRECT`) and nothing from the
+request, so the flow is not an open redirect. It must be an absolute https URL or a custom
+scheme, with no fragment. Empty refuses the mobile flow. No schema change: the challenge is
+folded into the stored code hash, and the CLI flow is untouched.
+
 ## v0.7.0 — 2026-11-02
 
 **Delegated bearer tokens carry scope and actor, and an app can gate on scope.** Bulle acts for a

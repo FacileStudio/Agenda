@@ -2,11 +2,14 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { backend } from '$lib/backend';
-	import { Button, icons } from '@facile/muse';
+	import { LegalFooter, SignInWithFacile, icons } from '@facile/muse';
 	import LandingOffers from '$lib/components/LandingOffers.svelte';
+	import { rememberLocale, t } from '$lib/i18n/index.svelte';
 
 	let ready = $state(false);
-	let ssoOnly = $state(false);
+
+	const signInHref = $derived(`${backend.apiBaseUrl}/auth/oidc`);
+	const heroLines = $derived(t('landing.heroTitle').split('|'));
 
 	onMount(async () => {
 		try {
@@ -14,47 +17,19 @@
 			goto('/calendar');
 			return;
 		} catch {}
-
-		try {
-			const cfg = await fetch(`${backend.apiBaseUrl}/auth/config`, {
-				credentials: 'include'
-			}).then((r) => r.json());
-			ssoOnly = cfg.sso_only ?? false;
-		} catch {}
-
 		ready = true;
 	});
 
-	const startHref = $derived(ssoOnly ? '/login' : '/login?tab=register');
-
 	const features = [
-		{
-			icon: icons.refresh,
-			title: 'CalDAV sync',
-			description:
-				'Apple Calendar, iOS, Thunderbird and DAVx⁵ all talk to it natively. No plugin, no export.'
-		},
-		{
-			icon: icons.usersGroup,
-			title: 'Shared calendars',
-			description:
-				'Invite your studio, set who can read and who can edit, keep personal calendars personal.'
-		},
-		{
-			icon: icons.shield,
-			title: 'Self-hosted',
-			description:
-				'One binary and a Postgres. Your events stay on your server — no cloud, no tracking.'
-		}
-	];
+		{ icon: icons.refresh, id: 'caldav' },
+		{ icon: icons.usersGroup, id: 'shared' },
+		{ icon: icons.shield, id: 'hosted' }
+	] as const;
 </script>
 
 <svelte:head>
-	<title>Agenda — Self-hosted calendar for creative studios</title>
-	<meta
-		name="description"
-		content="A self-hosted calendar for creative studios. CalDAV sync, shared calendars, no cloud."
-	/>
+	<title>{t('landing.title')}</title>
+	<meta name="description" content={t('landing.description')} />
 </svelte:head>
 
 {#if ready}
@@ -62,41 +37,28 @@
 		<header>
 			<div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
 				<div class="flex h-14 items-center gap-3">
-					<iconify-icon
-						icon="solar:calendar-bold-duotone"
-						width="28"
-						height="28"
-						class="block shrink-0"
+					<iconify-icon icon={icons.calendar} width="28" height="28" class="block shrink-0"
 					></iconify-icon>
 					<span class="font-heading text-2xl font-semibold tracking-tight">Agenda</span>
 				</div>
-				<div class="flex items-center gap-2">
-					<Button variant="ghost" href="/login" class="rounded-fc-md">Log in</Button>
-					<Button href={startHref} class="rounded-fc-md">{ssoOnly ? 'Sign in with Facile' : 'Get started'}</Button>
-				</div>
+				<SignInWithFacile href={signInHref} />
 			</div>
 		</header>
 
 		<main>
 			<section class="mx-auto max-w-5xl px-6 py-24 text-center">
 				<h1 class="font-heading text-5xl font-semibold leading-[1.1] tracking-tight">
-					Your calendar.<br />Your server.
+					{heroLines[0]}<br />{heroLines[1]}
 				</h1>
-				<p class="mx-auto mt-6 max-w-xl text-lg text-muted-foreground">
-					Agenda is a self-hosted calendar for creative studios. Plan the week, share it with the
-					team, and sync it to every device you already use.
-				</p>
-				<div class="mt-10 flex justify-center gap-3">
-					<Button size="lg" href={startHref} iconRight={icons.arrow} class="rounded-fc-md">
-						{ssoOnly ? 'Sign in with Facile' : 'Start planning'}
-					</Button>
-					<Button size="lg" variant="outline" href="/login" class="rounded-fc-md">Log in</Button>
+				<p class="mx-auto mt-6 max-w-xl text-lg text-muted-foreground">{t('landing.heroText')}</p>
+				<div class="mt-10 flex justify-center">
+					<SignInWithFacile href={signInHref} size="lg" />
 				</div>
 			</section>
 
 			<section class="mx-auto max-w-5xl px-6 py-20">
 				<div class="grid gap-6 md:grid-cols-3">
-					{#each features as feature (feature.title)}
+					{#each features as feature (feature.id)}
 						<div class="rounded-fc-md bg-muted/50 p-6">
 							<div
 								class="mb-3 flex size-10 items-center justify-center rounded-fc-md bg-background"
@@ -104,33 +66,28 @@
 								<iconify-icon icon={feature.icon} width="20" height="20" class="block shrink-0"
 								></iconify-icon>
 							</div>
-							<h3 class="text-base font-semibold">{feature.title}</h3>
-							<p class="mt-1.5 text-sm text-muted-foreground">{feature.description}</p>
+							<h3 class="text-base font-semibold">{t(`landing.feature.${feature.id}.title`)}</h3>
+							<p class="mt-1.5 text-sm text-muted-foreground">
+								{t(`landing.feature.${feature.id}.text`)}
+							</p>
 						</div>
 					{/each}
 				</div>
 			</section>
 
 			<section class="mx-auto max-w-5xl px-6 py-20 text-center">
-				<h2 class="font-heading text-3xl font-semibold tracking-tight">
-					{ssoOnly ? 'Ready to sign in?' : 'Ready to start?'}
-				</h2>
-				<p class="mt-4 text-muted-foreground">
-					{ssoOnly
-						? 'Use your Facile SSO to access Agenda.'
-						: 'Free to use. Self-hosted. No credit card required.'}
-				</p>
+				<h2 class="font-heading text-3xl font-semibold tracking-tight">{t('landing.ctaTitle')}</h2>
+				<p class="mt-4 text-muted-foreground">{t('landing.ctaText')}</p>
 				<div class="mt-8 flex justify-center">
-					<Button size="lg" href={startHref} class="rounded-fc-md">
-						{ssoOnly ? 'Sign in with Facile' : 'Create an account'}
-					</Button>
+					<SignInWithFacile href={signInHref} size="lg" />
 				</div>
 			</section>
 			<LandingOffers />
 		</main>
 
-		<footer>
-			<div class="mx-auto max-w-5xl px-6 py-6 text-center text-sm text-muted-foreground">
+		<footer class="mx-auto flex max-w-5xl flex-col items-center gap-4 px-6 py-6">
+			<LegalFooter class="w-full" onLocaleChange={rememberLocale} />
+			<p class="text-center text-sm text-muted-foreground">
 				&copy; {new Date().getFullYear()} Agenda by
 				<a
 					href="https://facile.studio"
@@ -139,7 +96,7 @@
 					class="font-semibold underline underline-offset-2 transition-colors hover:text-foreground"
 					>Facile</a
 				>.
-			</div>
+			</p>
 		</footer>
 	</div>
 {/if}

@@ -16,6 +16,7 @@
 	import { roomName } from '$lib/room-name';
 	import { buildRule, parseRule, type Recurrence } from '$lib/recurrence';
 	import RecurrenceField from '$lib/components/RecurrenceField.svelte';
+	import { t } from '$lib/i18n/index.svelte';
 
 	let {
 		open = $bindable(false),
@@ -192,9 +193,9 @@
 	}
 
 	async function handleSave() {
-		if (!title.trim()) { error = 'Le titre est requis.'; return; }
+		if (!title.trim()) { error = t('event.titleRequired'); return; }
 		if (!calendarId || !choices.find((c) => c.id === calendarId)) {
-			error = 'Selectionnez un calendrier valide.';
+			error = t('event.calendarInvalid');
 			return;
 		}
 		const startISO = `${startDateStr}T${isAllDay ? '00:00' : (startTimeStr || '00:00')}`;
@@ -203,7 +204,7 @@
 			const s = new Date(startISO);
 			const e = new Date(endISO);
 			if (!isNaN(s.getTime()) && !isNaN(e.getTime()) && e <= s) {
-				error = 'La fin doit etre apres le debut.';
+				error = t('event.endBeforeStart');
 				return;
 			}
 		}
@@ -225,7 +226,7 @@
 			};
 			await onSave(calendarId, data);
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : 'Une erreur est survenue.';
+			error = e instanceof Error ? e.message : t('common.genericError');
 		} finally {
 			saving = false;
 		}
@@ -237,7 +238,7 @@
 		try {
 			await onDelete();
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : 'Une erreur est survenue.';
+			error = e instanceof Error ? e.message : t('common.genericError');
 			throw e;
 		} finally {
 			deleting = false;
@@ -250,14 +251,14 @@
 	size="lg"
 	showClose
 	{onClose}
-	title={event ? "Modifier l'evenement" : 'Nouvel evenement'}
+	title={event ? t('event.editTitle') : t('event.newTitle')}
 >
 	<div class="flex flex-col gap-4">
-		<Field label="Titre">
-			<Input type="text" placeholder="Titre de l'evenement" bind:value={title} autofocus />
+		<Field label={t('event.title')}>
+			<Input type="text" placeholder={t('event.titlePlaceholder')} bind:value={title} autofocus />
 		</Field>
 
-		<Field label="Calendrier">
+		<Field label={t('event.calendar')}>
 			<div class="flex items-center gap-2">
 				{#if selectedCalendar}
 					<span
@@ -270,14 +271,14 @@
 					onchange={(e) => (calendarId = Number(e.currentTarget.value))}
 				>
 					{#if spaceChoices.length > 0}
-						<optgroup label="Espaces">
+						<optgroup label={t('event.groupSpaces')}>
 							{#each spaceChoices as cal (cal.id)}
 								<option value={String(cal.id)}>{cal.name}</option>
 							{/each}
 						</optgroup>
 					{/if}
 					{#if personalChoices.length > 0}
-						<optgroup label="Personnels">
+						<optgroup label={t('event.groupPersonal')}>
 							{#each personalChoices as cal (cal.id)}
 								<option value={String(cal.id)}>{cal.name}</option>
 							{/each}
@@ -287,9 +288,9 @@
 			</div>
 		</Field>
 
-		<Checkbox bind:checked={isAllDay} label="Toute la journee" />
+		<Checkbox bind:checked={isAllDay} label={t('event.allDay')} />
 
-		<Field label="Debut">
+		<Field label={t('event.start')}>
 			<div class="flex gap-2">
 				<Input
 					type="date"
@@ -300,7 +301,7 @@
 				{#if !isAllDay}
 					<Input
 						type="time"
-						aria-label="Heure de debut"
+						aria-label={t('event.startTime')}
 						bind:value={startTimeStr}
 						onchange={shiftEndToPreserveDuration}
 						class="w-28 shrink-0 sm:w-32"
@@ -309,7 +310,7 @@
 			</div>
 		</Field>
 
-		<Field label="Fin">
+		<Field label={t('event.end')}>
 			<div class="flex gap-2">
 				<Input
 					type="date"
@@ -320,7 +321,7 @@
 				{#if !isAllDay}
 					<Input
 						type="time"
-						aria-label="Heure de fin"
+						aria-label={t('event.endTime')}
 						bind:value={endTimeStr}
 						onchange={rememberDurationFromEnd}
 						class="w-28 shrink-0 sm:w-32"
@@ -331,13 +332,13 @@
 
 		<RecurrenceField bind:recurrence start={startDate} allDay={isAllDay} />
 
-		<Field label="Lieu">
-			<Input type="text" placeholder="Lieu (optionnel)" bind:value={location} />
+		<Field label={t('event.location')}>
+			<Input type="text" placeholder={t('event.locationPlaceholder')} bind:value={location} />
 		</Field>
 
 		{#if echoAvailable || conferenceUrl}
 			<div class="flex flex-col gap-1.5">
-				<span class="text-fc-sm text-fc-fg">Visioconference</span>
+				<span class="text-fc-sm text-fc-fg">{t('event.video')}</span>
 				{#if conferenceUrl}
 					<div class="flex items-center gap-2 rounded-fc-md bg-fc-surface px-3 py-2">
 						<iconify-icon
@@ -358,7 +359,7 @@
 							variant="ghost"
 							size="sm"
 							icon={icons.close}
-							aria-label="Retirer la visioconference"
+							aria-label={t('event.videoRemove')}
 							onclick={toggleConference}
 						/>
 					</div>
@@ -369,21 +370,21 @@
 						class="w-full justify-start"
 						onclick={toggleConference}
 					>
-						Ajouter une visio Echo
+						{t('event.videoAdd')}
 					</Button>
 				{/if}
 			</div>
 		{/if}
 
-		<Field label="Description">
-			<Textarea placeholder="Description (optionnelle)" bind:value={description} rows={3} />
+		<Field label={t('event.description')}>
+			<Textarea placeholder={t('event.descriptionPlaceholder')} bind:value={description} rows={3} />
 		</Field>
 
-		<Field label="Statut">
+		<Field label={t('event.status')}>
 			<Select bind:value={status}>
-				<option value="confirmed">Confirme</option>
-				<option value="tentative">Provisoire</option>
-				<option value="cancelled">Annule</option>
+				<option value="confirmed">{t('event.confirmed')}</option>
+				<option value="tentative">{t('event.tentative')}</option>
+				<option value="cancelled">{t('event.cancelled')}</option>
 			</Select>
 		</Field>
 
@@ -396,12 +397,12 @@
 					src={creator.avatar_url ? resolveFileUrl(creator.avatar_url) : undefined}
 					name={creator.name || creator.email}
 				/>
-				<span>Cree par <span class="font-medium text-fc-fg">{creator.name || creator.email}</span></span>
+				<span>{t('event.createdBy', { name: creator.name || creator.email })}</span>
 			</div>
 		{/if}
 
 		{#if isSeries}
-			<Alert tone="info">Les modifications s'appliquent à toutes les occurrences de la série.</Alert>
+			<Alert tone="info">{t('event.seriesNote')}</Alert>
 		{/if}
 
 		{#if error}
@@ -419,7 +420,7 @@
 					onclick={() => (confirmDeleteOpen = true)}
 					disabled={deleting || saving}
 				>
-					{deleting ? 'Suppression…' : 'Supprimer'}
+					{deleting ? t('common.deleting') : t('common.delete')}
 				</Button>
 			{:else}
 				<span class="hidden sm:block"></span>
@@ -431,7 +432,7 @@
 					onclick={() => (open = false)}
 					disabled={saving || deleting}
 				>
-					Annuler
+					{t('common.cancel')}
 				</Button>
 				<Button
 					icon={icons.check}
@@ -439,7 +440,7 @@
 					onclick={handleSave}
 					disabled={saving || deleting}
 				>
-					{saving ? 'Enregistrement…' : 'Enregistrer'}
+					{saving ? t('common.saving') : t('common.save')}
 				</Button>
 			</div>
 		</div>
@@ -449,10 +450,10 @@
 <ConfirmModal
 	bind:open={confirmDeleteOpen}
 	tone="danger"
-	title={isSeries ? 'Supprimer toute la série ?' : 'Supprimer cet evenement ?'}
-	description={isSeries
-		? `Toutes les occurrences de « ${title || 'cet evenement'} » disparaitront de ce calendrier pour tout le monde, et des clients CalDAV deja synchronises. Cette action est irreversible.`
-		: `« ${title || 'Cet evenement'} » disparaitra de ce calendrier pour tout le monde, et des clients CalDAV deja synchronises. Cette action est irreversible.`}
-	confirmLabel="Supprimer"
+	title={isSeries ? t('event.deleteSeriesTitle') : t('event.deleteTitle')}
+	description={t(isSeries ? 'event.deleteSeriesText' : 'event.deleteText', {
+		title: title || t('event.thisEvent')
+	})}
+	confirmLabel={t('common.delete')}
 	onConfirm={handleDelete}
 />

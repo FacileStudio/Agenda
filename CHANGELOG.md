@@ -4,6 +4,28 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- build(api): bump porte to v0.11.0, porte/directory to v0.2.1 and tronc to v0.17.1. tronc's security headers replace Agenda's own middleware: HSTS, nosniff, a report-only CSP carrying the built client's inline script hashes, and enforced anti-framing. `connect-src` also allows Ardoise's plan catalog and the icon API.
+- Sign-in goes through Registre only. The login page is muse's `AuthScreen` and the landing page uses `SignInWithFacile`. A person who already has a local account links to it by verified email on their first Facile sign-in.
+- The API token is the CalDAV password for everyone. Account passwords no longer work over Basic Auth (porte refuses them under OIDC; `AllowProtocolPasswords` stays off).
+- The whole UI is in fr, en, es and de, in the locale of the person's Registre profile (`GET /api/users/me` returns `locale`). Dates, times, weekday names and recurrence summaries use `Intl`. es and de need native review.
+- `OIDC_ISSUER` is required when `APP_ENV=production`.
+
+### Added
+
+- `users.locale` (`fr`, `en`, `es` or `de`, default `en`), filled from the `locale` claim at each sign-in.
+- `porte_login_codes.provider` and `porte_login_codes.subject`, added idempotently at boot by `schemas.AdoptPorte`, as porte v0.10.0 requires for CLI and mobile logins.
+- `GET /version`, answering the `APP_VERSION` build arg (`dev` by default).
+- `.github/workflows/ci.yml`: gofmt, vet, build and race tests against a Postgres service, client check, tests and build, and filet. It replaces `filet.yml`.
+- A test that a first Facile sign-in links an existing account by verified email, that an unverified address never links, and that a recycled address is refused.
+
+### Removed
+
+- `POST /api/auth/register` and `POST /api/auth/login`, the local sign-up and password login page, and the `password` and `current_password` fields of `PATCH /api/users/me`.
+- The `SSO_ONLY` setting. It is no longer read.
+- Agenda's own `SecurityHeaders` middleware, now provided by tronc.
+
 ## [0.11.0] - 2026-11-06
 
 ### Added

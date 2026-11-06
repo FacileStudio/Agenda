@@ -38,7 +38,6 @@ import (
 	"github.com/FacileStudio/tronc/spa"
 
 	"github.com/FacileStudio/porte/directory"
-	"github.com/FacileStudio/porte/local"
 	"github.com/FacileStudio/porte/oidc"
 	portepg "github.com/FacileStudio/porte/pg"
 	"github.com/FacileStudio/porte/session"
@@ -118,13 +117,13 @@ func run() int {
 		}
 	}()
 
-	sessions, passwords, kit, err := buildAuth(context.Background(), db, appEnv, appLogger)
+	sessions, kit, err := buildAuth(context.Background(), db, appEnv, appLogger)
 	if err != nil {
 		appLogger.Error("failed to build authentication", slog.Any("error", err))
 		return 1
 	}
 
-	authService := auth.NewService(db, sessions, passwords, appLogger)
+	authService := auth.NewService(db, sessions, appLogger)
 	calendarService := calendars.NewService(db)
 	eventService := events.NewService(db)
 	spaceService := spaces.NewService(db)
@@ -140,6 +139,7 @@ func run() int {
 		defer poolClient.Stop()
 	}
 
+	clientDir := spa.DirFromEnv()
 	router := httpx.NewRouter(httpx.Config{
 		TrustedProxies: appEnv.TrustedProxies,
 		CDNProxies:     appEnv.CDNProxies,
@@ -149,8 +149,8 @@ func run() int {
 			AllowedOrigins:   appEnv.CORSAllowedOrigins,
 			AllowCredentials: true,
 		},
+		Security: securityConfig(clientDir, appLogger),
 	})
-	router.Use(middleware.SecurityHeaders)
 	router.Use(middleware.MaxBodySize(4 << 20))
 
 	mountRoutes(router, mounts{
@@ -168,7 +168,6 @@ func run() int {
 		directory: registreSync,
 	})
 
-	clientDir := spa.DirFromEnv()
 	if spa.Available(clientDir) {
 		router.Handle("/*", middleware.Gzip(spa.Handler(spa.Config{Dir: clientDir})))
 		appLogger.Info("serving client", slog.String("dir", clientDir))
@@ -246,24 +245,14 @@ func startDirectory(db *gorm.DB, appEnv env.Config, appLogger *slog.Logger) (*sp
 	return sync, stop
 }
 
-// buildAuth constructs porte: one session manager, shared by the OIDC kit and
-// the local login, over the identity tables.
-//
-// One manager and not two: they would each keep their own idea of the clock
-// and of whether the cookie is Secure, and porte refuses a kit whose config
-// disagrees with its manager's for exactly that reason. Discovery runs here,
-// so an unreachable or half-configured issuer fails at boot rather than on
-// somebody's first login — a change from what this app did, where a discovery
-// failure at route-registration time logged an error and left SSO 404ing until
-// the next restart.
-//
-// It also pins the local password floor at eight characters. Agenda's floor has
-// always been eight; porte defaults to twelve, and raising it here would reject
-// a password this app accepted yesterday — a product decision, not a migration.
-func buildAuth(ctx context.Context, db *gorm.DB, appEnv env.Config, appLogger *slog.Logger) (*session.Manager, *local.Kit, *oidc.Kit, error) {
+// buildAuth constructs porte: one session manager and the OIDC kit over the
+// identity tables. Sign-in goes through Registre only; there is no local
+// password kit. Discovery runs here, so an unreachable or half-configured
+// issuer fails at boot rather than on somebody's first login.
+func buildAuth(ctx context.Context, db *gorm.DB, appEnv env.Config, appLogger *slog.Logger) (*session.Manager, *oidc.Kit, error) {
 	sqlDB, err := db.DB()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	store := portepg.New(sqlDB)
 	users := auth.NewUserStore(db)
@@ -271,7 +260,7 @@ func buildAuth(ctx context.Context, db *gorm.DB, appEnv env.Config, appLogger *s
 
 	sessions, err := session.New(cfg, session.Deps{Sessions: store.Sessions(), Logger: appLogger})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	kit, err := oidc.New(ctx, cfg, oidc.Deps{
 		Users:      users,
@@ -281,19 +270,9 @@ func buildAuth(ctx context.Context, db *gorm.DB, appEnv env.Config, appLogger *s
 		Logger:     appLogger,
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
-	passwords, err := local.New(local.Config{AllowRegistration: !appEnv.SSOOnly, MinPasswordLength: 8}, local.Deps{
-		Users:      users,
-		Identities: store.Identities(),
-		Sessions:   sessions,
-		Logger:     appLogger,
-		Count:      users.CountUsers,
-	})
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	return sessions, passwords, kit, nil
+	return sessions, kit, nil
 }
 
 // mountRoutes claims every URL the app answers. The whole API lives under /api
@@ -302,6 +281,7 @@ func buildAuth(ctx context.Context, db *gorm.DB, appEnv env.Config, appLogger *s
 // because their URLs are held by external clients, stored rows or Authentik.
 func mountRoutes(router chi.Router, m mounts) {
 	health.Mount(router, health.DB(m.sqlDB))
+	router.Get("/version", versionHandler)
 	apiref.Mount(router, referenceConfig())
 	router.Handle("/files/*", http.StripPrefix("/files/", http.FileServer(http.Dir(m.env.StorageDir))))
 
@@ -311,9 +291,7 @@ func mountRoutes(router chi.Router, m mounts) {
 	}
 
 	router.Route("/api", func(r chi.Router) {
-		m.sessions.Mount(r)
-		m.kit.Mount(r)
-		auth.RegisterRoutes(r, m.auth, m.env)
+		auth.RegisterRoutes(r, m.sessions, m.kit)
 		calendars.RegisterRoutes(r, m.calendars, m.auth)
 		events.RegisterRoutes(r, m.events, m.auth)
 		spaces.RegisterRoutes(r, m.spaces, m.auth)
@@ -352,4 +330,26 @@ func redirectUnderAPI(w http.ResponseWriter, r *http.Request) {
 		target += "?" + r.URL.RawQuery
 	}
 	http.Redirect(w, r, target, http.StatusFound)
+}
+
+// externalConnect lists the origins the built client calls besides itself:
+// Ardoise's public plan catalog and the icon API behind iconify-icon.
+var externalConnect = []string{"https://api-ardoise.facile.studio", "https://api.iconify.design"}
+
+// securityConfig extends tronc's default security headers with what the built
+// client needs: the inline scripts adapter-static writes into its pages, which
+// script-src 'self' would otherwise block, and the external origins above. A
+// client directory that cannot be hashed is logged and leaves the default
+// script policy, which only reports.
+func securityConfig(clientDir string, appLogger *slog.Logger) troncmiddleware.SecurityConfig {
+	sources := map[string][]string{"connect-src": externalConnect}
+	if spa.Available(clientDir) {
+		hashes, err := spa.InlineScriptHashes(clientDir)
+		if err != nil {
+			appLogger.Warn("failed to hash the client's inline scripts", slog.Any("error", err))
+		} else {
+			sources["script-src"] = hashes
+		}
+	}
+	return troncmiddleware.SecurityConfig{CSPSources: sources}
 }

@@ -102,8 +102,7 @@ re-key path.
 
 | Variable | Required | Default | What it does |
 |---|---|---|---|
-| `SSO_ONLY` | no | `false` | When true, the register and login routes are not registered at all |
-| `OIDC_ISSUER` | no | — | Discovery URL, for example `https://porte.facile.studio/application/o/agenda/` |
+| `OIDC_ISSUER` | yes in production | — | Discovery URL, for example `https://porte.facile.studio/application/o/agenda/` |
 | `OIDC_CLIENT_ID` | with issuer | — | Client id from the provider |
 | `OIDC_CLIENT_SECRET` | with issuer | — | Client secret from the provider |
 | `OIDC_REDIRECT_URL` | with issuer | — | Registered redirect URI |
