@@ -33,8 +33,21 @@ func MigrateWithIssuer(db *gorm.DB, issuer string) error {
 	if err := SyncSpaceCalendars(db); err != nil {
 		return err
 	}
+	if err := db.Exec(directoryDeletionState).Error; err != nil {
+		return err
+	}
 	return AdoptPorte(db, issuer)
 }
+
+// directoryDeletionState holds the GDPR deletion receiver's cursor and handled
+// subjects in a single row, so a restart never replays or skips a notice.
+const directoryDeletionState = `
+CREATE TABLE IF NOT EXISTS directory_deletion_state (
+	id         smallint PRIMARY KEY CHECK (id = 1),
+	state      bytea NOT NULL,
+	updated_at timestamptz NOT NULL DEFAULT now()
+);
+`
 
 // backfillAvatarSources moves the two values the avatar is now derived from onto the
 // columns that own them.

@@ -145,23 +145,48 @@ func (c Client) Import(ctx context.Context, spaces []ImportSpace) (Snapshot, err
 
 // call sends one authenticated request and decodes the snapshot it answers.
 func (c Client) call(ctx context.Context, method, path string, body []byte) (Snapshot, error) {
+	response, err := c.do(ctx, method, path, body)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	defer func() { _ = response.Body.Close() }()
+	return decodeSnapshot(response.Body)
+}
+
+// fetch sends one authenticated request and returns the body of a 200.
+func (c Client) fetch(ctx context.Context, method, path string, body []byte) ([]byte, error) {
+	response, err := c.do(ctx, method, path, body)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = response.Body.Close() }()
+	data, err := readAll(response.Body, MaxSnapshotBytes)
+	if err != nil {
+		return nil, fmt.Errorf("%w: read %s: %w", ErrUnavailable, path, err)
+	}
+	return data, nil
+}
+
+// do sends one authenticated request and returns a 200 response, whose body
+// the caller closes. Any other outcome is ErrUnavailable.
+func (c Client) do(ctx context.Context, method, path string, body []byte) (*http.Response, error) {
 	request, err := http.NewRequestWithContext(ctx, method,
 		strings.TrimSuffix(c.Issuer, "/")+path, bytes.NewReader(body))
 	if err != nil {
-		return Snapshot{}, fmt.Errorf("directory: build the request: %w", err)
+		return nil, fmt.Errorf("directory: build the request: %w", err)
 	}
 	request.SetBasicAuth(c.ClientID, c.ClientSecret)
 	request.Header.Set("Content-Type", "application/json")
 	response, err := c.httpClient().Do(request)
 	if err != nil {
-		return Snapshot{}, fmt.Errorf("%w: %w", ErrUnavailable, err)
+		return nil, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
-	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 4096))
-		return Snapshot{}, fmt.Errorf("%w: %s answered %d", ErrUnavailable, path, response.StatusCode)
+		_ = response.Body.Close()
+		return nil, fmt.Errorf("%w: %s answered %d", ErrUnavailable, path, response.StatusCode)
 	}
-	return decodeSnapshot(response.Body)
+	return response, nil
 }
 
 // decodeSnapshot reads at most one byte past the cap, so a body over it is

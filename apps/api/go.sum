@@ -6,10 +6,14 @@ github.com/FacileStudio/porte v0.7.0 h1:aDZCMbqlVEYx4YGI+D7+rfyuwnzEj28BluXaUbCQ
 github.com/FacileStudio/porte v0.7.0/go.mod h1:iLtV3iaFheNiZWt+wfBF2FKB0XRLxve5GrhmJ6h3X0I=
 github.com/FacileStudio/porte v0.11.0 h1:qs/8cwxM9KP2cWU4dOKrklG5g9oRajMntVIeBU6BHiA=
 github.com/FacileStudio/porte v0.11.0/go.mod h1:iLtV3iaFheNiZWt+wfBF2FKB0XRLxve5GrhmJ6h3X0I=
+github.com/FacileStudio/porte v0.12.0 h1:3/Fw9jnp5cssY0PA3MyexHBRqr+W0r2XStaKwWmk2zc=
+github.com/FacileStudio/porte v0.12.0/go.mod h1:iLtV3iaFheNiZWt+wfBF2FKB0XRLxve5GrhmJ6h3X0I=
 github.com/FacileStudio/porte/directory v0.1.0 h1:ZdqSbGw+0GMaSUHHAHRQV7WHm8ZhsfRryIRJUsuxSsQ=
 github.com/FacileStudio/porte/directory v0.1.0/go.mod h1:i7UxoAqCgqAq4ny9/bbuqT/Z69xD7GYG1w3fpH6EhTw=
 github.com/FacileStudio/porte/directory v0.2.1 h1:w/7AhH74OTj/RhMshO2TshQTSZpGek+/HiMi0CNGCnI=
 github.com/FacileStudio/porte/directory v0.2.1/go.mod h1:i7UxoAqCgqAq4ny9/bbuqT/Z69xD7GYG1w3fpH6EhTw=
+github.com/FacileStudio/porte/directory v0.3.0 h1:BtdaNK7kbbv5s5whX4VyIHK0cJ4dC8f+timjyecnEfE=
+github.com/FacileStudio/porte/directory v0.3.0/go.mod h1:i7UxoAqCgqAq4ny9/bbuqT/Z69xD7GYG1w3fpH6EhTw=
 github.com/FacileStudio/tronc v0.16.0 h1:vfZIBTKrKMTx3hOFxSc2jO4LCZcOBI2sB7XVAjL4b60=
 github.com/FacileStudio/tronc v0.16.0/go.mod h1:n+msHH6RQLvhcIQfFzeWaAgwqL8UkNuLPTqbu+C02so=
 github.com/FacileStudio/tronc v0.17.1 h1:lrk2gzV5fXPeWcNI+5vADa1WTb23obyvvrh6DwQhnXM=

@@ -63,6 +63,7 @@ var clientCalls = []struct {
 	{http.MethodGet, "/api/spaces/1/"},
 	{http.MethodGet, "/api/spaces/1/members"},
 	{http.MethodPost, directory.SyncPath},
+	{http.MethodPost, directory.DeletionsPath},
 	{http.MethodGet, "/api/settings/"},
 	{http.MethodPut, "/api/settings/"},
 	{http.MethodGet, "/api/health"},
@@ -137,6 +138,7 @@ func testRouter(t *testing.T) chi.Router {
 		kit:       kit,
 		auth:      authService,
 		directory: spaces.NewDirectory(nil, directory.Client{Issuer: appEnv.OIDC.Issuer}, appLogger),
+		deletions: spaces.NewDeletions(nil, directory.Client{Issuer: appEnv.OIDC.Issuer}, nil, appEnv.StorageDir, appLogger),
 	})
 	return router
 }

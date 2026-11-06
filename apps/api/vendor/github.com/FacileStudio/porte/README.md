@@ -60,7 +60,7 @@ reasoning behind both.
 | `porte/spaces` | Space membership authorization: the role ladder, `Resolve`, `Require`, `CanLeave`, `AssignableBy`/`AssignableOver`. No CRUD, no routes, no ORM | the standard library |
 | `porte/spaces/spacestest` | `Conformance(t, newStore)` and `ConformanceWithLadder`: the invariants, run against an app's own `Store` and its own role vocabulary | `porte/spaces`, `testing` |
 | `porte/magiclink/magiclinktest` | `Conformance(t, newStore, newUser)`: single use, supersession and the rate counts, run against an app's own `MagicLinkStore` | `porte`, `testing` |
-| `porte/directory` | Nested module: Registre's spaces, members and plan entitlements, pulled as one snapshot and nudged on change | the standard library |
+| `porte/directory` | Nested module: Registre's spaces, members and plan entitlements, pulled as one snapshot and nudged on change, plus the GDPR deletion receiver | the standard library |
 | `porte/forfait` | Nested module: plan enforcement over the directory snapshot. `Enabled`, `Limit`, `Check`, fail-open until the first snapshot | `porte/directory` |
 
 The contract package depends on nothing outside the standard library, and that is a constraint

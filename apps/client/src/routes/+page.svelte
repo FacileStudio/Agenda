@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { backend } from '$lib/backend';
-	import { LegalFooter, SignInWithFacile, icons } from '@facile/muse';
+	import { LandingFooter, LandingHeader, SignInWithFacile, icons } from '@facile/muse';
 	import LandingOffers from '$lib/components/LandingOffers.svelte';
 	import { rememberLocale, t } from '$lib/i18n/index.svelte';
 
@@ -34,18 +34,13 @@
 
 {#if ready}
 	<div class="min-h-screen bg-background text-foreground">
-		<header>
-			<div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-				<div class="flex h-14 items-center gap-3">
-					<iconify-icon icon={icons.calendar} width="28" height="28" class="block shrink-0"
-					></iconify-icon>
-					<span class="font-heading text-2xl font-semibold tracking-tight">Agenda</span>
-				</div>
+		<LandingHeader appName="Agenda" icon={icons.calendar} skipHref="#main">
+			{#snippet actions()}
 				<SignInWithFacile href={signInHref} />
-			</div>
-		</header>
+			{/snippet}
+		</LandingHeader>
 
-		<main>
+		<main id="main">
 			<section class="mx-auto max-w-5xl px-6 py-24 text-center">
 				<h1 class="font-heading text-5xl font-semibold leading-[1.1] tracking-tight">
 					{heroLines[0]}<br />{heroLines[1]}
@@ -85,18 +80,11 @@
 			<LandingOffers />
 		</main>
 
-		<footer class="mx-auto flex max-w-5xl flex-col items-center gap-4 px-6 py-6">
-			<LegalFooter class="w-full" onLocaleChange={rememberLocale} />
-			<p class="text-center text-sm text-muted-foreground">
-				&copy; {new Date().getFullYear()} Agenda by
-				<a
-					href="https://facile.studio"
-					target="_blank"
-					rel="noopener"
-					class="font-semibold underline underline-offset-2 transition-colors hover:text-foreground"
-					>Facile</a
-				>.
-			</p>
-		</footer>
+		<LandingFooter
+			appName="Agenda"
+			icon={icons.calendar}
+			tagline={t('login.tagline')}
+			legal={{ onLocaleChange: rememberLocale }}
+		/>
 	</div>
 {/if}

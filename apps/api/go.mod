@@ -5,8 +5,8 @@ go 1.26
 require (
 	github.com/FacileStudio/Journal/sdk/journal v0.0.0-20260708221941-db985ad2b1ba
 	github.com/FacileStudio/antenne-client/go v0.0.0-20260824150250-7681849d44f9
-	github.com/FacileStudio/porte v0.11.0
-	github.com/FacileStudio/porte/directory v0.2.1
+	github.com/FacileStudio/porte v0.12.0
+	github.com/FacileStudio/porte/directory v0.3.0
 	github.com/FacileStudio/tronc v0.17.1
 	github.com/FacileStudio/tronc/testdb v0.1.1
 	github.com/emersion/go-ical v0.0.0-20250609112844-439c63cef608
