@@ -4,6 +4,8 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-11-07
+
 ### Changed
 
 - build(client): bump muse to v0.14.2. The user menu stays inside the viewport at the right edge of the header.
