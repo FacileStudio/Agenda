@@ -4,6 +4,12 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- build(client): bump muse to v0.14.2. The user menu stays inside the viewport at the right edge of the header.
+- The API token drawer no longer asks for an expiry and the list drops the last-used column: Agenda keeps one non-expiring token and does not track its last use.
+- The user menu gains a Subscription row that opens the plans on Facile (`https://sso.facile.studio/spaces`).
+
 ## [0.13.0] - 2026-11-07
 
 ### Changed
