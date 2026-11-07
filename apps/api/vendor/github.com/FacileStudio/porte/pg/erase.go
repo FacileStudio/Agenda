@@ -26,7 +26,7 @@ func (s *Store) EraseIdentity(ctx context.Context, provider, subject string) err
 			return err
 		}
 		err = withUserLock(ctx, s.db, userID, false, func(q querier) error {
-			return eraseLocked(ctx, q, userID, provider, subject)
+			return eraseLocked(ctx, q, s.tables, userID, provider, subject)
 		})
 		if !stderrors.Is(err, errMoved) {
 			return err
@@ -50,7 +50,7 @@ func identityOwner(ctx context.Context, q querier, provider, subject string) (in
 	return userID, true, nil
 }
 
-func eraseLocked(ctx context.Context, q querier, userID int64, provider, subject string) error {
+func eraseLocked(ctx context.Context, q querier, tables *tableSet, userID int64, provider, subject string) error {
 	owner, found, err := identityOwner(ctx, q, provider, subject)
 	if err != nil || !found {
 		return err
@@ -58,7 +58,11 @@ func eraseLocked(ctx context.Context, q querier, userID int64, provider, subject
 	if owner != userID {
 		return errMoved
 	}
-	for _, table := range []string{"porte_sessions", "porte_login_codes", "porte_magic_links"} {
+	list, err := tables.userTables(ctx, q, "porte_sessions")
+	if err != nil {
+		return err
+	}
+	for _, table := range list {
 		if _, err := q.ExecContext(ctx, "DELETE FROM "+table+" WHERE user_id = $1", userID); err != nil {
 			return fmt.Errorf("porte/pg: erase %s: %w", table, err)
 		}

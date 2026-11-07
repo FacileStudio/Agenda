@@ -5,6 +5,20 @@ session from undoing a deliberate choice.
 
 ## [Unreleased]
 
+## v0.12.1 — 2026-11-07
+
+Root module: **v0.12.1**; `directory` stays at v0.3.0. Fix only; no migration.
+
+**Fixed: `EraseIdentity` failed on schemas without `porte_magic_links`.** Many apps create the porte
+schema with their own DDL and never had `porte_magic_links` (or `porte_login_codes`). The GDPR erase
+deleted from a fixed list, hit `relation does not exist`, and the deletion receiver retried forever.
+`EraseIdentity` and the unverified-address purge now skip the optional tables the schema lacks.
+Existence is resolved once per Store with `to_regclass` and cached on success; the SQL stays
+parameterized and the names come from a constant list. `porte_identities` and `porte_sessions` (which
+also holds named tokens) stay required and still error when missing.
+
+Upgrade note: apps on v0.12.0 whose schema lacks porte_magic_links should bump; no migration needed.
+
 ## v0.12.0 — 2026-11-06
 
 Root module: **v0.12.0**, `directory/v0.3.0`. Additive; no migration.

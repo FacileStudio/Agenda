@@ -149,14 +149,15 @@ $$;
 // carry both on one receiver. Renaming a method to dodge that would leak a
 // storage accident into the contract.
 type Store struct {
-	db *sql.DB
+	db     *sql.DB
+	tables *tableSet
 }
 
 // New returns a store over db.
-func New(db *sql.DB) *Store { return &Store{db: db} }
+func New(db *sql.DB) *Store { return &Store{db: db, tables: newTableSet()} }
 
 // Users resolves OIDC callbacks to user ids.
-func (s *Store) Users() *UserStore { return &UserStore{db: s.db} }
+func (s *Store) Users() *UserStore { return &UserStore{db: s.db, tables: s.tables} }
 
 // Identities persists the authentication rows and the cached claim.
 func (s *Store) Identities() *IdentityStore { return &IdentityStore{db: s.db} }
@@ -171,7 +172,10 @@ func (s *Store) LoginCodes() *LoginCodeStore { return &LoginCodeStore{db: s.db} 
 func (s *Store) MagicLinks() *MagicLinkStore { return &MagicLinkStore{db: s.db} }
 
 // UserStore implements [porte.UserStore] over porte_users.
-type UserStore struct{ db *sql.DB }
+type UserStore struct {
+	db     *sql.DB
+	tables *tableSet
+}
 
 // IdentityStore implements [porte.IdentityStore] over porte_identities.
 type IdentityStore struct{ db *sql.DB }

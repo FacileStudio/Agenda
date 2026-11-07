@@ -4,6 +4,11 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- build(api): bump porte to v0.12.1. The GDPR erasure no longer fails on a schema without `porte_magic_links`.
+- build(client): bump muse to v0.13.0. Form controls are borderless fills, `Select` is muse's own combobox and badges stay on one line. No Agenda code needed to change.
+
 ## [0.12.0] - 2026-11-06
 
 ### Changed
