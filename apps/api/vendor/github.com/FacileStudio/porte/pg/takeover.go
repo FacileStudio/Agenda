@@ -55,8 +55,12 @@ func byVerifiedEmail(ctx context.Context, tx *sql.Tx, claims porte.Claims) (matc
 }
 
 // purge removes everything a holder of an unverified row could still use.
-func purge(ctx context.Context, tx *sql.Tx, userID int64) error {
-	for _, table := range []string{"porte_identities", "porte_sessions", "porte_login_codes", "porte_magic_links"} {
+func purge(ctx context.Context, tx *sql.Tx, tables *tableSet, userID int64) error {
+	list, err := tables.userTables(ctx, tx, "porte_identities", "porte_sessions")
+	if err != nil {
+		return err
+	}
+	for _, table := range list {
 		if _, err := tx.ExecContext(ctx, "DELETE FROM "+table+" WHERE user_id = $1", userID); err != nil {
 			return fmt.Errorf("porte/pg: purge %s: %w", table, err)
 		}

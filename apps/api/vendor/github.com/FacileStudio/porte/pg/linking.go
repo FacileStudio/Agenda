@@ -47,7 +47,7 @@ func (s *UserStore) UpsertFromOIDC(ctx context.Context, claims porte.Claims) (in
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	userID, err := resolveOrCreate(ctx, tx, claims)
+	userID, err := resolveOrCreate(ctx, tx, s.tables, claims)
 	if err != nil {
 		return 0, err
 	}
@@ -76,7 +76,7 @@ type match struct {
 
 // resolveOrCreate finds the user the claims belong to and refreshes its
 // profile, or creates it.
-func resolveOrCreate(ctx context.Context, tx *sql.Tx, claims porte.Claims) (int64, error) {
+func resolveOrCreate(ctx context.Context, tx *sql.Tx, tables *tableSet, claims porte.Claims) (int64, error) {
 	found, err := findOrInsert(ctx, tx, claims)
 	switch {
 	case err != nil:
@@ -86,7 +86,7 @@ func resolveOrCreate(ctx context.Context, tx *sql.Tx, claims porte.Claims) (int6
 	case found.userID == 0:
 		return 0, refusal(claims)
 	case found.byEmail && found.unverified:
-		if err := purge(ctx, tx, found.userID); err != nil {
+		if err := purge(ctx, tx, tables, found.userID); err != nil {
 			return 0, err
 		}
 	}
