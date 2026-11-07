@@ -41,10 +41,8 @@ export const shell = {
 	'role.writer': ['Editor', 'Éditeur', 'Editor', 'Bearbeiter'],
 	'role.reader': ['Reader', 'Lecteur', 'Lector', 'Leser'],
 	'role.member': ['Member', 'Membre', 'Miembro', 'Mitglied'],
-	'menu.profile': ['Profile menu', 'Menu du profil', 'Menú del perfil', 'Profilmenü'],
 	'menu.myProfile': ['My profile', 'Mon profil', 'Mi perfil', 'Mein Profil'],
 	'menu.calendar': ['Calendar', 'Calendrier', 'Calendario', 'Kalender'],
-	'menu.settings': ['Settings', 'Paramètres', 'Ajustes', 'Einstellungen'],
 	'menu.spaces': ['Spaces', 'Espaces', 'Espacios', 'Bereiche'],
 	'menu.members': [
 		'Calendars and members',

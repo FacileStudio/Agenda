@@ -2,10 +2,11 @@
 	import { onMount, setContext } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import UserMenu from '$lib/components/UserMenu.svelte';
+	import { UserMenu, icons, toast } from '@facile/muse';
 	import { ApiError, backend, type UserProfile, type CalendarItem } from '$lib/backend';
 	import { sortCalendars } from '$lib/calendar-filter.svelte';
-	import { setSessionLocale, t } from '$lib/i18n/index.svelte';
+	import { rememberLocale, setSessionLocale, t } from '$lib/i18n/index.svelte';
+	import { theme, type ThemePreference } from '$lib/theme.svelte';
 
 	let { children } = $props();
 
@@ -22,6 +23,7 @@
 		get user() { return user; },
 		get calendars() { return calendars; },
 		get navUser() { return navUser; },
+		get userMenu() { return userMenu; },
 		setUser,
 		refreshCalendars
 	});
@@ -53,6 +55,29 @@
 		}
 	});
 
+	async function signOut() {
+		try {
+			await backend.logout();
+		} catch {
+			toast.warning(t('menu.logoutUnconfirmed'));
+		}
+		await goto('/login');
+	}
+
+	const userMenu = $derived({
+		items: [
+			{ label: t('menu.calendar'), icon: icons.calendar, href: '/calendar' },
+			{ label: t('menu.spaces'), icon: icons.space, href: '/spaces' },
+			{ label: t('menu.members'), icon: icons.usersGroup, href: '/settings/members' }
+		],
+		settingsHref: '/settings',
+		helpHref: 'https://github.com/FacileStudio/Agenda/tree/main/docs',
+		onSignOut: signOut,
+		onLocaleChange: rememberLocale,
+		theme: theme.preference,
+		onThemeChange: (next: ThemePreference) => theme.set(next)
+	});
+
 	const navUser = $derived({
 		name: user?.name?.trim() || user?.email?.split('@')[0] || t('menu.myProfile'),
 		email: user?.email ?? '',
@@ -64,7 +89,7 @@
 	<div class="flex h-[100dvh] w-full flex-col overflow-hidden bg-fc-page">
 		{#if !page.url.pathname.startsWith('/calendar')}
 			<div class="flex shrink-0 items-center px-3 pt-3 sm:px-5">
-				<UserMenu />
+				<UserMenu user={navUser} trigger="avatar" {...userMenu} />
 			</div>
 		{/if}
 		<main class="min-h-0 flex-1 overflow-auto overscroll-contain">

@@ -2,8 +2,7 @@
 	import { page } from '$app/stores';
 	import { getContext, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { Avatar } from '@facile/muse';
-	import { Button } from '$lib/components/ui/button';
+	import { Avatar, Button } from '@facile/muse';
 	import { backend, registreSpaceUrl, resolveFileUrl, type SpaceItem, type SpaceMember } from '$lib/backend';
 	import { setCalendarFilter } from '$lib/calendar-filter.svelte';
 	import type { CalendarItem } from '$lib/backend';
@@ -82,8 +81,7 @@
 				</div>
 				<div class="flex basis-full flex-wrap items-center gap-2 sm:basis-auto sm:shrink-0">
 					{#if spaceCalendar}
-						<Button onclick={openCalendar} class="cursor-pointer gap-2">
-							<iconify-icon icon="solar:calendar-linear" width="16"></iconify-icon>
+						<Button onclick={openCalendar} icon="solar:calendar-linear">
 							{t('spaces.viewCalendar')}
 						</Button>
 					{/if}
@@ -92,9 +90,8 @@
 						target="_blank"
 						rel="noopener"
 						variant="outline"
-						class="cursor-pointer gap-2"
+						icon="solar:square-top-down-linear"
 					>
-						<iconify-icon icon="solar:square-top-down-linear" width="16"></iconify-icon>
 						{canManage ? t('common.manageInRegistre') : t('spaces.viewInRegistre')}
 					</Button>
 				</div>
@@ -133,9 +130,8 @@
 								rel="noopener"
 								variant="outline"
 								size="sm"
-								class="cursor-pointer gap-2"
+								icon="solar:users-group-rounded-linear"
 							>
-								<iconify-icon icon="solar:users-group-rounded-linear" width="14"></iconify-icon>
 								{t('spaces.inviteInRegistre')}
 							</Button>
 						{/if}

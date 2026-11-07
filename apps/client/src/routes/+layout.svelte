@@ -1,9 +1,8 @@
 <script lang="ts">
 	import '../app.css';
 	import { browser } from '$app/environment';
-	import { Toaster } from '$lib/components/ui/sonner';
 	import { theme } from '$lib/theme.svelte';
-	import { provideLocale } from '@facile/muse';
+	import { Toaster, provideLocale } from '@facile/muse';
 	import { bindLocale, localeSource } from '$lib/i18n/index.svelte';
 
 	if (browser) {

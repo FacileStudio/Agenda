@@ -33,8 +33,8 @@
 	const tz = getLocalTimeZone();
 	const LANE_HEIGHT = 22;
 	const MAX_VISIBLE_LANES = 3;
-	const DAY_HEADER_OFFSET = 30;
-	const CELL_INSET = 4;
+	const DAY_HEADER_OFFSET = 32;
+	const CELL_INSET = 6;
 
 	type SpanningSegment = {
 		event: AgendaEvent;
@@ -182,7 +182,7 @@
 </script>
 
 <div class="flex h-full flex-col">
-	<div class="grid grid-cols-7 border-b border-border">
+	<div class="grid grid-cols-7">
 		{#each dayLabels as label}
 			<div class="py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
 		{/each}
@@ -192,7 +192,7 @@
 		{#each weeks() as week, wi (wi)}
 			{@const segments = getSpanningSegments(week)}
 			{@const lanes = lanesForWeek(segments)}
-			<div class="relative grid grid-cols-7 border-b border-border last:border-b-0">
+			<div class="relative grid grid-cols-7">
 				{#each week as cell, ci (cell.toString())}
 					{@const dayEvts = singleDayEvents(cell)}
 					{@const inMonth = isCurrentMonth(cell)}
@@ -202,7 +202,7 @@
 					<div
 						role="button"
 						tabindex="0"
-						class="group flex cursor-pointer flex-col border-r border-border p-1 text-left transition-colors last:border-r-0 hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring
+						class="group m-0.5 flex cursor-pointer flex-col rounded-fc-md bg-fc-surface p-1 text-left transition-colors hover:bg-fc-field focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring
 							{inMonth ? '' : 'opacity-40'}"
 						onclick={() => onDayClick(cell)}
 						onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') onDayClick(cell); }}
@@ -253,7 +253,7 @@
 				{#each segments as seg}
 					{#if seg.lane < MAX_VISIBLE_LANES}
 						{@const lPad = seg.continuesLeft ? 0 : CELL_INSET}
-						{@const rPad = seg.continuesRight ? 0 : CELL_INSET + (seg.startCol + seg.span < 7 ? 1 : 0)}
+						{@const rPad = seg.continuesRight ? 0 : CELL_INSET}
 						{@const fill = getCalendarColor(seg.event.calendar_id)}
 						<button
 							type="button"
