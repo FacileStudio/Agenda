@@ -267,7 +267,11 @@ func buildAuth(ctx context.Context, db *gorm.DB, appEnv env.Config, appLogger *s
 	if err != nil {
 		return nil, nil, err
 	}
-	store := portepg.New(sqlDB)
+	store, err := newPorteStore(sqlDB)
+	if err != nil {
+		return nil, nil, err
+	}
+	resealInBackground(ctx, store, appLogger)
 	users := auth.NewUserStore(db)
 	cfg := appEnv.Porte()
 

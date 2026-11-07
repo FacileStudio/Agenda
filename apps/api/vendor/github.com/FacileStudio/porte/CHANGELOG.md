@@ -5,6 +5,39 @@ session from undoing a deliberate choice.
 
 ## [Unreleased]
 
+## v0.13.0 — 2026-11-07
+
+Root module: **v0.13.0**; `directory` stays at v0.3.0. Additive; no migration.
+
+**Seal OIDC tokens at rest.** `porte_identities.access_token` and `refresh_token` were plaintext. An
+app such as Plume keeps a Registre refresh token there and exchanges it for a Nuage write token, so
+a database leak meant write access to users' Nuage folders. `pg.New` now takes options, and
+`pg.WithTokenSealer(sealer)` seals both columns with AES-256-GCM: a random 12-byte nonce per value,
+a key derived from a 32-byte app secret with HKDF-SHA256 under a porte-specific info string, and a
+`pv1:` prefix on the stored value. Decisions:
+
+- **Transparent migration.** Reads open `pv1:` values and return anything else as plaintext, so
+  turning sealing on breaks nothing. Writes seal whenever a sealer is configured. The optional
+  `IdentityStore.ResealIdentities(ctx)` seals the plaintext rows that remain, in batches, and returns the
+  count. It is idempotent (a row already under the current key is not rewritten), it never blanks a row
+  it cannot open, and a concurrent `Save` wins over it.
+- **Fail closed.** A sealed value no configured key opens (wrong key, tampered, no sealer at all) reads as
+  an empty token, so the identity is treated as having none and the user signs in again. Nothing panics,
+  nothing logs, and ciphertext is never handed out as a token.
+- **Rotation.** `NewTokenSealer(newest, older...)` seals with the first secret and opens with all of them.
+  Add the new secret first, deploy, run `ResealIdentities`, then drop the old one.
+- **Empty stays empty.** A missing token is not turned into a value.
+
+Upgrade note: sealing is opt-in. With no sealer configured nothing changes. To opt in, generate a
+32-byte secret (`openssl rand -hex 32`), store it as `PORTE_TOKEN_KEY`, and build the store with
+`sealer, err := pg.ParseTokenSealer(os.Getenv("PORTE_TOKEN_KEY"))` then
+`pg.New(db, pg.WithTokenSealer(sealer))`. An empty value yields a nil sealer, which leaves sealing off.
+`PORTE_TOKEN_KEY` may hold several comma-separated secrets, newest first, as hex or base64. Call
+`store.Identities().ResealIdentities(ctx)` once after the first deploy. Losing the secret loses the
+stored tokens (users sign in again), so back it up with the app's other secrets. Rolling back to a porte
+older than v0.13.0 after rows are sealed would read the ciphertext as a token: reseal is one way, so
+keep the sealer once enabled.
+
 ## v0.12.1 — 2026-11-07
 
 Root module: **v0.12.1**; `directory` stays at v0.3.0. Fix only; no migration.
