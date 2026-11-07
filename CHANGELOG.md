@@ -4,6 +4,8 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-11-07
+
 ### Changed
 
 - build(api): bump porte to v0.12.1. The GDPR erasure no longer fails on a schema without `porte_magic_links`.
