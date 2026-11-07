@@ -2,6 +2,12 @@
 
 All notable changes to Agenda are documented here.
 
+## [Unreleased]
+
+### Changed
+
+- build(client): bump muse to v0.14.4. Switching the language in the user menu re-renders the whole UI at once, with no reload. The Subscription row no longer passes an empty `plan`.
+
 ## [0.13.2] - 2026-11-07
 
 ### Security
