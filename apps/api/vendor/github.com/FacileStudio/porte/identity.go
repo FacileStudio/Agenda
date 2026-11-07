@@ -191,9 +191,9 @@ func (c Claims) AvatarKey() string {
 // TokenSet is the OIDC token material for one identity, kept as plain strings
 // so the store boundary does not depend on golang.org/x/oauth2.
 //
-// Two apps encrypt these columns at rest today and four store them in the
-// clear. porte hands the store plaintext and the store decides: encryption at
-// rest is a deployment property, and porte has no key management to offer.
+// porte hands the store plaintext and the store decides. pg.Store seals both
+// tokens at rest when it is given a pg.TokenSealer; without one they are stored
+// in the clear.
 type TokenSet struct {
 	AccessToken  string
 	RefreshToken string

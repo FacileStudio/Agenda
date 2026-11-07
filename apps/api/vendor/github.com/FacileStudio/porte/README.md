@@ -109,6 +109,14 @@ router.Group(func(r chi.Router) {
 })
 ```
 
+To seal the OIDC access and refresh tokens at rest, give the store a key. With none, nothing changes.
+
+```go
+sealer, err := pg.ParseTokenSealer(os.Getenv("PORTE_TOKEN_KEY"))
+store := pg.New(db, pg.WithTokenSealer(sealer))
+```
+
+
 Build the kit and the manager from the same `porte.Config`: `oidc.New` refuses a pair that
 disagrees about the redirect URL, the success URL or the TTLs, because those decide whether the
 cookie is `Secure` and nothing else would fail until an attacker noticed.

@@ -4,6 +4,14 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+### Security
+
+- Registre tokens are sealed at rest. porte to v0.13.0: `porte_identities.access_token` and `refresh_token`
+  are encrypted with AES-256-GCM under `PORTE_TOKEN_KEY`. Existing rows are sealed once, in the background,
+  after boot, and the count is logged. An invalid `PORTE_TOKEN_KEY` stops the boot. With the key unset nothing changes.
+- Losing `PORTE_TOKEN_KEY` makes the stored tokens unreadable: people sign in again, nothing else is lost.
+  Do not roll back to a build older than porte v0.13.0 after the first reseal.
+
 ## [0.13.1] - 2026-11-07
 
 ### Changed

@@ -151,16 +151,34 @@ $$;
 type Store struct {
 	db     *sql.DB
 	tables *tableSet
+	sealer *TokenSealer
+}
+
+// Option configures a [Store].
+type Option func(*Store)
+
+// WithTokenSealer seals the access and refresh tokens in porte_identities.
+// Writes seal; reads open sealed values and pass plaintext through, so rows
+// written before the sealer was configured stay readable. A nil sealer leaves
+// sealing off.
+func WithTokenSealer(sealer *TokenSealer) Option {
+	return func(s *Store) { s.sealer = sealer }
 }
 
 // New returns a store over db.
-func New(db *sql.DB) *Store { return &Store{db: db, tables: newTableSet()} }
+func New(db *sql.DB, options ...Option) *Store {
+	store := &Store{db: db, tables: newTableSet()}
+	for _, option := range options {
+		option(store)
+	}
+	return store
+}
 
 // Users resolves OIDC callbacks to user ids.
 func (s *Store) Users() *UserStore { return &UserStore{db: s.db, tables: s.tables} }
 
 // Identities persists the authentication rows and the cached claim.
-func (s *Store) Identities() *IdentityStore { return &IdentityStore{db: s.db} }
+func (s *Store) Identities() *IdentityStore { return &IdentityStore{db: s.db, sealer: s.sealer} }
 
 // Sessions persists issued credentials.
 func (s *Store) Sessions() *SessionStore { return &SessionStore{db: s.db} }
@@ -178,7 +196,10 @@ type UserStore struct {
 }
 
 // IdentityStore implements [porte.IdentityStore] over porte_identities.
-type IdentityStore struct{ db *sql.DB }
+type IdentityStore struct {
+	db     *sql.DB
+	sealer *TokenSealer
+}
 
 // SessionStore implements [porte.SessionStore] over porte_sessions.
 type SessionStore struct{ db *sql.DB }
@@ -242,7 +263,7 @@ func (s *IdentityStore) Find(ctx context.Context, provider, subject string) (por
 		       token_expiry, roles, roles_synced_at, synced_at
 		  FROM porte_identities
 		 WHERE provider = $1 AND subject = $2`, provider, subject)
-	identity, err := scanIdentity(row)
+	identity, err := scanIdentity(row, s.sealer)
 	if stderrors.Is(err, sql.ErrNoRows) {
 		return porte.StoredIdentity{}, porte.ErrNotFound
 	}
@@ -268,8 +289,12 @@ func (s *IdentityStore) Save(ctx context.Context, identity porte.StoredIdentity)
 	if err != nil {
 		return err
 	}
+	access, refresh, err := s.sealer.sealTokens(identity.Tokens)
+	if err != nil {
+		return err
+	}
 	if identity.Provider != porte.ProviderLocal {
-		return s.saveFederated(ctx, identity, roles)
+		return s.saveFederated(ctx, identity, roles, access, refresh)
 	}
 	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO porte_identities
@@ -286,7 +311,7 @@ func (s *IdentityStore) Save(ctx context.Context, identity porte.StoredIdentity)
 		       roles_synced_at = EXCLUDED.roles_synced_at,
 		       synced_at       = EXCLUDED.synced_at`,
 		identity.UserID, identity.Provider, identity.Subject, identity.PasswordHash,
-		identity.Tokens.AccessToken, identity.Tokens.RefreshToken,
+		access, refresh,
 		nullTime(identity.Tokens.Expiry), roles,
 		nullTime(identity.RolesSyncedAt), nullTime(identity.SyncedAt))
 	if err != nil {
@@ -297,7 +322,7 @@ func (s *IdentityStore) Save(ctx context.Context, identity porte.StoredIdentity)
 
 // saveFederated is Save for a non-local identity, under the account's
 // exclusive advisory lock, the one the purge takes.
-func (s *IdentityStore) saveFederated(ctx context.Context, identity porte.StoredIdentity, roles []byte) error {
+func (s *IdentityStore) saveFederated(ctx context.Context, identity porte.StoredIdentity, roles []byte, access, refresh string) error {
 	return withUserLock(ctx, s.db, identity.UserID, false, func(q querier) error {
 		result, err := q.ExecContext(ctx, `
 			INSERT INTO porte_identities
@@ -313,7 +338,7 @@ func (s *IdentityStore) saveFederated(ctx context.Context, identity porte.Stored
 			       synced_at = EXCLUDED.synced_at
 			 WHERE porte_identities.user_id = EXCLUDED.user_id`,
 			identity.UserID, identity.Provider, identity.Subject, identity.PasswordHash,
-			identity.Tokens.AccessToken, identity.Tokens.RefreshToken,
+			access, refresh,
 			nullTime(identity.Tokens.Expiry), roles,
 			nullTime(identity.RolesSyncedAt), nullTime(identity.SyncedAt))
 		if err != nil {
@@ -358,7 +383,7 @@ func (s *IdentityStore) ListByUser(ctx context.Context, userID int64) ([]porte.S
 
 	identities := []porte.StoredIdentity{}
 	for rows.Next() {
-		identity, err := scanIdentity(rows)
+		identity, err := scanIdentity(rows, s.sealer)
 		if err != nil {
 			return nil, fmt.Errorf("porte/pg: scan identity: %w", err)
 		}
@@ -595,7 +620,7 @@ type scanner interface {
 	Scan(dest ...any) error
 }
 
-func scanIdentity(row scanner) (porte.StoredIdentity, error) {
+func scanIdentity(row scanner, sealer *TokenSealer) (porte.StoredIdentity, error) {
 	var (
 		identity      porte.StoredIdentity
 		expiry        sql.NullTime
@@ -608,6 +633,7 @@ func scanIdentity(row scanner) (porte.StoredIdentity, error) {
 		&expiry, &roles, &rolesSyncedAt, &syncedAt); err != nil {
 		return porte.StoredIdentity{}, err
 	}
+	identity.Tokens = sealer.openTokens(identity.Tokens)
 	identity.Tokens.Expiry = expiry.Time
 	identity.RolesSyncedAt = rolesSyncedAt.Time
 	identity.SyncedAt = syncedAt.Time

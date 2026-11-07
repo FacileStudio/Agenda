@@ -4,7 +4,7 @@ github.com/FacileStudio/Journal/sdk/journal
 # github.com/FacileStudio/antenne-client/go v0.0.0-20260824150250-7681849d44f9
 ## explicit; go 1.24.0
 github.com/FacileStudio/antenne-client/go
-# github.com/FacileStudio/porte v0.12.1
+# github.com/FacileStudio/porte v0.13.0
 ## explicit; go 1.26
 github.com/FacileStudio/porte
 github.com/FacileStudio/porte/internal/handoff
