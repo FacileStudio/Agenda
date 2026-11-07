@@ -4,6 +4,8 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-07
+
 ### Changed
 
 - build(client): bump muse to v0.14.1. The avatar in the top bar opens muse's `UserMenu` (Account, Calendar, Spaces, Calendars and members, Settings, Language, Theme, Help, Sign out) in place of the bits-ui dropdown. The language and theme picks are persisted (cookie and `agenda.theme`).
