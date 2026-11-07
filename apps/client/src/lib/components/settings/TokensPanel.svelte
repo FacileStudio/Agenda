@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { TokensSection, type TokenItem, toast } from '@facile/muse';
+	import { TokensSection, type TokenDraft, type TokenItem, toast } from '@facile/muse';
 	import { backend, type ApiTokenStatus } from '$lib/backend';
 	import { t } from '$lib/i18n/index.svelte';
 
@@ -18,7 +18,7 @@
 		}
 	});
 
-	async function createToken(draft: { name: string }) {
+	async function createToken(draft: Omit<TokenDraft, 'days'>) {
 		const wasReplacing = Boolean(apiToken?.has_token);
 		const created = await backend.createApiToken(draft.name || 'CalDAV');
 		apiToken = { has_token: true, name: created.name, created_at: created.created_at };
@@ -38,4 +38,4 @@
 	}
 </script>
 
-<TokensSection {tokens} onCreate={createToken} onRevoke={revokeToken} description={t('api.tokenText')} />
+<TokensSection {tokens} expiry={false} lastUsed={false} onCreate={createToken} onRevoke={revokeToken} description={t('api.tokenText')} />

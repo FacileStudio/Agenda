@@ -71,6 +71,7 @@
 			{ label: t('menu.members'), icon: icons.usersGroup, href: '/settings/members' }
 		],
 		settingsHref: '/settings',
+		subscription: { plan: '', href: 'https://sso.facile.studio/spaces' },
 		helpHref: 'https://github.com/FacileStudio/Agenda/tree/main/docs',
 		onSignOut: signOut,
 		onLocaleChange: rememberLocale,
