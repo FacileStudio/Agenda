@@ -171,13 +171,13 @@
 <div class="flex h-full flex-col overflow-hidden">
 	<div class="flex-1 overflow-y-auto">
 	<!-- Header: day labels + all-day spanning events -->
-	<div class="sticky top-0 z-20 border-b border-border bg-background">
+	<div class="sticky top-0 z-20 bg-fc-page pb-1">
 		<div class="flex">
-			<div class="w-12 shrink-0 border-r border-border"></div>
+			<div class="w-12 shrink-0"></div>
 			<div class="grid flex-1 grid-cols-7">
 				{#each weekDays() as day, di (day.toString())}
 					<div
-						class="flex items-center justify-center gap-1 border-r border-border py-1 text-xs last:border-r-0
+						class="flex items-center justify-center gap-1 py-1 text-xs
 							{isToday(day) ? 'font-semibold text-foreground' : 'text-muted-foreground'}"
 					>
 						{weekdayName(di, 'short')}
@@ -193,8 +193,8 @@
 		</div>
 
 		{#if allDaySegments().length > 0}
-			<div class="flex border-t border-border">
-				<div class="w-12 shrink-0 border-r border-border"></div>
+			<div class="flex">
+				<div class="w-12 shrink-0"></div>
 				<div class="relative flex-1" style="height: {allDayLanes() * LANE_HEIGHT + 4}px;">
 					{#each allDaySegments() as seg}
 						{@const lPad = seg.continuesLeft ? 0 : 2}
@@ -226,7 +226,7 @@
 
 	<!-- Time grid -->
 		<div class="flex" style="height: {24 * SLOT_HEIGHT}px;">
-			<div class="relative w-12 shrink-0 border-r border-border">
+			<div class="relative w-12 shrink-0">
 				{#each HOURS as hour}
 					<div
 						class="absolute left-0 right-0 pr-1 text-right text-xs text-muted-foreground"
@@ -238,12 +238,12 @@
 			</div>
 
 			{#each weekDays() as day, di (day.toString())}
-				<div class="relative flex-1 border-r border-border last:border-r-0">
+				<div class="relative mx-0.5 flex-1 overflow-hidden rounded-fc-md bg-fc-surface">
 					{#each HOURS as hour}
 						<button
 							type="button"
 							aria-label={t('calendar.createAt', { time: formatTime(new Date(2000, 0, 1, hour)) })}
-							class="absolute right-0 left-0 cursor-pointer border-b border-dashed border-border transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+							class="absolute right-0 left-0 cursor-pointer transition-colors hover:bg-fc-field focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring {hour % 2 === 1 ? 'bg-fc-field/50' : ''}"
 							style="top: {hour * SLOT_HEIGHT}px; height: {SLOT_HEIGHT}px;"
 							onclick={() => onSlotClick(day, hour)}
 						></button>

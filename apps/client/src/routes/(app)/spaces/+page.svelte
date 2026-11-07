@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { Button } from '$lib/components/ui/button';
+	import { Button } from '@facile/muse';
 	import { backend, registreSpaceUrl, type SpaceItem } from '$lib/backend';
 	import { t } from '$lib/i18n/index.svelte';
 
@@ -53,8 +53,7 @@
 					{t('spaces.subtitle')}
 				</p>
 			</div>
-			<Button href={registreSpaceUrl()} target="_blank" rel="noopener" class="shrink-0 cursor-pointer gap-2 self-start sm:self-auto">
-				<iconify-icon icon="solar:square-top-down-linear" width="16"></iconify-icon>
+			<Button href={registreSpaceUrl()} target="_blank" rel="noopener" icon="solar:square-top-down-linear" class="shrink-0 self-start sm:self-auto">
 				{t('common.manageInRegistre')}
 			</Button>
 		</div>
@@ -69,8 +68,7 @@
 			<div class="flex flex-col items-center justify-center py-16 text-center">
 				<iconify-icon icon="solar:share-circle-bold-duotone" width="48" class="text-muted-foreground/50"></iconify-icon>
 				<p class="mt-4 text-sm text-muted-foreground">{t('spaces.empty')}</p>
-				<Button href={registreSpaceUrl()} target="_blank" rel="noopener" variant="outline" class="mt-4 cursor-pointer gap-2">
-					<iconify-icon icon="solar:square-top-down-linear" width="16"></iconify-icon>
+				<Button href={registreSpaceUrl()} target="_blank" rel="noopener" variant="outline" icon="solar:square-top-down-linear" class="mt-4">
 					{t('spaces.create')}
 				</Button>
 			</div>

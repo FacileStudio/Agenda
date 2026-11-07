@@ -120,7 +120,7 @@
 				<button
 					type="button"
 					aria-label={t('calendar.createAt', { time: formatTime(new Date(2000, 0, 1, hour)) })}
-					class="absolute right-0 left-0 cursor-pointer border-b border-dashed border-border transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+					class="absolute right-0 left-0 cursor-pointer transition-colors hover:bg-fc-field focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring {hour % 2 === 1 ? 'bg-fc-surface' : ''}"
 					style="top: {hour * SLOT_HEIGHT_PX}px; height: {SLOT_HEIGHT_PX}px;"
 					onclick={() => onSlotClick(hour)}
 				>

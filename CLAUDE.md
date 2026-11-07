@@ -7,7 +7,7 @@ Self-hosted calendar for creative studios. Part of the Facile Suite.
 | Layer    | Stack                                                        |
 | -------- | ------------------------------------------------------------ |
 | API      | Go 1.24, Chi router, GORM, PostgreSQL 16                    |
-| Client   | SvelteKit 5 (Svelte 5 runes), Tailwind CSS 4, shadcn-svelte |
+| Client   | SvelteKit 5 (Svelte 5 runes), Tailwind CSS 4, muse        |
 | Build    | `go build -mod=vendor`, Bun                                 |
 | Deploy   | Docker Compose (single container: distroless Go binary)      |
 | Auth     | Sign-in through Registre (OIDC) only; API tokens over HTTP Basic Auth for CalDAV clients |
@@ -40,7 +40,7 @@ apps/
         login/            Login page
       lib/
         backend.ts        API client (fetch wrapper)
-        components/       App components + shadcn-svelte ui/ primitives
+        components/       App components (UI primitives come from @facile/muse)
 ```
 
 ## Commands
@@ -135,7 +135,7 @@ the root because their URLs are held outside this repo:
 - **Go modules are vendored, with a patched go-webdav** — never run plain `go mod vendor`: add the require and go.sum lines by hand and copy the new package into `vendor/` plus `vendor/modules.txt`
 - **Migrations run on startup** via `schemas.Migrate(db)`
 - **Svelte 5 runes** enforced (`$state`, `$props`, `$derived`, `$effect`)
-- **shadcn-svelte** for UI primitives in `src/lib/components/ui/`
+- **@facile/muse** for UI primitives
 - **CalDAV sync token** — stored per calendar, bumped on every event create/update/delete
 - **Spaces belong to Registre** — `modules/spaces` imports once, then applies Registre snapshots; Agenda has no space write endpoints and the UI links to `https://sso.facile.studio/spaces`
 - **One calendar per space** — `schemas.SyncSpaceCalendars` (run by `Migrate` and after every Registre snapshot) gives each space exactly one calendar, named after it and pinned by the partial unique index `idx_calendars_one_per_space`; extra or orphaned space calendars are handed back to their owner as personal ones. Access to a space's calendar is space membership alone (owner/admin → admin, member → writer), resolved by `schemas.CalendarRoleExpr`, which calendars, events and CalDAV all share. Only personal calendars are created, deleted or shared one by one

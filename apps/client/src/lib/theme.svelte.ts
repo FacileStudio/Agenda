@@ -37,9 +37,8 @@ class ThemeState {
 	 * Sets both classes, never just `dark`. muse paints dark from
 	 * `@media (prefers-color-scheme: dark)` scoped to `:root:not(.light)`, so on a
 	 * dark-preferring OS removing `dark` is not enough to get light back — only an
-	 * explicit `light` class escapes the media block. Agenda additionally has 41
-	 * `dark:` Tailwind utilities that only fire off an explicit `.dark` class, so an
-	 * explicit class must always be present — never leave both off.
+	 * explicit `light` class escapes the media block. The app keeps an
+	 * explicit class at all times so `readTheme` reports the resolved scheme.
 	 */
 	private apply() {
 		if (!browser) return;

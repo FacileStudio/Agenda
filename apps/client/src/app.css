@@ -1,7 +1,5 @@
 @import '@facile/muse/styles';
 @source '../node_modules/@facile/muse/src';
-@import 'tw-animate-css';
-@import 'shadcn-svelte/tailwind.css';
 
 @theme inline {
 	--color-background: var(--color-fc-page);
@@ -18,8 +16,6 @@
 	--color-muted-foreground: var(--color-fc-fg-muted);
 	--color-accent: var(--color-fc-surface);
 	--color-accent-foreground: var(--color-fc-fg);
-	--color-border: var(--color-fc-border);
-	--color-input: var(--color-fc-border);
 	--color-ring: var(--color-fc-ring);
 	--color-destructive: var(--color-fc-danger);
 	--color-destructive-foreground: var(--color-fc-danger-fg);
@@ -29,7 +25,6 @@
 	--color-sidebar-primary-foreground: var(--color-fc-accent-fg);
 	--color-sidebar-accent: var(--color-fc-surface);
 	--color-sidebar-accent-foreground: var(--color-fc-fg);
-	--color-sidebar-border: var(--color-fc-border);
 	--color-sidebar-ring: var(--color-fc-ring);
 	--font-sans: var(--font-fc-body);
 	--font-heading: var(--font-fc-title);

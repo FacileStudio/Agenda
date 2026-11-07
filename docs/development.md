@@ -182,7 +182,7 @@ vendor tree by hand:
 
 ## Conventions
 
-- Svelte 5 runes only. UI primitives come from shadcn-svelte in `src/lib/components/ui/`.
+- Svelte 5 runes only. UI primitives come from `@facile/muse`.
 - Each API module keeps the same layout: `router.go` wires paths, `controller.go` decodes
   and shapes, `service.go` holds the logic and GORM calls, `types.go` holds the request and
   response structs.

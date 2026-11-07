@@ -25,7 +25,7 @@ Live at [agenda.facile.studio](https://agenda.facile.studio).
 |---|---|
 | API | Go 1.24, Chi v5, GORM, PostgreSQL 16, [tronc](https://github.com/FacileStudio/tronc) v0.6.0 |
 | CalDAV | go-webdav v0.7.0 (vendored and patched), go-ical |
-| Client | SvelteKit 5 (runes), Tailwind CSS 4, shadcn-svelte, bits-ui |
+| Client | SvelteKit 5 (runes), Tailwind CSS 4, muse |
 | Deploy | Docker Compose, one distroless container behind Traefik |
 
 ## Quick start

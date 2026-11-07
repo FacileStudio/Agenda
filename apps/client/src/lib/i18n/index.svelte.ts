@@ -19,9 +19,9 @@ function cookieLocale(): string | null {
 	return found ? decodeURIComponent(found.slice(prefix.length)) : null;
 }
 
-/** The locale source for `provideLocale`: session, then the picked cookie, then the browser. */
+/** The locale source for `provideLocale`: the picked cookie, then the session, then the browser. */
 export function localeSource(): string | null {
-	return session.locale ?? cookieLocale() ?? (browser ? navigator.language : null);
+	return cookieLocale() ?? session.locale ?? (browser ? navigator.language : null);
 }
 
 /** Persists the locale picked on a session-less page for the next visit. */

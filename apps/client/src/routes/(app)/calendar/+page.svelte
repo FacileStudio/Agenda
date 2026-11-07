@@ -9,20 +9,24 @@
 		startOfWeek,
 		endOfWeek
 	} from '@internationalized/date';
-	import { Button, IconButton, Spinner, icons } from '@facile/muse';
+	import { Button, IconButton, Spinner, UserMenu, icons, type UserMenuOptions } from '@facile/muse';
 	import { backend, type CalendarItem, type AgendaEvent, type CreateEventRequest } from '$lib/backend';
 	import CalendarMonthView from '$lib/components/CalendarMonthView.svelte';
 	import CalendarWeekView from '$lib/components/CalendarWeekView.svelte';
 	import CalendarDayView from '$lib/components/CalendarDayView.svelte';
 	import CalendarAgendaView from '$lib/components/CalendarAgendaView.svelte';
 	import EventModal from '$lib/components/EventModal.svelte';
-	import UserMenu from '$lib/components/UserMenu.svelte';
 	import CalendarFilter from '$lib/components/CalendarFilter.svelte';
 	import { calendarFilter, visibleCalendars } from '$lib/calendar-filter.svelte';
 	import { MONDAY_FIRST, t } from '$lib/i18n/index.svelte';
 	import { capitalize, formatDate } from '$lib/i18n/format';
 
-	type AppContext = { calendars: CalendarItem[]; user: { id: string; email: string; name: string } };
+	type AppContext = {
+		calendars: CalendarItem[];
+		user: { id: string; email: string; name: string };
+		navUser: { name: string; email: string; avatar?: string };
+		userMenu: UserMenuOptions;
+	};
 	const app = getContext<AppContext>('app');
 
 	type ViewType = 'month' | 'week' | 'day' | 'agenda';
@@ -193,7 +197,7 @@
 <div class="flex h-full flex-col">
 	<header class="flex shrink-0 flex-col gap-2 px-3 pt-3 pb-2 sm:px-5">
 		<div class="flex flex-wrap items-center gap-2 sm:gap-3">
-			<UserMenu />
+			<UserMenu user={app.navUser} trigger="avatar" {...app.userMenu} />
 
 			<CalendarFilter calendars={app.calendars} />
 

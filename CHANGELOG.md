@@ -4,6 +4,19 @@ All notable changes to Agenda are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- build(client): bump muse to v0.14.1. The avatar in the top bar opens muse's `UserMenu` (Account, Calendar, Spaces, Calendars and members, Settings, Language, Theme, Help, Sign out) in place of the bits-ui dropdown. The language and theme picks are persisted (cookie and `agenda.theme`).
+- Settings use muse's `SettingsLayout` in the canonical order: Profile, Preferences, Notifications, CalDAV, Members, API tokens, Advanced. Profile is read-only with "Manage on Facile"; Preferences replaces Appearance; the danger zone ends Advanced; the sign-out button left the settings (it lives in the user menu).
+- API tokens use muse's `TokensSection`. The CalDAV connection details and client instructions moved to a CalDAV section. The token API calls are unchanged: Agenda still keeps one non-expiring token per account, so the expiry choice in the create drawer is not enforced.
+- The calendar views drop their grid borders for muse fills (month cells, week columns, alternating hour bands).
+- The language picked in the menu (or on the login page) now wins over the Registre profile locale on the next load.
+- `/settings/appearance` redirects to `/settings/preferences` and `/settings/api` to `/settings/caldav`.
+
+### Removed
+
+- The shadcn-svelte leftovers: `components/ui/`, `components.json`, `UserMenu.svelte`, and the `bits-ui`, `shadcn-svelte`, `vaul-svelte`, `svelte-sonner`, `lucide`, `tailwind-variants`, `tw-animate-css`, `clsx`, `tailwind-merge` and `class-variance-authority` dependencies. Toasts, the calendar filter menu and the spaces buttons use muse.
+
 ## [0.12.1] - 2026-11-07
 
 ### Changed
