@@ -119,7 +119,7 @@ the root because their URLs are held outside this repo:
 - `APP_ENV` — `development` (default), `staging`, `production`
 - `PORT` — API port (default `4000`)
 - `LOG_LEVEL` — `debug`, `info`, `warn`, `error`
-- `APP_VERSION` — Build arg (set it in the Dokploy env at each release); `GET /version` answers it
+- `GET /version` answers `v` plus the version in `apps/client/package.json`, baked at build time by `scripts/version.sh`; no env is involved.
 - `STORAGE_DIR` — File storage for avatars (default `./data`)
 - `CLIENT_DIR` — Static SvelteKit build served by the binary
 - `ENCRYPTION_KEY` — Optional, encrypts OIDC tokens at rest

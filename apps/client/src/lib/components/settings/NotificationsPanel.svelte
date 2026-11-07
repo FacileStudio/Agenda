@@ -27,13 +27,13 @@
 
 	<SettingsSection title={t('notifications.where')} description={t('notifications.whereText')}>
 		{#snippet actions()}
-			<Button variant="outline" href="/settings/caldav" icon={icons.server}>
+			<Button variant="secondary" href="/settings/caldav" icon={icons.server}>
 				{t('notifications.caldavButton')}
 			</Button>
 		{/snippet}
 
 		<SettingsRow label={t('notifications.sharing')} description={t('notifications.sharingText')}>
-			<Button variant="outline" href="/settings/members" icon={icons.usersGroup}>
+			<Button variant="secondary" href="/settings/members" icon={icons.usersGroup}>
 				{t('notifications.sharingButton')}
 			</Button>
 		</SettingsRow>

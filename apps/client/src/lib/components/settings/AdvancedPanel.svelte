@@ -89,17 +89,17 @@
 		</SettingsRow>
 
 		<SettingsRow label={t('advanced.export')} description={t('advanced.exportText')}>
-			<Button variant="outline" href="/settings/caldav" icon={icons.download}>
+			<Button variant="secondary" href="/settings/caldav" icon={icons.download}>
 				{t('advanced.connect')}
 			</Button>
 		</SettingsRow>
 	</SettingsSection>
 
 	<DangerZone title={t('advanced.danger')} description={t('advanced.dangerAlert')}>
-		<Button variant="outline" href="/settings/members" icon={icons.calendar}>
+		<Button variant="secondary" href="/settings/members" icon={icons.calendar}>
 			{t('advanced.openCalendars')}
 		</Button>
-		<Button variant="outline" href="/settings/tokens" icon={icons.key}>{t('advanced.openApi')}</Button>
+		<Button variant="secondary" href="/settings/tokens" icon={icons.key}>{t('advanced.openApi')}</Button>
 		<Button
 			variant="ghost-danger"
 			href={registreSpaceUrl()}

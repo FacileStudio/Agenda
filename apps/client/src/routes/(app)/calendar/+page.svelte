@@ -251,7 +251,7 @@
 
 			{#if !showsToday}
 				<Button
-					variant="outline"
+					variant="secondary"
 					size="sm"
 					icon="solar:calendar-minimalistic-linear"
 					class="shrink-0"

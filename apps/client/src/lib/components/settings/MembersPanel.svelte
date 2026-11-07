@@ -135,14 +135,14 @@
 		description={t('members.spacesText')}
 	>
 		{#snippet actions()}
-			<Button variant="outline" href="/spaces" icon={icons.space}>{t('members.allSpaces')}</Button>
+			<Button variant="secondary" href="/spaces" icon={icons.space}>{t('members.allSpaces')}</Button>
 		{/snippet}
 
 		<SettingsRow
 			label={t('members.spaceRow')}
 			description={t('members.spaceRowText')}
 		>
-			<Button variant="outline" href="/spaces" icon={icons.usersGroup}>{t('members.seeSpaces')}</Button>
+			<Button variant="secondary" href="/spaces" icon={icons.usersGroup}>{t('members.seeSpaces')}</Button>
 		</SettingsRow>
 	</SettingsSection>
 </div>

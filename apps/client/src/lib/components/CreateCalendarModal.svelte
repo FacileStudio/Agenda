@@ -75,7 +75,7 @@
 
 	{#snippet footer()}
 		<div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-			<Button variant="outline" class="w-full sm:w-auto" onclick={() => (open = false)} disabled={saving}>
+			<Button variant="secondary" class="w-full sm:w-auto" onclick={() => (open = false)} disabled={saving}>
 				{t('common.cancel')}
 			</Button>
 			<Button

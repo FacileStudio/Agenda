@@ -89,7 +89,7 @@
 						href={registreSpaceUrl(space.registre_space_id)}
 						target="_blank"
 						rel="noopener"
-						variant="outline"
+						variant="secondary"
 						icon="solar:square-top-down-linear"
 					>
 						{canManage ? t('common.manageInRegistre') : t('spaces.viewInRegistre')}
@@ -128,7 +128,7 @@
 								href={registreSpaceUrl(space.registre_space_id)}
 								target="_blank"
 								rel="noopener"
-								variant="outline"
+								variant="secondary"
 								size="sm"
 								icon="solar:users-group-rounded-linear"
 							>

@@ -68,7 +68,7 @@
 			<div class="flex flex-col items-center justify-center py-16 text-center">
 				<iconify-icon icon="solar:share-circle-bold-duotone" width="48" class="text-muted-foreground/50"></iconify-icon>
 				<p class="mt-4 text-sm text-muted-foreground">{t('spaces.empty')}</p>
-				<Button href={registreSpaceUrl()} target="_blank" rel="noopener" variant="outline" icon="solar:square-top-down-linear" class="mt-4">
+				<Button href={registreSpaceUrl()} target="_blank" rel="noopener" variant="secondary" icon="solar:square-top-down-linear" class="mt-4">
 					{t('spaces.create')}
 				</Button>
 			</div>
