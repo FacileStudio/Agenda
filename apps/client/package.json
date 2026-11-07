@@ -26,7 +26,7 @@
 		"vite": "^7.3.1"
 	},
 	"dependencies": {
-		"@facile/muse": "github:FacileStudio/muse#v0.14.4",
+		"@facile/muse": "github:FacileStudio/muse#v0.16.1",
 		"@iconify-json/solar": "^1.2.5",
 		"iconify-icon": "^3.0.2"
 	}

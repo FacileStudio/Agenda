@@ -365,7 +365,7 @@
 					</div>
 				{:else}
 					<Button
-						variant="outline"
+						variant="secondary"
 						icon="solar:videocamera-record-linear"
 						class="w-full justify-start"
 						onclick={toggleConference}
@@ -427,7 +427,7 @@
 			{/if}
 			<div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
 				<Button
-					variant="outline"
+					variant="secondary"
 					class="w-full sm:w-auto"
 					onclick={() => (open = false)}
 					disabled={saving || deleting}

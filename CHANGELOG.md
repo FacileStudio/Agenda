@@ -2,6 +2,13 @@
 
 All notable changes to Agenda are documented here.
 
+## [Unreleased]
+
+### Changed
+
+- build(client): bump muse to v0.16.1 and replace the deprecated `outline` button variant with `secondary`. Checkbox, Radio and Switch keep their 44px touch target.
+- build: `GET /version` is baked at build time from `apps/client/package.json` by `scripts/version.sh`. The `APP_VERSION` build arg is gone from the Dockerfile and compose file, so a stale Dokploy env can no longer show the wrong version. The response is unchanged (`v` plus the version).
+
 ## [0.13.3] - 2026-11-07
 
 ### Changed

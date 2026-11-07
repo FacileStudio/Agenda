@@ -18,8 +18,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        APP_VERSION: ${APP_VERSION:-dev}
     restart: unless-stopped
     env_file: .env
     expose:

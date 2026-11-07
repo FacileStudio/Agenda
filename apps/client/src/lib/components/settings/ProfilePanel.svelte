@@ -32,7 +32,7 @@
 <ProfileSection name={displayName} email={app.user?.email} avatar={app.user?.avatar_url || undefined}>
 	{#snippet actions()}
 		{#if app.user?.avatar_source}
-			<Button variant="outline" icon={icons.refresh} disabled={syncing} onclick={syncProfile}>
+			<Button variant="secondary" icon={icons.refresh} disabled={syncing} onclick={syncProfile}>
 				{syncing ? t('profile.syncing') : t('profile.sync')}
 			</Button>
 		{/if}

@@ -84,7 +84,7 @@
 		</SettingsRow>
 
 		<SettingsRow label={t('api.password')} description={t('api.passwordText')}>
-			<Button variant="outline" href="/settings/tokens" icon={icons.key}>{t('api.tokenRequired')}</Button>
+			<Button variant="secondary" href="/settings/tokens" icon={icons.key}>{t('api.tokenRequired')}</Button>
 		</SettingsRow>
 	</SettingsSection>
 
