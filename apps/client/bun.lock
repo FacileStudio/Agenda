@@ -5,7 +5,7 @@
     "": {
       "name": "agenda-client",
       "dependencies": {
-        "@facile/muse": "github:FacileStudio/muse#v0.14.2",
+        "@facile/muse": "github:FacileStudio/muse#v0.14.4",
         "@iconify-json/solar": "^1.2.5",
         "iconify-icon": "^3.0.2",
       },
@@ -77,7 +77,7 @@
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.27.7", "", { "os": "win32", "cpu": "x64" }, "sha512-56hiAJPhwQ1R4i+21FVF7V8kSD5zZTdHcVuRFMW0hn753vVfQN8xlx4uOPT4xoGH0Z/oVATuR82AiqSTDIpaHg=="],
 
-    "@facile/muse": ["@facile/muse@github:FacileStudio/muse#69aca01", { "dependencies": { "gsap": "^3.13.0", "tailwind-merge": "^3.5.0" }, "peerDependencies": { "svelte": "^5.0.0", "tailwindcss": "^4.0.0" } }, "FacileStudio-muse-69aca01", "sha512-wgh+j+Hg+VwxPo0r8kPfbxsCTIkcCXX6y6L5G8YICC4VcXnY8VHJAaQBQEsY+wJNs5om//cLxO8E/BqSfzZxcA=="],
+    "@facile/muse": ["@facile/muse@github:FacileStudio/muse#dd8011c", { "dependencies": { "gsap": "^3.13.0", "tailwind-merge": "^3.5.0" }, "peerDependencies": { "svelte": "^5.0.0", "tailwindcss": "^4.0.0" } }, "FacileStudio-muse-dd8011c", "sha512-L4rm6ojsizFQmuWqBXs2hg0QULKa6DtqA3gSH1d74ayMK68tvwVsXeG8IQ4XhPWqzeNiIE/q+DyLy7EIUTqV/g=="],
 
     "@fontsource-variable/inter": ["@fontsource-variable/inter@5.2.8", "", {}, "sha512-kOfP2D+ykbcX/P3IFnokOhVRNoTozo5/JxhAIVYLpea/UBmCQ/YWPBfWIDuBImXX/15KH+eKh4xpEUyS2sQQGQ=="],
 
