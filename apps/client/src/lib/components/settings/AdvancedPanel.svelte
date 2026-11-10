@@ -18,7 +18,7 @@
 	let encryptionKeySet = $state(false);
 	let settingsLoaded = $state(false);
 
-	const serverOrigin = $derived(backend.baseUrl || (browser ? window.location.origin : ''));
+	const serverOrigin = browser ? window.location.origin : '';
 	const davEndpoint = $derived(`${serverOrigin}/dav/`);
 
 	onMount(async () => {

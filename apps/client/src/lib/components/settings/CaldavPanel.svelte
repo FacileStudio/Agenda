@@ -7,7 +7,7 @@
 
 	const app = getContext<{ user: UserProfile | null }>('app');
 
-	const serverOrigin = $derived(backend.baseUrl || (browser ? window.location.origin : ''));
+	const serverOrigin = browser ? window.location.origin : '';
 	const caldavPath = $derived(`/dav/${app.user?.email ?? ''}`);
 	const caldavUrl = $derived(`${serverOrigin}${caldavPath}`);
 	const serverHost = $derived(serverOrigin.replace(/^https?:\/\//, ''));

@@ -1,6 +1,11 @@
-import { describe, expect, test } from 'bun:test';
-import { ApiError, type BulleIdea, type IdeaRunResponse } from './backend';
-import { errorKey, isActive, runOf, safeHref, toIdea, toolLabel } from './ideas';
+import { describe, expect, mock, test } from 'bun:test';
+import type { BulleIdea, IdeaRunResponse } from './backend';
+
+mock.module('$app/environment', () => ({ browser: false }));
+mock.module('$app/navigation', () => ({ goto: async () => {} }));
+
+const { ApiError } = await import('./backend');
+const { errorKey, isActive, runOf, safeHref, toIdea, toolLabel } = await import('./ideas');
 
 const t = (key: string, params?: Record<string, string | number>) =>
 	params ? `${key}:${Object.values(params).join(',')}` : key;
@@ -80,8 +85,8 @@ describe('toIdea', () => {
 
 describe('errorKey and toolLabel', () => {
 	test('maps statuses to messages', () => {
-		expect(errorKey(new ApiError(429, 'x'))).toBe('ideas.error.capped');
-		expect(errorKey(new ApiError(412, 'x'))).toBe('ideas.error.notLinked');
+		expect(errorKey(new ApiError(429, '', 'x'))).toBe('ideas.error.capped');
+		expect(errorKey(new ApiError(412, '', 'x'))).toBe('ideas.error.notLinked');
 		expect(errorKey(new Error('x'))).toBe('ideas.error.unreachable');
 	});
 

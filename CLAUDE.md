@@ -39,7 +39,8 @@ apps/
         (app)/            Authenticated layout group (calendar, settings, profile)
         login/            Login page
       lib/
-        backend.ts        API client (fetch wrapper)
+        backend.ts        API client on @facile/client (relative /api, CSRF, 401 to /login)
+        theme.svelte.ts   @facile/client theme store under the agenda.theme key
         components/       App components (UI primitives come from @facile/muse)
 ```
 
@@ -69,7 +70,7 @@ go build -mod=vendor -o bin/api .
 
 ```sh
 bun install
-bun run dev                 # Dev server on :5173 (needs VITE_API_BASE_URL in .env)
+bun run dev                 # Dev server on :5173, proxying /api, /files and /dav to :4000
 bun run build
 bun run check
 ```

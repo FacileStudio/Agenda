@@ -113,7 +113,7 @@
 		invitations,
 		onSignOut: signOut,
 		onLocaleChange: rememberLocale,
-		theme: theme.preference,
+		theme: theme.mode,
 		onThemeChange: (next: ThemePreference) => theme.set(next)
 	});
 

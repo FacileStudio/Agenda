@@ -4,18 +4,14 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<script>
-			// Resolve the theme before first paint so the app never flashes light-on-dark.
-			// Both classes are set: muse paints dark from a media query scoped to
-			// `:root:not(.light)`, so only an explicit `light` forces light on a dark OS.
+			// Apply the stored choice before first paint, as @facile/client's theme store does
+			// after hydration: `.dark` or `.light` for an explicit choice, neither for system,
+			// which muse paints from `prefers-color-scheme` scoped to `:root:not(.light)`.
 			(function () {
 				try {
 					var stored = localStorage.getItem('agenda.theme');
-					var dark =
-						stored === 'dark' ||
-						((!stored || stored === 'system') &&
-							window.matchMedia('(prefers-color-scheme: dark)').matches);
-					document.documentElement.classList.toggle('dark', dark);
-					document.documentElement.classList.toggle('light', !dark);
+					document.documentElement.classList.toggle('dark', stored === 'dark');
+					document.documentElement.classList.toggle('light', stored === 'light');
 				} catch (e) {}
 			})();
 		</script>

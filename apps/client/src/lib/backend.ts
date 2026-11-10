@@ -1,5 +1,9 @@
-const backendBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') || '';
-const apiBaseUrl = `${backendBaseUrl}/api`;
+import { ApiError, createApi, redirectToLogin, type CallOptions } from '@facile/client';
+
+export { ApiError };
+
+const apiBaseUrl = '/api';
+const api = createApi({ base: apiBaseUrl, onUnauthorized: redirectToLogin });
 
 export type UserProfile = {
 	id: string;
@@ -107,10 +111,6 @@ export type ApiTokenCreated = {
 	created_at: string;
 };
 
-type ApiErrorPayload = {
-	error?: { message?: string; upgrade_url?: string };
-};
-
 /** The event a pending action would delete, as it is now. */
 export type PendingEvent = {
 	id: number;
@@ -141,18 +141,6 @@ export type InvitationsResponse = {
 	href?: string;
 };
 
-export class ApiError extends Error {
-	status: number;
-	upgradeUrl?: string;
-
-	constructor(status: number, message: string, upgradeUrl?: string) {
-		super(message);
-		this.name = 'ApiError';
-		this.status = status;
-		this.upgradeUrl = upgradeUrl;
-	}
-}
-
 export type BulleIdea = {
 	id: string;
 	kind: string;
@@ -181,7 +169,6 @@ export type IdeaRunResponse = {
 	continue_url: string;
 };
 
-// Methods that cannot change anything, and so do not need the CSRF header.
 export const REGISTRE_SPACES_URL = 'https://sso.facile.studio/spaces';
 
 /**
@@ -192,50 +179,21 @@ export function registreSpaceUrl(registreSpaceId = ''): string {
 	return registreSpaceId ? `${REGISTRE_SPACES_URL}/${encodeURIComponent(registreSpaceId)}` : REGISTRE_SPACES_URL;
 }
 
-const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-
-// porte authenticates the cookie in preference to the Authorization header,
-// and refuses a cookie-authenticated *mutating* request that does not carry
-// X-Facile-CSRF. Any non-empty value counts: the header's presence is the whole
-// signal, because a browser will not attach a custom header to a cross-site
-// form post. Without this every write returns 403 while every read succeeds,
-// which is a failure mode that looks like "the app is fine, saving is broken".
-function withCSRF(headers: Headers, method: string): Headers {
-	if (!SAFE_METHODS.has(method.toUpperCase())) {
-		headers.set('X-Facile-CSRF', '1');
-	}
-	return headers;
-}
-
 const spaceQuery = (spaceId: number | null): string => (spaceId === null ? '' : `?space_id=${spaceId}`);
 
-async function apiFetch<T>(path: string, options: RequestInit = {}) {
-	const headers = withCSRF(new Headers(options.headers), options.method ?? 'GET');
-	if (!headers.has('Content-Type') && options.body) {
-		headers.set('Content-Type', 'application/json');
-	}
-	const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers, credentials: 'include' });
-	if (!response.ok) {
-		let payload: ApiErrorPayload | undefined;
-		try {
-			payload = (await response.json()) as ApiErrorPayload;
-		} catch {
-			payload = undefined;
-		}
-		throw new ApiError(
-			response.status,
-			payload?.error?.message || `Request failed with status ${response.status}`,
-			response.status === 402 ? payload?.error?.upgrade_url : undefined
-		);
-	}
-	const text = await response.text();
-	return (text ? JSON.parse(text) : {}) as T;
+/**
+ * Calls the API through @facile/client's kernel: relative to /api, cookie only, CSRF header
+ * on mutations, the tronc error envelope as an ApiError, and a 401 sent to the login page
+ * unless the call is quiet. An empty answer reads as {}, as it always has here.
+ */
+async function apiFetch<T>(path: string, options: RequestInit = {}, call?: CallOptions): Promise<T> {
+	return ((await api<T>(path, options, call)) ?? {}) as T;
 }
 
 export function resolveFileUrl(path: string) {
 	if (!path) return '';
 	if (/^https?:\/\//.test(path)) return path;
-	return `${backendBaseUrl}${path.startsWith('/') ? path : `/${path}`}`;
+	return path.startsWith('/') ? path : `/${path}`;
 }
 
 function normalizeUser(user: UserProfile): UserProfile {
@@ -243,14 +201,13 @@ function normalizeUser(user: UserProfile): UserProfile {
 }
 
 export const backend = {
-	baseUrl: backendBaseUrl,
 	apiBaseUrl,
 
 	logout() {
 		return apiFetch<{ ok: boolean }>('/auth/logout', { method: 'POST' });
 	},
 	me() {
-		return apiFetch<MeResponse>('/users/me').then((r) => ({
+		return apiFetch<MeResponse>('/users/me', {}, { quiet: true }).then((r) => ({
 			user: normalizeUser(r.user)
 		}));
 	},

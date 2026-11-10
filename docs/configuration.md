@@ -167,8 +167,7 @@ same server so a stray `DATABASE_URL` inherited from your shell cannot short-cir
 
 ## Client
 
-`apps/client/src/lib/backend.ts` reads `VITE_API_BASE_URL` at build time, strips any
-trailing slash, and falls back to the empty string — meaning same-origin. The production
-image never sets it, because the Go binary serves the SPA. In development,
-`apps/client/.env.example` sets it to `http://localhost:4000`, and the API then needs
-`http://localhost:5173` in its CORS origin list.
+The client has no build-time configuration. `apps/client/src/lib/backend.ts` calls `/api`
+relative to the page through `@facile/client`, because the Go binary serves the SPA from
+the same origin. In development Vite proxies `/api`, `/files` and `/dav` to the API on
+`:4000`.

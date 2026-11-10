@@ -76,14 +76,12 @@ The client, in another terminal:
 mise run client
 ```
 
-The client is the half of this repo that *does* read a `.env` — `apps/client/.env.example`
-is real, and `VITE_API_BASE_URL` is read by Vite at build time, not by the Go binary, so it
-stays on disk rather than moving into Casier.
+The client reads no environment. It calls `/api`, relative, always, through
+`@facile/client`'s `createApi` (`apps/client/src/lib/backend.ts`).
 
-The API listens on `:4000` and the client on `:5173`. There is no Vite proxy here: the
-client calls the API cross-origin at `VITE_API_BASE_URL`, which is why the API needs the
-dev origin in its CORS list. CORS is configured with `AllowCredentials: true` so the
-session cookie survives the hop.
+The API listens on `:4000` and the client on `:5173`. Vite proxies `/api`, `/files` and
+`/dav` to `http://127.0.0.1:4000` (`apps/client/vite.config.ts`), so development takes the
+same same-origin path as production and needs no CORS origin.
 
 Migrations run automatically at startup via `schemas.Migrate`. There is no separate
 migration tool and no migration files.

@@ -5,7 +5,7 @@
 </script>
 
 <PreferencesSection
-	theme={theme.preference}
+	theme={theme.mode}
 	onThemeChange={(next) => theme.set(next as ThemePreference)}
 	onLocaleChange={rememberLocale}
 />

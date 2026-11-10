@@ -54,8 +54,8 @@ configuration from the process environment only, which is exactly what `casier r
 supplies. `mise run dev-offline` runs from the cached values. See
 [docs/development.md](docs/development.md).
 
-The client calls the API cross-origin at `VITE_API_BASE_URL`, so `CORS_ALLOWED_ORIGINS`
-carries the dev origin in Casier's `dev` environment.
+The client calls `/api` relative to the page; in development Vite proxies it to the API on
+`:4000`.
 
 ## Configuration
 
