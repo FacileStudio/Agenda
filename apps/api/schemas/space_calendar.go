@@ -12,11 +12,12 @@ const SpaceCalendarColor = "#8b5cf6"
 // the same space, is handed back to its owner as a personal calendar: its
 // events and shares stay where they are, and nothing is deleted. The space
 // keeps its oldest calendar, which then takes the space's name, and events
-// copy their calendar's space. The partial unique index pins the invariant
-// for every later write. It is idempotent.
+// copy their calendar's space. The partial unique index
+// idx_calendars_one_per_space, created by the baseline migration, pins the
+// invariant for every later write. It is idempotent.
 func SyncSpaceCalendars(db *gorm.DB) error {
 	return db.Transaction(func(tx *gorm.DB) error {
-		for _, stmt := range []string{detachOrphans, detachExtras, createMissing, followNames, followEvents, uniquePerSpace} {
+		for _, stmt := range []string{detachOrphans, detachExtras, createMissing, followNames, followEvents} {
 			if err := tx.Exec(stmt).Error; err != nil {
 				return err
 			}
@@ -41,6 +42,4 @@ const (
 	 FROM spaces s WHERE c.space_id = s.id AND c.name <> s.name`
 	followEvents = `UPDATE events e SET space_id = c.space_id
 	 FROM calendars c WHERE e.calendar_id = c.id AND e.space_id IS DISTINCT FROM c.space_id`
-	uniquePerSpace = `CREATE UNIQUE INDEX IF NOT EXISTS idx_calendars_one_per_space ON calendars (space_id)
-	 WHERE space_id IS NOT NULL`
 )

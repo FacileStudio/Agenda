@@ -19,6 +19,7 @@ import (
 	"github.com/FacileStudio/Agenda/apps/api/internal/env"
 	"github.com/FacileStudio/Agenda/apps/api/internal/middleware"
 	"github.com/FacileStudio/Agenda/apps/api/internal/pool"
+	"github.com/FacileStudio/Agenda/apps/api/migrations"
 	"github.com/FacileStudio/Agenda/apps/api/modules/auth"
 	"github.com/FacileStudio/Agenda/apps/api/modules/caldav"
 	"github.com/FacileStudio/Agenda/apps/api/modules/calendars"
@@ -37,6 +38,7 @@ import (
 	"github.com/FacileStudio/tronc/httpx"
 	"github.com/FacileStudio/tronc/logger"
 	troncmiddleware "github.com/FacileStudio/tronc/middleware"
+	"github.com/FacileStudio/tronc/migrate"
 	"github.com/FacileStudio/tronc/spa"
 
 	"github.com/FacileStudio/porte"
@@ -94,7 +96,26 @@ func run() int {
 		return 1
 	}
 
-	if err := schemas.MigrateWithIssuer(db, appEnv.IssuerForMigration()); err != nil {
+	sqlDB, err := db.DB()
+	if err != nil {
+		appLogger.Error("failed to access database handle", slog.Any("error", err))
+		return 1
+	}
+	defer func() {
+		if err := sqlDB.Close(); err != nil {
+			appLogger.Error("failed to close database", slog.Any("error", err))
+		}
+	}()
+
+	if handled, err := migrate.Command(context.Background(), os.Args, migrations.Config(sqlDB, appLogger)); handled {
+		if err != nil {
+			appLogger.Error("migrate", slog.Any("error", err))
+			return 1
+		}
+		return 0
+	}
+
+	if err := schemas.MigrateWithIssuer(context.Background(), db, appEnv.IssuerForMigration(), appLogger); err != nil {
 		appLogger.Error("failed to run migrations", slog.Any("error", err))
 		return 1
 	}
@@ -109,17 +130,6 @@ func run() int {
 		appLogger.Error("failed to prepare storage", slog.Any("error", err))
 		return 1
 	}
-
-	sqlDB, err := db.DB()
-	if err != nil {
-		appLogger.Error("failed to access database handle", slog.Any("error", err))
-		return 1
-	}
-	defer func() {
-		if err := sqlDB.Close(); err != nil {
-			appLogger.Error("failed to close database", slog.Any("error", err))
-		}
-	}()
 
 	porteAuth, err := buildAuth(context.Background(), sqlDB, appEnv, appLogger)
 	if err != nil {

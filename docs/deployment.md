@@ -128,9 +128,19 @@ that several apps shipped for a while posted into a 404 and dropped every line s
 
 ## Migrations
 
-There is no migration step to run. `schemas.Migrate` executes on every boot as a single
-GORM `AutoMigrate` over the ten models. A failure aborts startup and the container exits 1,
-which Dokploy surfaces as a failed deploy.
+There is no migration step to run. The binary applies the pending files under
+`apps/api/migrations/` at every boot, holding a Postgres advisory lock, then runs the
+idempotent data steps in `schemas.Reconcile`. A failure aborts startup and the container
+exits 1, which Dokploy surfaces as a failed deploy.
+
+A database built before v0.17.0 (Agenda's tables, no `goose_db_version`) is stamped at the
+baseline on its first boot: tronc/migrate's `baseline 1` records version 1 as applied without
+running it, then the later migrations run. The image answers the subcommands without a shell:
+
+```sh
+docker run --rm -e DATABASE_URL=... <image> migrate status
+docker run --rm -e DATABASE_URL=... <image> migrate up
+```
 
 `crypto.MigrateOIDCTokens` runs right after, but only when `ENCRYPTION_KEY` is set. It is
 best-effort: a failure logs a warning and startup continues.

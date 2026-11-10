@@ -1,60 +1,49 @@
 package schemas
 
 import (
-	"github.com/FacileStudio/tronc/mcp"
+	"context"
+	"log/slog"
+
+	"github.com/FacileStudio/Agenda/apps/api/migrations"
 	"gorm.io/gorm"
 )
 
-// Migrate brings the schema up to date and then hands authentication to
-// porte. AdoptPorte runs last because it repoints foreign keys at users(id)
-// and reads the columns AutoMigrate has just guaranteed exist.
+// Migrate applies the migrations and then the boot data steps, with no OIDC
+// issuer. The tests build their schemas through it, so they run exactly the
+// SQL production runs.
 func Migrate(db *gorm.DB) error {
-	return MigrateWithIssuer(db, "")
+	return MigrateWithIssuer(context.Background(), db, "", slog.Default())
 }
 
-// MigrateWithIssuer is Migrate with the OIDC issuer, which the identity
-// backfill needs: porte matches an account on (provider, subject) and the
-// provider is the issuer, so backfilling with a placeholder would leave every
-// existing SSO user unmatched and quietly fall through to the email path.
-func MigrateWithIssuer(db *gorm.DB, issuer string) error {
-	if err := db.AutoMigrate(
-		&User{},
-		&AppSetting{},
-		&Space{},
-		&SpaceMember{},
-		&Calendar{},
-		&CalendarMember{},
-		&Event{},
-		&ExternalVersion{},
-		&EventAttendee{},
-		&ForfaitState{},
-	); err != nil {
+// MigrateWithIssuer applies the ordered migrations under migrations/ and then
+// Reconcile. The issuer is what the identity backfill needs: porte matches an
+// account on (provider, subject) and the provider is the issuer, so
+// backfilling with a placeholder would leave every existing SSO user
+// unmatched and quietly fall through to the email path.
+func MigrateWithIssuer(ctx context.Context, db *gorm.DB, issuer string, logger *slog.Logger) error {
+	sqlDB, err := db.DB()
+	if err != nil {
 		return err
 	}
+	if err := migrations.Up(ctx, migrations.Config(sqlDB, logger)); err != nil {
+		return err
+	}
+	return Reconcile(db, issuer)
+}
+
+// Reconcile runs the idempotent data steps that ran at every boot before the
+// schema moved to migrations, in the same order. It changes rows, never the
+// schema: the avatar columns, one calendar per space, and the credentials
+// porte reads. AdoptPorte runs last because it repoints identities at users.
+func Reconcile(db *gorm.DB, issuer string) error {
 	if err := backfillAvatarSources(db); err != nil {
 		return err
 	}
 	if err := SyncSpaceCalendars(db); err != nil {
 		return err
 	}
-	if err := db.Exec(directoryDeletionState).Error; err != nil {
-		return err
-	}
-	if err := db.Exec(mcp.PendingSchema).Error; err != nil {
-		return err
-	}
 	return AdoptPorte(db, issuer)
 }
-
-// directoryDeletionState holds the GDPR deletion receiver's cursor and handled
-// subjects in a single row, so a restart never replays or skips a notice.
-const directoryDeletionState = `
-CREATE TABLE IF NOT EXISTS directory_deletion_state (
-	id         smallint PRIMARY KEY CHECK (id = 1),
-	state      bytea NOT NULL,
-	updated_at timestamptz NOT NULL DEFAULT now()
-);
-`
 
 // backfillAvatarSources moves the two values the avatar is now derived from onto the
 // columns that own them.

@@ -54,7 +54,8 @@ you add an endpoint.
 | Entrypoint | `apps/api/main.go` | Config, DB, migrations, OIDC token migration, router, graceful shutdown |
 | Router | `tronc/httpx.NewRouter` | Chi router with the suite's logging, recovery, and CORS middleware |
 | Modules | `apps/api/modules/*` | `auth`, `calendars`, `events`, `spaces`, `users`, `settings`, `caldav` |
-| Schemas | `apps/api/schemas` | Ten GORM models plus `Migrate`, which is a plain `AutoMigrate` |
+| Schemas | `apps/api/schemas` | Ten GORM models, the query layer, plus `MigrateWithIssuer` and the boot data steps |
+| Migrations | `apps/api/migrations` | Ordered goose SQL, embedded and applied at boot by `tronc/migrate` |
 | Internal | `apps/api/internal/*` | `database`, `middleware`, `env`, `crypto`, `plans`, `pool`, `documentation` |
 | Client | `apps/client` | SvelteKit 5 with `adapter-static` and `fallback: index.html` |
 
@@ -140,8 +141,18 @@ logs a warning and startup continues.
 | `events` | `id`, unique `(uid, calendar_id)`, `etag`, `sequence`, `start_at`, `end_at`, `raw_ics` | Also `is_all_day`, `recurrence_rule`, `status`, `conference_url`, `conference_provider` |
 | `event_attendees` | `event_id`, `user_id`, `email`, `response` | `response` is `needs-action`, `accepted`, `declined`, or `tentative` |
 
-`schemas.Migrate` is a single `AutoMigrate` over those ten models, run on every boot.
-There are no migration files and no backfills.
+The schema is the ordered SQL under `apps/api/migrations/`, applied at boot by `tronc/migrate`
+behind a Postgres advisory lock. `00001_baseline.sql` is the production schema GORM
+`AutoMigrate` had built, as `pg_dump` printed it on 2026-11-10; `apps/api/schema.sql` is the
+normalized dump of the whole set. The GORM structs no longer create anything:
+`TestGORMModelsMatchTheMigratedSchema` fails when a struct names a column the migrations do
+not create, or a type its field cannot hold.
+
+After the migrations, `schemas.Reconcile` runs the idempotent data steps the old boot code
+ran, in the same order: the avatar column backfill, one calendar per space
+(`SyncSpaceCalendars`), and `AdoptPorte` (the local identity re-key, the pre-porte session and
+API token carry-over, the password and OIDC subject adoption, the Registre picture backfill).
+`crypto.MigrateOIDCTokens` follows when `ENCRYPTION_KEY` is set.
 
 Two columns exist for CalDAV round-trip fidelity: `events.raw_ics` keeps the original
 iCalendar payload a client sent, and `calendars.sync_token` is bumped on every event

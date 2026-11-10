@@ -31,7 +31,8 @@ apps/
       events/             Event CRUD, attendees, reminders, occurrence exceptions
       caldav/             CalDAV server (go-webdav backend + Basic Auth middleware)
     internal/             Shared infra (database, middleware, logger, env, errors, etc.)
-    schemas/              GORM models (User, Session, ApiToken, Calendar, CalendarMember, Event, EventAttendee)
+    schemas/              GORM models (the query layer) and the boot data steps
+    migrations/           Ordered goose SQL, embedded and applied at boot; schema.sql is the normalized dump
     vendor/               Vendored Go dependencies
   client/                 SvelteKit frontend
     src/
@@ -134,7 +135,7 @@ the root because their URLs are held outside this repo:
 
 - **Single binary architecture** — Go binary serves SvelteKit static build from `CLIENT_DIR`
 - **Go modules are vendored, with a patched go-webdav** — never run plain `go mod vendor`: add the require and go.sum lines by hand and copy the new package into `vendor/` plus `vendor/modules.txt`
-- **Migrations run on startup** via `schemas.Migrate(db)`
+- **Migrations are ordered SQL** in `apps/api/migrations/`, applied at boot by `tronc/migrate`, then the idempotent data steps in `schemas.Reconcile`. AutoMigrate never runs (`scripts/check.sh` fails on it); add a numbered file with Up and Down, update the struct by hand, regenerate `apps/api/schema.sql`. `docker run <image> migrate status` works without a shell
 - **Svelte 5 runes** enforced (`$state`, `$props`, `$derived`, `$effect`)
 - **@facile/muse** for UI primitives
 - **CalDAV sync token** — stored per calendar, bumped on every event create/update/delete

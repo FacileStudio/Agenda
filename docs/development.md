@@ -84,8 +84,18 @@ The API listens on `:4000` and the client on `:5173`. Vite proxies `/api`, `/fil
 `/dav` to `http://127.0.0.1:4000` (`apps/client/vite.config.ts`), so development takes the
 same same-origin path as production and needs no CORS origin.
 
-Migrations run automatically at startup via `schemas.Migrate`. There is no separate
-migration tool and no migration files.
+Migrations run automatically at startup (`schemas.MigrateWithIssuer`). To change the schema,
+add the next numbered file under `apps/api/migrations/` with both `-- +goose Up` and
+`-- +goose Down`, update the struct in `schemas/` by hand, and regenerate `apps/api/schema.sql`:
+
+```sh
+pg_dump --schema-only --no-owner --no-privileges --no-comments --no-tablespaces --schema=public \
+  --exclude-table=goose_db_version --exclude-table=goose_db_version_id_seq "$DATABASE_URL" \
+  | grep -vE '^(SET |SELECT pg_catalog\.set_config|\\restrict|\\unrestrict|--|CREATE SCHEMA)' | cat -s
+```
+
+`go run . migrate status` lists what is applied. `scripts/check.sh` fails on any
+`.AutoMigrate(` outside a test file.
 
 ## Tasks
 
