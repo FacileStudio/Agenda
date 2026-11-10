@@ -2,6 +2,21 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.17.0] - 2026-11-10
+
+### Changed
+
+- Database: the schema is ordered goose SQL under `apps/api/migrations/`, applied at boot by `tronc/migrate` (migrate v0.1.0) behind a Postgres advisory lock. GORM `AutoMigrate` and the hand-written `CREATE TABLE IF NOT EXISTS` are gone from the boot path; the GORM structs stay as the query layer, and `TestGORMModelsMatchTheMigratedSchema` fails when a struct names a column the migrations do not create or a type its field cannot hold. `scripts/check.sh` fails on an `.AutoMigrate(` call outside a test file.
+- Database: `00001_baseline.sql` is production's schema as `pg_dump --schema-only` printed it on 2026-11-10. A database built before this release (Agenda's tables, no applied migration) is stamped at version 1 on its first boot with tronc/migrate's `baseline` command, so the baseline is recorded without running. A database built from the migrations dumps identical to production. `apps/api/schema.sql` is the normalized dump of the whole set.
+- Boot: the data steps that ran at every boot still run at every boot, after the migrations and in the same order (`schemas.Reconcile`): the avatar column backfill, one calendar per space, the porte identity re-key, the pre-porte session and API token carry-over, the password and OIDC subject adoption, and the Registre picture backfill. `crypto.MigrateOIDCTokens` is unchanged.
+- Gates: CI runs filet v0.19.1. `filet gate` skips its gofmt step, which scans `vendor/`; `scripts/check.sh`, the first pre-push job, runs gofmt with `vendor/` excluded.
+- build: `github.com/FacileStudio/tronc/migrate` v0.1.0 with `pressly/goose/v3` v3.27.3; goose raises `segmentio/asm` from v1.1.3 to v1.2.1. Re-vendored with the go-webdav patch kept (`TestVendoredGoWebdavPatches` passes).
+
+### Added
+
+- `docker run <image> migrate status` (also `up`, `version`, `baseline <n>`) answers without a shell.
+- Database: `00002_column_defaults.sql` gives `created_at`, `updated_at` and `joined_at` a `now()` default on every table that has them, and the users columns porte/kit does not write the values the kit's `OnCreate` writes (`''` and `0001-01-01 00:00:00+00`), so a row inserted outside GORM no longer gets NULL there. It has a Down. Rolling back to v0.16.x drops these defaults again, because AutoMigrate removes a default its struct tags do not declare, while the ledger still records version 2: before deploying this release again after such a rollback, run `DELETE FROM goose_db_version WHERE version_id = 2`.
+
 ## [0.16.2] - 2026-11-10
 
 ### Fixed
