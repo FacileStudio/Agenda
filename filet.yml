@@ -15,3 +15,9 @@ architecture:
   requiredFiles:
     "apps/api/modules/*": [router.go]
     "apps/api/modules/caldav": []  # caldav registers its routes from handler.go
+
+# filet gate's gofmt step runs `gofmt -l .` over vendor/ as well, and the vendored
+# upstream sources are not gofmt-clean. scripts/check.sh, the first pre-push job,
+# runs gofmt with vendor/ excluded, so the gate skips only that step.
+gate:
+  disable: [gofmt]

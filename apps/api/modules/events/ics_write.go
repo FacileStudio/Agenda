@@ -87,7 +87,5 @@ func carryExceptions(cal *ical.Calendar, master, prev *ical.Component, instances
 		copied := p
 		master.Props.Add(&copied)
 	}
-	for _, inst := range instances {
-		cal.Children = append(cal.Children, inst)
-	}
+	cal.Children = append(cal.Children, instances...)
 }

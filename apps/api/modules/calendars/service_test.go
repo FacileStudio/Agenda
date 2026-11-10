@@ -31,14 +31,6 @@ func openTestDatabase(t *testing.T) *gorm.DB {
 	return db
 }
 
-func names(cals []CalendarResponse) map[string]bool {
-	out := map[string]bool{}
-	for _, c := range cals {
-		out[c.Name] = true
-	}
-	return out
-}
-
 func TestEverySpaceOwnsOneCalendarItsMembersShare(t *testing.T) {
 	db := openTestDatabase(t)
 	svc := NewService(db)

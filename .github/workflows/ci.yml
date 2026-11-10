@@ -77,9 +77,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: FacileStudio/filet@v0.19.0
+      - uses: FacileStudio/filet@v0.19.1
         with:
-          version: v0.19.0
+          version: v0.19.1
           fail-on: error
           antenne-url: ${{ secrets.ANTENNE_FILET_SECRET != '' && 'https://antenne.facile.studio/webhook/filet' || '' }}
           antenne-secret: ${{ secrets.ANTENNE_FILET_SECRET }}
