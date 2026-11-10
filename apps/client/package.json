@@ -8,7 +8,7 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
-		"test": "bun run scripts/check-messages.ts",
+		"test": "bun run scripts/check-messages.ts && bun test src/lib",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
 	},
@@ -26,7 +26,7 @@
 		"vite": "^7.3.1"
 	},
 	"dependencies": {
-		"@facile/muse": "github:FacileStudio/muse#v0.16.1",
+		"@facile/muse": "github:FacileStudio/muse#v0.17.1",
 		"@iconify-json/solar": "^1.2.5",
 		"iconify-icon": "^3.0.2"
 	}

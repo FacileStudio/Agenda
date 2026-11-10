@@ -2,6 +2,17 @@
 
 All notable changes to Agenda are documented here.
 
+## [Unreleased]
+
+### Added
+
+- Ideas: an "Ideas" entry first in the user menu and a lightbulb button next to it with a badge for new ideas, and an `/ideas` page where Bulle suggests what to schedule, move or prepare. An idea runs in place: Agenda polls the run, shows an approval card for each held call, then the result with its links and a link to continue in Bulle. Ideas are paid (`ai.access`): a free plan sees the upsell and Registre's plans link. The page follows the space of the calendar the views are narrowed to.
+- API: `GET /api/ideas`, `POST /api/ideas/generate`, `POST /api/ideas/{id}/run`, `POST /api/ideas/{id}/dismiss`, `GET /api/ideas/runs/{run}` and `POST /api/ideas/runs/{run}/approvals/{call}`, mounted when `OIDC_ISSUER` and the new `BULLE_URL` are set. They call Bulle as the signed-in user through a Registre token exchange (audience `bulle`, scopes `bulle.read` and `bulle.write`). `space_id` must be a space the caller belongs to and that Registre knows. Agenda follows `ai.access` from the directory snapshots, keeps the last known plans in the new `forfait_state` table (created at boot, additive), and answers 402 with the upgrade link, or `ai_access: false` on the list, without calling Bulle when the plan lacks it.
+
+### Changed
+
+- build: porte v0.15.1 (`porte/exchange`) and tronc v0.19.0 (`tronc/bulle`). Client: `@facile/muse` v0.16.1 to v0.17.1, and `bun test` runs with the client tests.
+
 ## [0.14.0] - 2026-11-10
 
 ### Added

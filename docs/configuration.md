@@ -110,6 +110,17 @@ is not the token key): rotating `ENCRYPTION_KEY` invalidates questions in flight
 actions. `MCP_RESOURCE` must equal the URL people paste into their client and a resource
 registered in Registre with the `agenda.read` and `agenda.write` scopes.
 
+## Ideas (Bulle)
+
+| Variable | Required | Default | What it does |
+|---|---|---|---|
+| `BULLE_URL` | no | empty | Bulle's origin, such as `https://bulle.facile.studio`. Turns on the Ideas page |
+
+The routes mount only when `BULLE_URL` and `OIDC_ISSUER` are set. Agenda calls Bulle as the
+signed-in user through a Registre token exchange for audience `bulle` (scopes `bulle.read` and
+`bulle.write`), which needs `PORTE_TOKEN_KEY` and a Registre client that holds that audience.
+Ideas need `ai.access`; a plan without it sees the upsell.
+
 ## Auth and OIDC
 
 | Variable | Required | Default | What it does |

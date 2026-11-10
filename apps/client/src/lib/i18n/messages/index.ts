@@ -1,6 +1,7 @@
 import type { Catalogs, Message } from '@facile/muse';
 import { calendar } from './calendar';
 import { event } from './event';
+import { ideas } from './ideas';
 import { landing } from './landing';
 import { pending } from './pending';
 import { recurrence } from './recurrence';
@@ -16,6 +17,7 @@ const rows = {
 	...landing,
 	...calendar,
 	...event,
+	...ideas,
 	...recurrence,
 	...spaces,
 	...settings,

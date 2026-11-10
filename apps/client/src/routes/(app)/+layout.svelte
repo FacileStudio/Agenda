@@ -2,13 +2,17 @@
 	import { onMount, setContext } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { UserMenu, icons, toast } from '@facile/muse';
+	import { UserMenu, getI18n, icons, ideasNavItem, toast } from '@facile/muse';
 	import { ApiError, backend, type UserProfile, type CalendarItem } from '$lib/backend';
 	import { sortCalendars } from '$lib/calendar-filter.svelte';
+	import IdeasButton from '$lib/components/IdeasButton.svelte';
+	import { ideasSpaceId, ideasStore } from '$lib/ideas.svelte';
 	import { rememberLocale, setSessionLocale, t } from '$lib/i18n/index.svelte';
 	import { theme, type ThemePreference } from '$lib/theme.svelte';
 
 	let { children } = $props();
+
+	const i18n = getI18n();
 
 	let user = $state<UserProfile | null>(null);
 	let loaded = $state(false);
@@ -49,6 +53,7 @@
 				}
 			}).catch(() => {});
 			await refreshCalendars();
+			await ideasStore.load(ideasSpaceId(calendars));
 		} catch (err) {
 			if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
 				keepReturn();
@@ -85,8 +90,15 @@
 		await goto('/login');
 	}
 
+	const ideasEntry = $derived(ideasNavItem({ href: '/ideas', i18n }));
+
 	const userMenu = $derived({
 		items: [
+			{
+				label: ideasEntry.label,
+				icon: ideasEntry.icon,
+				href: ideasEntry.href
+			},
 			{ label: t('menu.calendar'), icon: icons.calendar, href: '/calendar' },
 			{ label: t('menu.spaces'), icon: icons.space, href: '/spaces' },
 			{ label: t('menu.members'), icon: icons.usersGroup, href: '/settings/members' }
@@ -112,6 +124,7 @@
 		{#if !page.url.pathname.startsWith('/calendar')}
 			<div class="flex shrink-0 items-center px-3 pt-3 sm:px-5">
 				<UserMenu user={navUser} trigger="avatar" {...userMenu} />
+				<IdeasButton class="ml-2" />
 			</div>
 		{/if}
 		<main class="min-h-0 flex-1 overflow-auto overscroll-contain">
