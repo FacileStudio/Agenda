@@ -98,6 +98,18 @@ entirely. Setting it later encrypts existing rows on the next boot.
 Changing the key after tokens have been encrypted makes them undecryptable. There is no
 re-key path.
 
+## MCP
+
+| Variable | Required | Default | What it does |
+|---|---|---|---|
+| `MCP_RESOURCE` | no | compose: `https://agenda.facile.studio/mcp` | Canonical URI of the remote MCP server, and the RFC 8707 resource Registre binds tokens to |
+
+The server mounts only when `MCP_RESOURCE`, `OIDC_ISSUER` and `ENCRYPTION_KEY` are all set.
+The confirmation state is signed with a key derived from `ENCRYPTION_KEY` (namespaced, so it
+is not the token key): rotating `ENCRYPTION_KEY` invalidates questions in flight, not pending
+actions. `MCP_RESOURCE` must equal the URL people paste into their client and a resource
+registered in Registre with the `agenda.read` and `agenda.write` scopes.
+
 ## Auth and OIDC
 
 | Variable | Required | Default | What it does |

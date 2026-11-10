@@ -23,6 +23,7 @@ import (
 	"github.com/FacileStudio/Agenda/apps/api/modules/caldav"
 	"github.com/FacileStudio/Agenda/apps/api/modules/calendars"
 	"github.com/FacileStudio/Agenda/apps/api/modules/events"
+	"github.com/FacileStudio/Agenda/apps/api/modules/mcp"
 	"github.com/FacileStudio/Agenda/apps/api/modules/settings"
 	"github.com/FacileStudio/Agenda/apps/api/modules/spaces"
 	"github.com/FacileStudio/Agenda/apps/api/modules/users"
@@ -37,6 +38,7 @@ import (
 	troncmiddleware "github.com/FacileStudio/tronc/middleware"
 	"github.com/FacileStudio/tronc/spa"
 
+	"github.com/FacileStudio/porte"
 	"github.com/FacileStudio/porte/directory"
 	"github.com/FacileStudio/porte/oidc"
 	portepg "github.com/FacileStudio/porte/pg"
@@ -117,7 +119,7 @@ func run() int {
 		}
 	}()
 
-	sessions, kit, err := buildAuth(context.Background(), db, appEnv, appLogger)
+	sessions, kit, identities, err := buildAuth(context.Background(), db, appEnv, appLogger)
 	if err != nil {
 		appLogger.Error("failed to build authentication", slog.Any("error", err))
 		return 1
@@ -129,6 +131,11 @@ func run() int {
 	spaceService := spaces.NewService(db)
 	userService := users.NewService(db, authService)
 	settingsService := settings.NewService(db)
+	mcpService, err := newMCP(context.Background(), sqlDB, appEnv, calendarService, eventService, identities, appLogger)
+	if err != nil {
+		appLogger.Error("failed to build the MCP server", slog.Any("error", err))
+		return 1
+	}
 
 	registreSync, deletions, stopSync := startDirectory(db, appEnv, appLogger)
 	defer stopSync()
@@ -167,6 +174,7 @@ func run() int {
 		settings:  settingsService,
 		directory: registreSync,
 		deletions: deletions,
+		mcp:       mcpService,
 	})
 
 	if spa.Available(clientDir) {
@@ -226,6 +234,7 @@ type mounts struct {
 	settings  *settings.Service
 	directory *spaces.Directory
 	deletions *spaces.Deletions
+	mcp       *mcp.Service
 }
 
 // startDirectory follows Registre's spaces and its GDPR deletions when SSO is
@@ -262,14 +271,14 @@ func startDirectory(
 // identity tables. Sign-in goes through Registre only; there is no local
 // password kit. Discovery runs here, so an unreachable or half-configured
 // issuer fails at boot rather than on somebody's first login.
-func buildAuth(ctx context.Context, db *gorm.DB, appEnv env.Config, appLogger *slog.Logger) (*session.Manager, *oidc.Kit, error) {
+func buildAuth(ctx context.Context, db *gorm.DB, appEnv env.Config, appLogger *slog.Logger) (*session.Manager, *oidc.Kit, porte.IdentityStore, error) {
 	sqlDB, err := db.DB()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	store, err := newPorteStore(sqlDB)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	resealInBackground(ctx, store, appLogger)
 	users := auth.NewUserStore(db)
@@ -277,7 +286,7 @@ func buildAuth(ctx context.Context, db *gorm.DB, appEnv env.Config, appLogger *s
 
 	sessions, err := session.New(cfg, session.Deps{Sessions: store.Sessions(), Logger: appLogger})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	kit, err := oidc.New(ctx, cfg, oidc.Deps{
 		Users:      users,
@@ -287,9 +296,9 @@ func buildAuth(ctx context.Context, db *gorm.DB, appEnv env.Config, appLogger *s
 		Logger:     appLogger,
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return sessions, kit, nil
+	return sessions, kit, store.Identities(), nil
 }
 
 // mountRoutes claims every URL the app answers. The whole API lives under /api
@@ -303,6 +312,9 @@ func mountRoutes(router chi.Router, m mounts) {
 	router.Handle("/files/*", http.StripPrefix("/files/", http.FileServer(http.Dir(m.env.StorageDir))))
 
 	caldav.RegisterRoutes(router, m.db, m.auth)
+	if m.mcp != nil {
+		mcp.RegisterRoutes(router, m.mcp)
+	}
 	if m.env.OIDC != nil {
 		router.Get("/auth/oidc/callback", redirectUnderAPI)
 	}
@@ -318,6 +330,9 @@ func mountRoutes(router chi.Router, m mounts) {
 		}
 		users.RegisterRoutes(r, m.users, m.auth)
 		settings.RegisterRoutes(r, m.settings, m.auth)
+		if m.mcp != nil {
+			mcp.RegisterPendingRoutes(r, m.mcp, m.auth)
+		}
 	})
 }
 
@@ -335,6 +350,7 @@ func referenceConfig() apiref.Config {
 			spaces.Documentation,
 			users.Documentation,
 			settings.Documentation,
+			mcp.Documentation,
 		}},
 	}
 }

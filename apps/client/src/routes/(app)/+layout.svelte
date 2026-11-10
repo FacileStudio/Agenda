@@ -41,6 +41,7 @@
 			const result = await backend.me();
 			setUser(result.user);
 			loaded = true;
+			resumeReturn();
 			backend.syncProfile().then(async (r) => {
 				if (r.synced) {
 					const fresh = await backend.me();
@@ -50,10 +51,30 @@
 			await refreshCalendars();
 		} catch (err) {
 			if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+				keepReturn();
 				goto('/login');
 			}
 		}
 	});
+
+	const RETURN_KEY = 'agenda.return';
+
+	/** Remembers a pending-action link across sign-in, so the person lands back on it. */
+	function keepReturn() {
+		if (!page.url.pathname.startsWith('/pending')) return;
+		try {
+			sessionStorage.setItem(RETURN_KEY, page.url.pathname + page.url.search);
+		} catch {}
+	}
+
+	/** Goes back to the link remembered before sign-in, once. */
+	function resumeReturn() {
+		try {
+			const target = sessionStorage.getItem(RETURN_KEY);
+			sessionStorage.removeItem(RETURN_KEY);
+			if (target?.startsWith('/pending') && target !== page.url.pathname + page.url.search) goto(target);
+		} catch {}
+	}
 
 	async function signOut() {
 		try {

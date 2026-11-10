@@ -62,6 +62,7 @@ reasoning behind both.
 | `porte/magiclink/magiclinktest` | `Conformance(t, newStore, newUser)`: single use, supersession and the rate counts, run against an app's own `MagicLinkStore` | `porte`, `testing` |
 | `porte/directory` | Nested module: Registre's spaces, members and plan entitlements, pulled as one snapshot and nudged on change, plus the GDPR deletion receiver | the standard library |
 | `porte/forfait` | Nested module: plan enforcement over the directory snapshot. `Enabled`, `Limit`, `Check`, fail-open until the first snapshot | `porte/directory` |
+| `porte/mcpauth` | Nested module: the MCP resource-server side of Registre tokens. A go-sdk `TokenVerifier`, the RFC 9728 metadata, `Require` with step-up challenges, and the `ai.access` plan gate for third-party clients | `porte/oidc`, `porte/forfait`, go-sdk, tronc |
 
 The contract package depends on nothing outside the standard library, and that is a constraint
 rather than a coincidence: an app's stores and domain code never compile against `go-oidc`,
@@ -207,6 +208,35 @@ After Registre's database is restored from a backup, the entitlements revision c
 `Apply` then refuses every snapshot with a logged warning. Call `plans.Reset()` and delete the
 saved state; the next pull applies normally.
 
+## MCP endpoints
+
+`porte/mcpauth` is its own module so go-sdk reaches only the apps that serve MCP. Registre mints
+the access token with `aud` = the endpoint's resource URI and `scope` = `<app>.read` and
+`<app>.write`; the verifier checks it offline and resolves `(iss, sub)` the way the Authorization
+header path does.
+
+```go
+verify, err := mcpauth.Verifier(ctx, mcpauth.Config{
+	Issuer:      cfg.OIDC.Issuer,
+	Resource:    "https://courrier.facile.studio/mcp",
+	ScopePrefix: "courrier",
+	Audience:    cfg.OIDC.ClientID,
+	Identities:  store.Identities(),
+})
+scopes := mcpauth.ScopesFor("courrier")
+metadataURL, _ := mcpauth.MetadataURL("https://courrier.facile.studio/mcp")
+router.Handle("/.well-known/oauth-protected-resource/mcp", auth.ProtectedResourceMetadataHandler(
+	mcpauth.ProtectedResourceMetadata("https://courrier.facile.studio/mcp", cfg.OIDC.Issuer, scopes.List())))
+router.Handle("/mcp", mcpauth.Require(verify, &auth.RequireBearerTokenOptions{
+	ResourceMetadataURL: metadataURL, Scopes: []string{scopes.Read},
+})(mcpauth.PlanGate(plans, cfg.OIDC.Issuer)(mcpHandler)))
+```
+
+`Audience` keeps Bulle's exchanged tokens, which still name the app's client id, verifying until
+they are resource-bound. A tool that writes checks `mcpauth.HasScope(req.Extra.TokenInfo, scopes.Write)`. `plans` is the
+app's `forfait.Store` declaring `mcpauth.AIAccessFeature()`. `mcpauth.Identity(info)` gives back
+the `porte.Identity` for handlers written against `porte.From`.
+
 ## Why
 
 Six Go apps — Nuage, Courrier, Plume, Agenda, Vision, Sablier — ship roughly 900 lines of
@@ -239,6 +269,7 @@ state comparison. Written once here instead of six times in the apps.
 | **v0.5.0** | `porte/spaces` — membership and role resolution, and the conformance suite an adopter runs against its own table. Purely additive: an app without spaces does not import it |
 | **v0.6.0** | `porte/magiclink` — passwordless sign-in by an emailed one-time link, and its store conformance suite. Purely additive: an app without links does not import it |
 | **v0.7.0** | Delegated bearer JWTs: `Identity.Scopes` and `Identity.Actor` from the `scope` and `act` claims, `porte.ActorFrom`, and `Config.ScopePrefix` (`OIDC_SCOPE_PREFIX`), which gates a bearer JWT to `<prefix>.read` for reads and `<prefix>.write` for writes. Purely additive: unset, nothing changes |
+| **v0.14.0** | `porte/mcpauth/v0.1.0`: MCP resource-server auth. `jwt.Claims` gains `Audience`, `ClientID`, `ID` and `ExpiresAt`, `jwt.Config.ExtraAudiences`, and `oidc.ResolveBearer` exports the bearer mapping. Purely additive |
 
 The first adopter turned out to be Journal — the one app with no OIDC of its own, so the wiring
 added a path instead of replacing six hundred lines of one. It kept its own `users` table and

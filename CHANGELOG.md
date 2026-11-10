@@ -2,6 +2,19 @@
 
 All notable changes to Agenda are documented here.
 
+## [Unreleased]
+
+### Added
+
+- A remote MCP server at `/mcp` for any MCP client, free for every account (docs/mcp.md). Registre is the authorization server: tokens are bound to `MCP_RESOURCE`, scoped `agenda.read` and `agenda.write`, and verified by `porte/mcpauth` v0.1.0. It runs on `tronc/mcp` v0.19.0 (go-sdk v1.8.0, stateless, spec 2026-07-28).
+- Seven tools designed for agents: `agenda_list_calendars`, `agenda_list_events` (range and search, recurring events per occurrence), `agenda_read_event`, `agenda_find_free_slots`, `agenda_create_event`, `agenda_update_event`, `agenda_delete_event`, each annotated, with cursor pages and a 25,000-token cap.
+- Deleting an event needs the person's confirmation: MRTR `input_required` when the client can ask, otherwise a pending action and a link to the new Pending actions page (`/pending`, fr/en/es/de). The link survives sign-in.
+- The `mcp_actions` table (created at boot, additive).
+
+### Changed
+
+- build(api): porte v0.14.0, porte/mcpauth v0.1.0, tronc v0.19.0, go-sdk v1.8.0.
+
 ## [0.13.4] - 2026-11-07
 
 ### Changed

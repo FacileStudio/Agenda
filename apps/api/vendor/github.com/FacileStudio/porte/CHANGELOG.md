@@ -5,6 +5,53 @@ session from undoing a deliberate choice.
 
 ## [Unreleased]
 
+## v0.14.0 — 2026-11-08
+
+Root module: **v0.14.0**; new nested module `mcpauth` at **v0.1.0**; `directory` stays at v0.3.0 and
+`forfait` at v0.1.1. Additive; no migration.
+
+**MCP resource-server auth.** Every suite app is getting its own remote MCP endpoint, authorized by
+Registre, for any compliant client (Claude, ChatGPT, Cursor, VS Code). `porte/mcpauth` is the
+resource-server half, on go-sdk v1.8.0's `auth` package:
+
+- **`Verifier(ctx, Config)`** returns an `auth.TokenVerifier`. It verifies the RS256 access token
+  offline through `porte/oidc/jwt`, requires `aud` to name `Config.Resource` (the RFC 8707 resource
+  URI) byte for byte, and resolves `(iss, sub)` through `oidc.ResolveBearer`, the same mapping the
+  Authorization header path uses, so there is no email fallback and no provisioning. `TokenInfo`
+  carries the local account id, the scopes, `exp`, and `Extra` `client_id`, `actor` and `subject`.
+- **Both token populations verify.** Registre is moving MCP tokens to `aud` = resource URI with a
+  `scope` claim. Tokens Bulle exchanges today name the app's client id instead. `Config.Audience`
+  accepts that id, on delegated tokens (`act` present) only, so a login token Registre issued to the
+  app itself is never an MCP credential. Leave it empty once every token is resource-bound.
+- **Fixed refusals.** Every rejected token is `auth.ErrInvalidToken` with the text `invalid token`,
+  because the SDK writes the error text into the response; the reason goes to the logger at debug
+  level, never the token. An unreachable JWKS or identity store is a 500, not a 401, so a client is
+  not told to sign in again over an outage.
+- **`Require`** wraps `auth.RequireBearerToken` and adds RFC 6750 error codes to its challenge:
+  `error="insufficient_scope"` on a 403 and `error="invalid_token"` on a 401 that carried a token.
+  The SDK sends neither, and MCP clients, the SDK's own included, start step-up authorization only
+  on `insufficient_scope`. The protected handler gets the original writer, so its own responses
+  are untouched. A zero `ClockSkew` becomes 30 s, matching jwt's leeway.
+- **Scopes.** `ScopesFor(prefix)` names `<prefix>.read` and `<prefix>.write`. A write grant implies
+  read, as `Config.ScopePrefix` does on the header path.
+- **Metadata.** `ProtectedResourceMetadata(resource, issuer, scopes)` builds the RFC 9728 document
+  for `auth.ProtectedResourceMetadataHandler`; `MetadataURL(resource)` gives its well-known URL.
+- **Plan gate.** `ThirdParty(info)` is false only for a token Bulle exchanged (`act` present and
+  `client_id` = `bulle`): Bulle has its own `ai.access` gate. `CheckPlan` and the `PlanGate`
+  middleware read `ai.access` from a `forfait.Store` under the token's subject and answer the suite's
+  402 `payment_required` with `upgrade_url` = Registre `/spaces`. A nil store refuses every
+  third-party token.
+
+`mcpauth` is a nested module so go-sdk reaches only the apps that serve MCP, not every porte
+consumer.
+
+Root module changes that support it: `jwt.Claims` gains `Audience`, `ClientID` (`client_id`), `ID`
+(`jti`) and `ExpiresAt`; `jwt.Config.ExtraAudiences` accepts further audiences through the same
+discovery and key cache; `oidc.ResolveBearer` exports the bearer-token account mapping.
+
+Upgrade note: nothing changes for an app that does not import `porte/mcpauth`. An MCP server
+requires `github.com/FacileStudio/porte/mcpauth v0.1.0`, which pulls porte v0.14.0.
+
 ## v0.13.0 — 2026-11-07
 
 Root module: **v0.13.0**; `directory` stays at v0.3.0. Additive; no migration.

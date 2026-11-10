@@ -1,6 +1,7 @@
 package env
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"net/url"
 	"strings"
@@ -50,6 +51,16 @@ type Config struct {
 	OIDC          *OIDCConfig
 	EncryptionKey []byte
 	Antenne       AntenneConfig
+	MCP           MCP
+}
+
+// MCP turns on the remote MCP server. Resource is the canonical URI clients
+// connect to, such as https://agenda.facile.studio/mcp, and the RFC 8707
+// resource Registre binds its tokens to. It needs SSO and ENCRYPTION_KEY.
+// StateKey signs the confirmation state handed to clients.
+type MCP struct {
+	Resource string
+	StateKey []byte
 }
 
 // Load reads the environment and returns a fully populated Config. It fails
@@ -97,6 +108,7 @@ func Load() (Config, error) {
 
 	if key := troncenv.String("ENCRYPTION_KEY", ""); key != "" {
 		cfg.EncryptionKey = crypto.DeriveKey(key)
+		cfg.MCP = MCP{Resource: troncenv.String("MCP_RESOURCE", ""), StateKey: deriveStateKey(key)}
 	}
 
 	return cfg, nil
@@ -217,4 +229,11 @@ func (c Config) IssuerForMigration() string {
 		return ""
 	}
 	return c.OIDC.Issuer
+}
+
+// deriveStateKey derives the MCP confirmation key from the app's encryption
+// passphrase, namespaced so it collides with no other key.
+func deriveStateKey(encryptionKey string) []byte {
+	sum := sha256.Sum256([]byte("agenda-mcp-state:" + encryptionKey))
+	return sum[:]
 }

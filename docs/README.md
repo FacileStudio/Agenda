@@ -7,5 +7,6 @@
 | [Development](development.md) | Local setup, tests, the quality gate, the vendored patch |
 | [Deployment](deployment.md) | Docker Compose, Dokploy, Traefik routing |
 | [API](api.md) | HTTP endpoints, payloads, and the CalDAV URL space |
+| [MCP](mcp.md) | The remote MCP server: connecting, tools, confirmations, tests |
 
 Back to the [README](../README.md).

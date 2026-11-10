@@ -56,6 +56,13 @@ type Config struct {
 	// good — an access token for the IdP's own API must not open this app.
 	Audience string
 
+	// ExtraAudiences are accepted in place of Audience. A resource server
+	// that is moving its tokens from one audience to another, such as an MCP
+	// server whose tokens now name its RFC 8707 resource URI, lists the
+	// other one here so both populations verify through one discovery and
+	// one key cache. Claims.Audience says which one a token carried.
+	ExtraAudiences []string
+
 	// CacheTTL is how long a JWKS fetch stays fresh. Zero means
 	// DefaultCacheTTL.
 	CacheTTL time.Duration
@@ -80,6 +87,21 @@ type Claims struct {
 	Scopes []string
 
 	Actor string
+
+	// Audience is the token's aud claim, every value of it.
+	Audience []string
+
+	// ClientID is the client_id claim of an OAuth access token: the client
+	// the token was issued to. On a delegated token it is the client that
+	// performed the exchange.
+	ClientID string
+
+	// ID is the jti claim, empty when the token carries none.
+	ID string
+
+	// ExpiresAt is the exp claim. Verify refuses a token without one, so it
+	// is never zero on a verified token.
+	ExpiresAt time.Time
 }
 
 // Verifier verifies RS256 JWTs against a provider's JWKS.
@@ -144,20 +166,13 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (Claims, error) 
 	if payload.Issuer != v.cfg.Issuer {
 		return Claims{}, fmt.Errorf("%w: issuer %q is not %q", ErrInvalid, payload.Issuer, v.cfg.Issuer)
 	}
-	if !payload.Audience.contains(v.cfg.Audience) {
+	if !v.audienceAccepted(payload.Audience) {
 		return Claims{}, fmt.Errorf("%w: audience is not %q", ErrInvalid, v.cfg.Audience)
 	}
 	if err := withinValidity(v.now(), payload); err != nil {
 		return Claims{}, err
 	}
-	return Claims{
-		Subject: payload.Subject,
-		Email:   payload.Email,
-		Name:    payload.Name,
-		Roles:   payload.Roles,
-		Scopes:  strings.Fields(payload.Scope),
-		Actor:   payload.Act.Subject,
-	}, nil
+	return payload.claims(), nil
 }
 
 // withinValidity checks the three time claims against now, each with the same

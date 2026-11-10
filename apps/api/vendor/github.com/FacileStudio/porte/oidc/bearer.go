@@ -80,20 +80,29 @@ type bearerVerifier struct {
 // token already proven to be signed by the issuer and minted for this app, so
 // a caller without one cannot time the difference between a subject that has
 // an account here and one that does not.
-//
-// A row that names account zero is refused rather than returned. No account
-// has that id, so the row is a store bug, and the two callers of this method
-// both spend the UserID directly, one to authorize a request and one to mint a
-// session. Zero would be the identity of everybody at once.
 func (b bearerVerifier) VerifyJWT(ctx context.Context, rawToken string) (porte.Identity, error) {
 	claims, err := b.tokens.Verify(ctx, rawToken)
 	if err != nil {
 		return porte.Identity{}, err
 	}
+	return ResolveBearer(ctx, b.identities, b.issuer, claims)
+}
+
+// ResolveBearer maps the claims of an already verified bearer JWT to the local
+// account they speak for: (issuer, sub) against porte_identities, with no email
+// fallback and no provisioning, as described on bearerVerifier. It is exported
+// so that another resource-server front end, porte/mcpauth, resolves tokens
+// exactly the way the Authorization header path does. A subject with no row
+// fails wrapping porte.ErrNotFound.
+//
+// A row that names account zero is refused rather than returned. No account
+// has that id, so the row is a store bug, and every caller spends the UserID
+// directly. Zero would be the identity of everybody at once.
+func ResolveBearer(ctx context.Context, identities porte.IdentityStore, issuer string, claims jwtpkg.Claims) (porte.Identity, error) {
 	if claims.Subject == "" {
 		return porte.Identity{}, fmt.Errorf("porte/oidc: the token asserts no subject")
 	}
-	stored, err := b.identities.Find(ctx, b.issuer, claims.Subject)
+	stored, err := identities.Find(ctx, issuer, claims.Subject)
 	if err != nil {
 		return porte.Identity{}, fmt.Errorf("porte/oidc: no local identity for subject %q: %w", claims.Subject, err)
 	}

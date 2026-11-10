@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // audience is the aud claim, which OIDC permits as either one string or an
@@ -37,6 +38,20 @@ func (a *audience) UnmarshalJSON(data []byte) error {
 	}
 	*a = many
 	return nil
+}
+
+// audienceAccepted reports whether the aud claim names Audience or one of
+// ExtraAudiences.
+func (v *Verifier) audienceAccepted(aud audience) bool {
+	if aud.contains(v.cfg.Audience) {
+		return true
+	}
+	for _, extra := range v.cfg.ExtraAudiences {
+		if extra != "" && aud.contains(extra) {
+			return true
+		}
+	}
+	return false
 }
 
 // jwk is one RSA key of a JWKS document. Only the fields RS256 verification
@@ -120,17 +135,24 @@ func (v *Verifier) get(ctx context.Context, url string, into any) error {
 
 // payload is the decoded token body, before the verifier's checks run.
 type payload struct {
+	registered
+	Subject  string   `json:"sub"`
+	Email    string   `json:"email"`
+	Name     string   `json:"name"`
+	Roles    []string `json:"roles"`
+	Scope    string   `json:"scope"`
+	Act      actor    `json:"act"`
+	ClientID string   `json:"client_id"`
+}
+
+// registered holds the RFC 7519 claims the verifier checks itself.
+type registered struct {
 	Issuer    string   `json:"iss"`
 	Audience  audience `json:"aud"`
 	ExpiresAt int64    `json:"exp"`
 	NotBefore int64    `json:"nbf"`
 	IssuedAt  int64    `json:"iat"`
-	Subject   string   `json:"sub"`
-	Email     string   `json:"email"`
-	Name      string   `json:"name"`
-	Roles     []string `json:"roles"`
-	Scope     string   `json:"scope"`
-	Act       actor    `json:"act"`
+	ID        string   `json:"jti"`
 }
 
 type actor struct {
@@ -143,4 +165,20 @@ func parseClaims(raw []byte) (payload, error) {
 	var claims payload
 	err := json.Unmarshal(raw, &claims)
 	return claims, err
+}
+
+// claims is what Verify returns for a payload that passed every check.
+func (p payload) claims() Claims {
+	return Claims{
+		Subject:   p.Subject,
+		Email:     p.Email,
+		Name:      p.Name,
+		Roles:     p.Roles,
+		Scopes:    strings.Fields(p.Scope),
+		Actor:     p.Act.Subject,
+		Audience:  p.Audience,
+		ClientID:  p.ClientID,
+		ID:        p.ID,
+		ExpiresAt: time.Unix(p.ExpiresAt, 0),
+	}
 }

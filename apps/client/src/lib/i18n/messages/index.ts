@@ -2,6 +2,7 @@ import type { Catalogs, Message } from '@facile/muse';
 import { calendar } from './calendar';
 import { event } from './event';
 import { landing } from './landing';
+import { pending } from './pending';
 import { recurrence } from './recurrence';
 import { settings } from './settings';
 import { settingsAdmin } from './settings-admin';
@@ -19,7 +20,8 @@ const rows = {
 	...spaces,
 	...settings,
 	...settingsApi,
-	...settingsAdmin
+	...settingsAdmin,
+	...pending
 };
 
 export type AppKey = keyof typeof rows;
