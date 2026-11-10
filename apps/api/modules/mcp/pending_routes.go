@@ -3,9 +3,10 @@ package mcp
 import (
 	"context"
 	"net/http"
+	"strconv"
 
-	"github.com/FacileStudio/Agenda/apps/api/internal/authcontext"
 	"github.com/FacileStudio/porte"
+	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/errors"
 	"github.com/FacileStudio/tronc/httpjson"
 	mcpkit "github.com/FacileStudio/tronc/mcp"
@@ -21,7 +22,8 @@ func pendingUser(r *http.Request) (mcpkit.Caller, error) {
 	if identity, ok := porte.From(r.Context()); ok && identity.Actor != "" {
 		return mcpkit.Caller{}, errors.Forbidden("a delegated token cannot confirm actions")
 	}
-	return mcpkit.Caller{UserID: authcontext.MustIdentity(r.Context()).UserID, Actor: webActor}, nil
+	identity, _ := kit.FromContext(r.Context())
+	return mcpkit.Caller{UserID: strconv.FormatInt(identity.UserID, 10), Actor: webActor}, nil
 }
 
 // handleList answers the person's open actions with their events.

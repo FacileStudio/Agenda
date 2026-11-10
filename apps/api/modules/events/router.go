@@ -3,7 +3,6 @@ package events
 import (
 	"net/http"
 
-	"github.com/FacileStudio/Agenda/apps/api/internal/middleware"
 	"github.com/FacileStudio/Agenda/apps/api/modules/auth"
 
 	"github.com/go-chi/chi/v5"
@@ -11,7 +10,7 @@ import (
 
 // RegisterRoutes wires the authenticated event CRUD endpoints.
 func RegisterRoutes(router chi.Router, service *Service, authService *auth.Service) {
-	mountRoutes(router, newController(service), middleware.RequireAuth(authService))
+	mountRoutes(router, newController(service), authService.RequireAuth)
 }
 
 func mountRoutes(router chi.Router, c *controller, guard func(http.Handler) http.Handler) {

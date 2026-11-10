@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/FacileStudio/Agenda/apps/api/internal/oidcavatar"
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
 	"github.com/FacileStudio/porte/directory"
+	"github.com/FacileStudio/porte/kit"
 
 	"gorm.io/gorm"
 )
@@ -114,7 +114,7 @@ func (d *Directory) resolveMember(tx *gorm.DB, member directory.Member) (int64, 
 		return 0, err
 	}
 	if userID == 0 {
-		user := schemas.User{Email: email, Name: member.Name, OIDCPictureURL: oidcavatar.PhotoURL(member.Picture)}
+		user := schemas.User{Email: email, Name: member.Name, OIDCPictureURL: kit.PictureURL(member.Picture)}
 		if err := tx.Create(&user).Error; err != nil {
 			return 0, err
 		}

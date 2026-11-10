@@ -132,7 +132,7 @@ func testRouter(t *testing.T) chi.Router {
 		t.Fatalf("session.New: %v", err)
 	}
 	kit, err := oidc.New(context.Background(), appEnv.Porte(), oidc.Deps{
-		Users:      auth.NewUserStore(nil),
+		Users:      auth.NewStore(nil),
 		Identities: store.Identities(),
 		Codes:      store.LoginCodes(),
 		Sessions:   sessions,
@@ -141,7 +141,7 @@ func testRouter(t *testing.T) chi.Router {
 	if err != nil {
 		t.Fatalf("oidc.New: %v", err)
 	}
-	authService := auth.NewService(nil, sessions, appLogger)
+	authService := auth.NewService(sessions, auth.NewStore(nil))
 
 	router := chi.NewRouter()
 	if err := mountRoutes(router, mounts{
@@ -150,7 +150,7 @@ func testRouter(t *testing.T) chi.Router {
 		kit:       kit,
 		auth:      authService,
 		directory: spaces.NewDirectory(nil, directory.Client{Issuer: appEnv.OIDC.Issuer}, appLogger),
-		deletions: spaces.NewDeletions(nil, directory.Client{Issuer: appEnv.OIDC.Issuer}, nil, appEnv.StorageDir, appLogger),
+		deletions: spaces.NewDeletions(nil, directory.Client{Issuer: appEnv.OIDC.Issuer}, spaces.Erasers{}, appEnv.StorageDir, appLogger),
 		mcp:       testMCP(t),
 		ideas: ideas.NewService(nil, ideas.Config{
 			URL:   "http://bulle.invalid",

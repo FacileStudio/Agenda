@@ -55,7 +55,7 @@ you add an endpoint.
 | Router | `tronc/httpx.NewRouter` | Chi router with the suite's logging, recovery, and CORS middleware |
 | Modules | `apps/api/modules/*` | `auth`, `calendars`, `events`, `spaces`, `users`, `settings`, `caldav` |
 | Schemas | `apps/api/schemas` | Ten GORM models plus `Migrate`, which is a plain `AutoMigrate` |
-| Internal | `apps/api/internal/*` | `database`, `middleware`, `env`, `crypto`, `authcrypto`, `authcontext`, `oidcavatar`, `documentation` |
+| Internal | `apps/api/internal/*` | `database`, `middleware`, `env`, `crypto`, `plans`, `pool`, `documentation` |
 | Client | `apps/client` | SvelteKit 5 with `adapter-static` and `fallback: index.html` |
 
 Six modules register under `/api`; `caldav` registers at the root.
@@ -78,17 +78,30 @@ Rate limits are per-route: 3 requests per minute on `POST /api/auth/register`, 1
 
 ## Authentication
 
-`middleware.RequireAuth` resolves a token from three places, in order:
+Sign-in glue is `porte/kit` (porte v0.18.0). `modules/auth/store.go` builds the
+`kit.Store` over Agenda's `users` table with `Columns{Picture: "oidc_picture_url"}` and no
+admin column, so a new account gets no privileges. `auth.Service.RequireAuth` is
+`kit.RequireAuth`: porte authenticates the cookie or bearer credential, then the kit
+loads the `kit.Identity` handlers read with `kit.FromContext`. A session whose user is
+gone answers 401 `invalid auth token`. `kit.Mount` registers porte's routes under `/api`.
 
-1. The `session` cookie — `HttpOnly`, `SameSite=Lax`, `Path=/`, and `Secure` whenever the
-   request arrived over TLS or through a proxy setting `X-Forwarded-Proto: https`.
-2. The `Authorization` header.
-3. A `?token=` query parameter, which logs a deprecation warning.
+The kit's rules apply: a verified email links an existing account unless it already holds
+a subject of the same issuer, and the stored email is rewritten at sign-in only when
+Registre marks it verified.
 
-Register and login both set the session cookie and return the token in the body. Sessions
-live 30 days (`auth.SessionTTL`). `POST /api/auth/logout` deletes the row and clears the
-cookie. Tokens are stored hashed in `sessions`; `api_tokens` holds the long-lived
-per-user alternative.
+CalDAV keeps its own check (`modules/caldav/handler.go`): the session cookie, or HTTP
+Basic with the account's email and an API token, which porte verifies as a labelled
+session.
+
+### Erasure
+
+When Registre erases a person, `porte/directory` calls `spaces.Deletions.ErasePerson`. It
+runs the kit's `EraseAccount`, whose `EraseData` (`modules/auth/store.go`) deletes the
+personal calendars with their events, attendees and shares, the person's own shares,
+attendances and space memberships, and clears their authorship of
+events in other calendars, all in the transaction that deletes the `users` row. The
+uploaded avatar file goes after the commit. `TestErasePersonDeletesPersonalDataAndKeepsSharedEvents`
+asserts no row references the person afterwards.
 
 ### OIDC
 

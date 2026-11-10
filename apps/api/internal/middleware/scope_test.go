@@ -8,6 +8,7 @@ import (
 
 	"github.com/FacileStudio/Agenda/apps/api/internal/env"
 	"github.com/FacileStudio/porte"
+	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/porte/session"
 
 	"github.com/go-chi/chi/v5"
@@ -23,12 +24,10 @@ func (f fakeJWT) VerifyJWT(_ context.Context, raw string) (porte.Identity, error
 	return identity, nil
 }
 
-type scopedAuth struct {
-	*session.Manager
-}
+type fixedUsers struct{}
 
-func (scopedAuth) IdentityForUser(_ context.Context, userID int64) (string, string, error) {
-	return "1", "user@example.com", nil
+func (fixedUsers) Identity(_ context.Context, userID int64) (kit.Identity, error) {
+	return kit.Identity{UserID: userID, Email: "user@example.com"}, nil
 }
 
 type noSessions struct{ porte.SessionStore }
@@ -56,7 +55,7 @@ func scopedRouter(t *testing.T) http.Handler {
 	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	router := chi.NewRouter()
 	router.Route("/calendars", func(r chi.Router) {
-		r.Use(RequireAuth(scopedAuth{manager}))
+		r.Use(kit.RequireAuth(manager, fixedUsers{}))
 		r.Get("/", ok)
 		r.Get("/{id}/events", ok)
 		r.Post("/{id}/events", ok)

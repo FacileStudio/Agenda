@@ -41,6 +41,7 @@ import (
 
 	"github.com/FacileStudio/porte"
 	"github.com/FacileStudio/porte/directory"
+	porteKit "github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/porte/oidc"
 	portepg "github.com/FacileStudio/porte/pg"
 	"github.com/FacileStudio/porte/session"
@@ -120,13 +121,14 @@ func run() int {
 		}
 	}()
 
-	sessions, kit, identities, err := buildAuth(context.Background(), db, appEnv, appLogger)
+	porteAuth, err := buildAuth(context.Background(), sqlDB, appEnv, appLogger)
 	if err != nil {
 		appLogger.Error("failed to build authentication", slog.Any("error", err))
 		return 1
 	}
+	sessions, kit, identities := porteAuth.sessions, porteAuth.oidc, porteAuth.identities
 
-	authService := auth.NewService(db, sessions, appLogger)
+	authService := auth.NewService(sessions, porteAuth.users)
 	calendarService := calendars.NewService(db)
 	eventService := events.NewService(db)
 	spaceService := spaces.NewService(db)
@@ -138,7 +140,7 @@ func run() int {
 		return 1
 	}
 
-	registreSync, deletions, stopSync := startDirectory(db, appEnv, appLogger)
+	registreSync, deletions, stopSync := startDirectory(db, porteAuth.users, appEnv, appLogger)
 	defer stopSync()
 
 	ideasService, err := newIdeas(context.Background(), db, appEnv, identities, registreSync, appLogger)
@@ -256,7 +258,7 @@ type mounts struct {
 // Without SSO there is nothing to follow, nil receivers and a stop that does
 // nothing. All suite apps run one replica, so this is the one deletion poller.
 func startDirectory(
-	db *gorm.DB, appEnv env.Config, appLogger *slog.Logger,
+	db *gorm.DB, users *porteKit.Store, appEnv env.Config, appLogger *slog.Logger,
 ) (*spaces.Directory, *spaces.Deletions, context.CancelFunc) {
 	if appEnv.OIDC == nil {
 		return nil, nil, func() {}
@@ -272,33 +274,40 @@ func startDirectory(
 		return nil, nil, func() {}
 	}
 	sync := spaces.NewDirectory(db, client, appLogger)
-	deletions := spaces.NewDeletions(db, client, portepg.New(sqlDB).EraseIdentity, appEnv.StorageDir, appLogger)
+	deletions := spaces.NewDeletions(db, client, spaces.Erasers{
+		Account: users.EraseAccount, Identity: portepg.New(sqlDB).EraseIdentity,
+	}, appEnv.StorageDir, appLogger)
 	ctx, stop := context.WithCancel(context.Background())
 	go sync.Run(ctx)
 	go deletions.Run(ctx)
 	return sync, deletions, stop
 }
 
-// buildAuth constructs porte: one session manager and the OIDC kit over the
-// identity tables. Sign-in goes through Registre only; there is no local
-// password kit. Discovery runs here, so an unreachable or half-configured
-// issuer fails at boot rather than on somebody's first login.
-func buildAuth(ctx context.Context, db *gorm.DB, appEnv env.Config, appLogger *slog.Logger) (*session.Manager, *oidc.Kit, porte.IdentityStore, error) {
-	sqlDB, err := db.DB()
-	if err != nil {
-		return nil, nil, nil, err
-	}
+// porteAuth is porte as Agenda wires it: one session manager, the OIDC kit,
+// the identity store and the kit's user store over Agenda's users table.
+type porteAuth struct {
+	sessions   *session.Manager
+	oidc       *oidc.Kit
+	identities porte.IdentityStore
+	users      *porteKit.Store
+}
+
+// buildAuth constructs porte over the identity tables. Sign-in goes through
+// Registre only; there is no local password kit. Discovery runs here, so an
+// unreachable or half-configured issuer fails at boot rather than on
+// somebody's first login.
+func buildAuth(ctx context.Context, sqlDB *sql.DB, appEnv env.Config, appLogger *slog.Logger) (porteAuth, error) {
 	store, err := newPorteStore(sqlDB)
 	if err != nil {
-		return nil, nil, nil, err
+		return porteAuth{}, err
 	}
 	resealInBackground(ctx, store, appLogger)
-	users := auth.NewUserStore(db)
+	users := auth.NewStore(sqlDB)
 	cfg := appEnv.Porte()
 
 	sessions, err := session.New(cfg, session.Deps{Sessions: store.Sessions(), Logger: appLogger})
 	if err != nil {
-		return nil, nil, nil, err
+		return porteAuth{}, err
 	}
 	kit, err := oidc.New(ctx, cfg, oidc.Deps{
 		Users:      users,
@@ -308,9 +317,9 @@ func buildAuth(ctx context.Context, db *gorm.DB, appEnv env.Config, appLogger *s
 		Logger:     appLogger,
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return porteAuth{}, err
 	}
-	return sessions, kit, store.Identities(), nil
+	return porteAuth{sessions: sessions, oidc: kit, identities: store.Identities(), users: users}, nil
 }
 
 // mountRoutes claims every URL the app answers. The whole API lives under /api
@@ -331,9 +340,9 @@ func mountRoutes(router chi.Router, m mounts) error {
 		router.Get("/auth/oidc/callback", redirectUnderAPI)
 	}
 
-	var ideasErr error
+	var mountErr error
 	router.Route("/api", func(r chi.Router) {
-		auth.RegisterRoutes(r, m.sessions, m.kit)
+		mountErr = auth.RegisterRoutes(r, m.sessions, m.kit)
 		calendars.RegisterRoutes(r, m.calendars, m.auth)
 		events.RegisterRoutes(r, m.events, m.auth)
 		spaces.RegisterRoutes(r, m.spaces, m.auth)
@@ -346,11 +355,11 @@ func mountRoutes(router chi.Router, m mounts) error {
 		if m.mcp != nil {
 			mcp.RegisterPendingRoutes(r, m.mcp, m.auth)
 		}
-		if m.ideas != nil {
-			ideasErr = ideas.RegisterRoutes(r, m.ideas, m.auth)
+		if m.ideas != nil && mountErr == nil {
+			mountErr = ideas.RegisterRoutes(r, m.ideas, m.auth)
 		}
 	})
-	return ideasErr
+	return mountErr
 }
 
 // referenceConfig describes the API reference served at /docs. Registry paths

@@ -10,7 +10,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/FacileStudio/Agenda/apps/api/internal/middleware"
+	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/bulle"
 
 	"github.com/go-chi/chi/v5"
@@ -30,10 +30,10 @@ type Config struct {
 }
 
 // RegisterRoutes serves /ideas behind authentication on router.
-func RegisterRoutes(router chi.Router, service *Service, authService middleware.Authenticator) error {
+func RegisterRoutes(router chi.Router, service *Service, authService kit.Authenticator) error {
 	var mountErr error
 	router.Group(func(group chi.Router) {
-		group.Use(middleware.RequireAuth(authService))
+		group.Use(authService.RequireAuth)
 		group.Use(service.resolve)
 		mountErr = bulle.MountIdeas(group, service.options())
 	})

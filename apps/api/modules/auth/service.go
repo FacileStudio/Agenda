@@ -2,65 +2,31 @@ package auth
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
-	"strconv"
 
-	"github.com/FacileStudio/Agenda/apps/api/schemas"
 	"github.com/FacileStudio/porte"
+	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/porte/session"
-	"github.com/FacileStudio/tronc/errors"
-
-	"gorm.io/gorm"
 )
 
 // Service is what is left of Agenda's authentication after porte took the
-// credential: the profile lookup the rest of the app reads and the session
-// manager the other modules authenticate through.
+// credential: the session middleware every module mounts, the API tokens and
+// the cookie check CalDAV runs on routes outside that middleware.
 type Service struct {
-	orm      *gorm.DB
-	sessions *session.Manager
-	logger   *slog.Logger
+	sessions    *session.Manager
+	requireAuth func(http.Handler) http.Handler
 }
 
-// NewService wires the auth service onto the given database and session
-// manager.
-func NewService(orm *gorm.DB, sessions *session.Manager, logger *slog.Logger) *Service {
-	return &Service{orm: orm, sessions: sessions, logger: logger}
+// NewService wires the auth service onto the session manager and the user
+// store that hydrates porte's user id into a kit.Identity.
+func NewService(sessions *session.Manager, users *kit.Store) *Service {
+	return &Service{sessions: sessions, requireAuth: kit.RequireAuth(sessions, users)}
 }
 
-// RequireAuth is porte's session middleware, re-exported so the module routers
-// keep passing this one service to middleware.RequireAuth.
+// RequireAuth authenticates the request through porte and puts the caller's
+// kit.Identity on its context. A session whose user is gone answers 401.
 func (service *Service) RequireAuth(next http.Handler) http.Handler {
-	return service.sessions.RequireAuth(next)
-}
-
-// IdentityForUser turns the user id porte authenticated into the identity the
-// rest of Agenda reads. It is no longer where authentication happens.
-//
-// porte deliberately carries neither the email nor any role: what a role may
-// do is the app's business, and the profile lives in the app's table. So the
-// address is looked up here, which costs the one query the old join cost.
-//
-// A zero id means the session outlived the user: porte's foreign key cascades
-// a delete, so this is a race, and it is still not authenticated.
-func (service *Service) IdentityForUser(ctx context.Context, userID int64) (string, string, error) {
-	var out struct {
-		ID    int64
-		Email string
-	}
-	err := service.orm.WithContext(ctx).
-		Model(&schemas.User{}).
-		Select("id", "email").
-		Where("id = ?", userID).
-		Scan(&out).Error
-	if err != nil {
-		return "", "", errors.Internal("failed to load the account", err)
-	}
-	if out.ID == 0 {
-		return "", "", errors.Unauthorized("invalid auth token")
-	}
-	return strconv.FormatInt(out.ID, 10), out.Email, nil
+	return service.requireAuth(next)
 }
 
 // Issue mints a named API token: a porte session with a label and no expiry,

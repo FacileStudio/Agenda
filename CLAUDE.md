@@ -23,7 +23,7 @@ apps/
   api/                    Go backend
     main.go               Entrypoint: env, DB, migrations, router, static file serving, graceful shutdown
     modules/              Domain modules
-      auth/               Session auth + OIDC SSO (copied from Courrier)
+      auth/               porte/kit store, session middleware, erasure (EraseData)
       users/              User profile management (copied from Courrier)
       settings/           App settings (copied from Courrier)
       calendars/          Calendar CRUD + sharing + member management

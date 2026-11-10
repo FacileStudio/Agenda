@@ -15,7 +15,6 @@ require (
 	github.com/go-chi/chi/v5 v5.3.1
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/teambition/rrule-go v1.8.2
-	golang.org/x/crypto v0.54.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
 )

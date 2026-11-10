@@ -1,7 +1,7 @@
 package mcp
 
 import (
-	"github.com/FacileStudio/Agenda/apps/api/internal/middleware"
+	"github.com/FacileStudio/porte/kit"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -13,9 +13,9 @@ func RegisterRoutes(router chi.Router, service *Service) {
 
 // RegisterPendingRoutes mounts the confirm page's API under /mcp/pending on
 // the /api router, for the signed-in person.
-func RegisterPendingRoutes(router chi.Router, service *Service, authService middleware.Authenticator) {
+func RegisterPendingRoutes(router chi.Router, service *Service, authService kit.Authenticator) {
 	router.Route("/mcp/pending", func(r chi.Router) {
-		r.Use(middleware.RequireAuth(authService))
+		r.Use(authService.RequireAuth)
 		r.Get("/", service.handleList)
 		r.Post("/{id}/confirm", service.handleConfirm)
 		r.Post("/{id}/dismiss", service.handleDismiss)

@@ -16,6 +16,7 @@ import (
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
 	"github.com/FacileStudio/porte"
 	"github.com/FacileStudio/porte/directory"
+	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/testdb"
 
 	"github.com/go-chi/chi/v5"
@@ -38,12 +39,9 @@ func (stubAuth) RequireAuth(next http.Handler) http.Handler {
 			http.Error(w, "unauthenticated", http.StatusUnauthorized)
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(porte.WithIdentity(r.Context(), porte.Identity{UserID: id})))
+		ctx := porte.WithIdentity(r.Context(), porte.Identity{UserID: id})
+		next.ServeHTTP(w, r.WithContext(kit.WithIdentity(ctx, kit.Identity{UserID: id})))
 	})
-}
-
-func (stubAuth) IdentityForUser(_ context.Context, userID int64) (string, string, error) {
-	return strconv.FormatInt(userID, 10), "", nil
 }
 
 type harness struct {

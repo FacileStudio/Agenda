@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/FacileStudio/Agenda/apps/api/internal/authcontext"
 	"github.com/FacileStudio/Agenda/apps/api/modules/events"
 	"github.com/FacileStudio/porte"
+	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/mcp/mcptest"
 	"github.com/go-chi/chi/v5"
 )
@@ -28,7 +28,7 @@ func pendingDelete(t *testing.T, f *fixture) (int64, string) {
 // delegated token when actor is set.
 func onPage(f *fixture, handler http.HandlerFunc, id, actor string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodPost, "/api/mcp/pending/"+id+"/confirm", nil)
-	ctx := authcontext.WithIdentity(req.Context(), authcontext.Identity{UserID: itoa(f.userID)})
+	ctx := kit.WithIdentity(req.Context(), kit.Identity{UserID: f.userID})
 	ctx = porte.WithIdentity(ctx, porte.Identity{UserID: f.userID, Actor: actor})
 	routes := chi.NewRouteContext()
 	routes.URLParams.Add("id", id)

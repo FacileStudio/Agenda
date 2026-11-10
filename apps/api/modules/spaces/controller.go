@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/FacileStudio/Agenda/apps/api/internal/authcontext"
+	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/httpjson"
 
 	"github.com/go-chi/chi/v5"
@@ -51,9 +51,8 @@ func (c *controller) listMembers(w http.ResponseWriter, r *http.Request) {
 }
 
 func mustUserID(r *http.Request) int64 {
-	identity := authcontext.MustIdentity(r.Context())
-	id, _ := strconv.ParseInt(identity.UserID, 10, 64)
-	return id
+	identity, _ := kit.FromContext(r.Context())
+	return identity.UserID
 }
 
 func mustSpaceID(r *http.Request) int64 {

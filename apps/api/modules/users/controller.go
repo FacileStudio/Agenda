@@ -3,10 +3,11 @@ package users
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/FacileStudio/Agenda/apps/api/internal/authcontext"
+	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/errors"
 )
 
@@ -20,7 +21,7 @@ func newController(service *Service) *Controller {
 }
 
 func (controller *Controller) list(context context.Context) (*ListResponse, error) {
-	if _, ok := authcontext.IdentityFromContext(context); !ok {
+	if _, ok := kit.FromContext(context); !ok {
 		return nil, errors.Unauthorized("missing auth")
 	}
 
@@ -41,12 +42,12 @@ func (controller *Controller) get(context context.Context, userID string) (*MeRe
 }
 
 func (controller *Controller) me(context context.Context) (*MeResponse, error) {
-	identity, ok := authcontext.IdentityFromContext(context)
+	identity, ok := kit.FromContext(context)
 	if !ok {
 		return nil, errors.Unauthorized("missing auth")
 	}
 
-	user, err := controller.service.getUser(context, identity.UserID)
+	user, err := controller.service.getUser(context, strconv.FormatInt(identity.UserID, 10))
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +62,7 @@ func (controller *Controller) me(context context.Context) (*MeResponse, error) {
 // updateMe applies a profile edit.
 func (controller *Controller) updateMe(r *http.Request, req *UpdateRequest) (*MeResponse, error) {
 	ctx := r.Context()
-	identity, ok := authcontext.IdentityFromContext(ctx)
+	identity, ok := kit.FromContext(ctx)
 	if !ok {
 		return nil, errors.Unauthorized("missing auth")
 	}
@@ -75,7 +76,7 @@ func (controller *Controller) updateMe(r *http.Request, req *UpdateRequest) (*Me
 		return nil, errors.Invalid("at least one field must be provided")
 	}
 
-	user, err := controller.service.updateUser(ctx, identity.UserID, name, email)
+	user, err := controller.service.updateUser(ctx, strconv.FormatInt(identity.UserID, 10), name, email)
 	if err != nil {
 		return nil, err
 	}
@@ -107,11 +108,11 @@ func normalizeProfile(req *UpdateRequest) (*string, *string, error) {
 }
 
 func (controller *Controller) getApiToken(context context.Context) (*ApiTokenStatusResponse, error) {
-	identity, ok := authcontext.IdentityFromContext(context)
+	identity, ok := kit.FromContext(context)
 	if !ok {
 		return nil, errors.Unauthorized("missing auth")
 	}
-	record, err := controller.service.getApiToken(context, identity.UserID)
+	record, err := controller.service.getApiToken(context, strconv.FormatInt(identity.UserID, 10))
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +127,7 @@ func (controller *Controller) getApiToken(context context.Context) (*ApiTokenSta
 }
 
 func (controller *Controller) createApiToken(context context.Context, req *CreateApiTokenRequest) (*ApiTokenResponse, error) {
-	identity, ok := authcontext.IdentityFromContext(context)
+	identity, ok := kit.FromContext(context)
 	if !ok {
 		return nil, errors.Unauthorized("missing auth")
 	}
@@ -134,7 +135,7 @@ func (controller *Controller) createApiToken(context context.Context, req *Creat
 	if name == "" {
 		name = "CLI"
 	}
-	rawToken, record, err := controller.service.createApiToken(context, identity.UserID, name)
+	rawToken, record, err := controller.service.createApiToken(context, strconv.FormatInt(identity.UserID, 10), name)
 	if err != nil {
 		return nil, err
 	}
@@ -146,9 +147,9 @@ func (controller *Controller) createApiToken(context context.Context, req *Creat
 }
 
 func (controller *Controller) deleteApiToken(context context.Context) error {
-	identity, ok := authcontext.IdentityFromContext(context)
+	identity, ok := kit.FromContext(context)
 	if !ok {
 		return errors.Unauthorized("missing auth")
 	}
-	return controller.service.deleteApiToken(context, identity.UserID)
+	return controller.service.deleteApiToken(context, strconv.FormatInt(identity.UserID, 10))
 }

@@ -3,7 +3,6 @@ package spaces
 import (
 	"net/http"
 
-	"github.com/FacileStudio/Agenda/apps/api/internal/middleware"
 	"github.com/FacileStudio/Agenda/apps/api/modules/auth"
 
 	"github.com/go-chi/chi/v5"
@@ -14,7 +13,7 @@ import (
 func RegisterRoutes(router chi.Router, service *Service, authService *auth.Service) {
 	c := newController(service)
 	router.Route("/spaces", func(r chi.Router) {
-		r.Use(middleware.RequireAuth(authService))
+		r.Use(authService.RequireAuth)
 		r.Get("/", c.list)
 		r.Route("/{spaceID}", func(r chi.Router) {
 			r.Get("/", c.get)

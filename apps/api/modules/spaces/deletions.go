@@ -19,20 +19,27 @@ import (
 type Deletions struct {
 	orm        *gorm.DB
 	storageDir string
+	erasers    Erasers
 	receiver   *directory.Deletions
 }
 
-// NewDeletions builds the receiver over Agenda's tables. erase is porte's own
-// rows eraser, pg.Store.EraseIdentity.
+// Erasers are the two halves of erasing a person. Account is the kit store's
+// EraseAccount, which deletes the account and what it owns in one
+// transaction; Identity is porte's own rows eraser, pg.Store.EraseIdentity.
+type Erasers struct {
+	Account  func(ctx context.Context, provider, subject string) error
+	Identity func(ctx context.Context, provider, subject string) error
+}
+
+// NewDeletions builds the receiver over Agenda's tables.
 func NewDeletions(
-	orm *gorm.DB, client directory.Client, erase func(context.Context, string, string) error,
-	storageDir string, logger *slog.Logger,
+	orm *gorm.DB, client directory.Client, erasers Erasers, storageDir string, logger *slog.Logger,
 ) *Deletions {
-	d := &Deletions{orm: orm, storageDir: storageDir}
+	d := &Deletions{orm: orm, storageDir: storageDir, erasers: erasers}
 	d.receiver = &directory.Deletions{
 		Client:          client,
 		OnPersonDeleted: d.ErasePerson,
-		Erase:           erase,
+		Erase:           erasers.Identity,
 		State:           deletionState{orm: orm},
 		Logger:          logger,
 	}
@@ -49,54 +56,27 @@ func (d *Deletions) Handler() http.Handler {
 	return d.receiver.Handler()
 }
 
-const (
-	deleteOwnedAttendees = `DELETE FROM event_attendees WHERE event_id IN (
-		SELECT e.id FROM events e JOIN calendars c ON c.id = e.calendar_id
-		WHERE c.owner_id = @id AND c.space_id IS NULL)`
-	deleteOwnedEvents = `DELETE FROM events WHERE calendar_id IN (
-		SELECT id FROM calendars WHERE owner_id = @id AND space_id IS NULL)`
-	deleteOwnedShares = `DELETE FROM calendar_members WHERE calendar_id IN (
-		SELECT id FROM calendars WHERE owner_id = @id AND space_id IS NULL)`
-	deleteOwnedCalendars = `DELETE FROM calendars WHERE owner_id = @id AND space_id IS NULL`
-	deleteOwnShares      = `DELETE FROM calendar_members WHERE user_id = @id`
-	deleteOwnAttendance  = `DELETE FROM event_attendees WHERE user_id = @id`
-	deleteMemberships    = `DELETE FROM space_members WHERE user_id = @id`
-	anonymiseAuthorship  = `UPDATE events SET created_by_id = NULL WHERE created_by_id = @id`
-	deleteAccount        = `DELETE FROM users WHERE id = @id`
-)
-
-// ErasePerson deletes the account behind a Registre identity and what it owns:
-// its personal calendars with their events, its shares, memberships and
-// attendances. Events it created in calendars owned by others or by a space
-// stay, with no author. A subject that is already gone is a no-op, so a
-// replayed notice changes nothing.
+// ErasePerson deletes the account behind a Registre identity through the kit
+// store, then removes its uploaded avatar once the rows are gone. A subject
+// that is already gone is a no-op, so a replayed notice changes nothing.
 func (d *Deletions) ErasePerson(ctx context.Context, provider, subject string) error {
-	var account struct {
-		ID         int64
-		UploadPath string
-	}
+	var uploads []string
 	err := d.orm.WithContext(ctx).Raw(
-		`SELECT u.id, coalesce(u.avatar_upload_path, '') AS upload_path FROM users u
+		`SELECT coalesce(u.avatar_upload_path, '') FROM users u
 		 JOIN porte_identities i ON i.user_id = u.id WHERE i.provider = ? AND i.subject = ?`,
-		provider, subject).Scan(&account).Error
-	if err != nil || account.ID == 0 {
+		provider, subject).Scan(&uploads).Error
+	if err != nil {
 		return err
 	}
-	err = d.orm.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		for _, statement := range []string{
-			deleteOwnedAttendees, deleteOwnedEvents, deleteOwnedShares, deleteOwnedCalendars,
-			deleteOwnShares, deleteOwnAttendance, deleteMemberships, anonymiseAuthorship, deleteAccount,
-		} {
-			if err := tx.Exec(statement, map[string]any{"id": account.ID}).Error; err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	if err == nil && account.UploadPath != "" {
-		removeUpload(d.storageDir, account.UploadPath)
+	if err := d.erasers.Account(ctx, provider, subject); err != nil {
+		return err
 	}
-	return err
+	for _, upload := range uploads {
+		if upload != "" {
+			removeUpload(d.storageDir, upload)
+		}
+	}
+	return nil
 }
 
 func removeUpload(storageDir, relative string) {

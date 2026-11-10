@@ -2,10 +2,14 @@ package spaces
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/FacileStudio/Agenda/apps/api/modules/auth"
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
 	"github.com/FacileStudio/porte/directory"
 
@@ -24,6 +28,7 @@ func count(t *testing.T, db *gorm.DB, query string, args ...any) int64 {
 type erasureFixture struct {
 	gone, other int64
 	deletions   *Deletions
+	avatar      string
 }
 
 func mustCreate(t *testing.T, db *gorm.DB, row any) {
@@ -31,6 +36,21 @@ func mustCreate(t *testing.T, db *gorm.DB, row any) {
 	if err := db.Create(row).Error; err != nil {
 		t.Fatalf("seed: %v", err)
 	}
+}
+
+func seedAvatar(t *testing.T, db *gorm.DB, storage string, userID int64) string {
+	t.Helper()
+	path := filepath.Join(storage, "avatars", "user-gone.png")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("avatar dir: %v", err)
+	}
+	if err := os.WriteFile(path, []byte("png"), 0o600); err != nil {
+		t.Fatalf("avatar: %v", err)
+	}
+	if err := db.Exec(`UPDATE users SET avatar_upload_path = 'avatars/user-gone.png' WHERE id = ?`, userID).Error; err != nil {
+		t.Fatalf("avatar path: %v", err)
+	}
+	return path
 }
 
 func seedErasure(t *testing.T, db *gorm.DB) erasureFixture {
@@ -55,9 +75,39 @@ func seedErasure(t *testing.T, db *gorm.DB) erasureFixture {
 	mustCreate(t, db, &theirs)
 	mustCreate(t, db, &schemas.EventAttendee{EventID: theirs.ID, UserID: &gone, Email: "gone@facile.studio"})
 	mustCreate(t, db, &schemas.CalendarMember{CalendarID: kept.ID, UserID: gone, Role: "reader"})
-	deletions := NewDeletions(db, directory.Client{Issuer: testIssuer}, nil, t.TempDir(),
+	deletions, avatar := erasingDeletions(t, db, gone)
+	return erasureFixture{gone: gone, other: other, deletions: deletions, avatar: avatar}
+}
+
+func erasingDeletions(t *testing.T, db *gorm.DB, gone int64) (*Deletions, string) {
+	t.Helper()
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("sql handle: %v", err)
+	}
+	storage := t.TempDir()
+	erasers := Erasers{Account: auth.NewStore(sqlDB).EraseAccount}
+	deletions := NewDeletions(db, directory.Client{Issuer: testIssuer}, erasers, storage,
 		slog.New(slog.NewTextHandler(io.Discard, nil)))
-	return erasureFixture{gone: gone, other: other, deletions: deletions}
+	return deletions, seedAvatar(t, db, storage, gone)
+}
+
+func assertNothingReferences(t *testing.T, db *gorm.DB, f erasureFixture) {
+	t.Helper()
+	for _, query := range []string{
+		`SELECT count(*) FROM users WHERE id = ?`,
+		`SELECT count(*) FROM calendars WHERE owner_id = ?`,
+		`SELECT count(*) FROM event_attendees WHERE user_id = ?`,
+		`SELECT count(*) FROM calendar_members WHERE user_id = ?`,
+		`SELECT count(*) FROM space_members WHERE user_id = ?`,
+	} {
+		if got := count(t, db, query, f.gone); got != 0 {
+			t.Errorf("%s = %d, want 0", query, got)
+		}
+	}
+	if _, err := os.Stat(f.avatar); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the uploaded avatar survived: %v", err)
+	}
 }
 
 // A deleted subject loses the account, its personal calendar with the events
@@ -72,18 +122,7 @@ func TestErasePersonDeletesPersonalDataAndKeepsSharedEvents(t *testing.T) {
 		}
 	}
 
-	checks := map[string]int64{
-		`SELECT count(*) FROM users WHERE id = ?`:                 0,
-		`SELECT count(*) FROM calendars WHERE owner_id = ?`:       0,
-		`SELECT count(*) FROM event_attendees WHERE user_id = ?`:  0,
-		`SELECT count(*) FROM calendar_members WHERE user_id = ?`: 0,
-		`SELECT count(*) FROM space_members WHERE user_id = ?`:    0,
-	}
-	for query, want := range checks {
-		if got := count(t, db, query, f.gone); got != want {
-			t.Errorf("%s = %d, want %d", query, got, want)
-		}
-	}
+	assertNothingReferences(t, db, f)
 	for title, want := range map[string]int64{"private": 0, "team": 1, "mine": 1} {
 		if got := count(t, db, `SELECT count(*) FROM events WHERE title = ?`, title); got != want {
 			t.Errorf("events titled %q = %d, want %d", title, got, want)

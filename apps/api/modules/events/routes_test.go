@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/FacileStudio/Agenda/apps/api/internal/authcontext"
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
+	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/testdb"
 
 	"github.com/go-chi/chi/v5"
@@ -62,7 +63,8 @@ func chiWith(c *controller, userID *string) chi.Router {
 func asUser(userID *string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := authcontext.WithIdentity(r.Context(), authcontext.Identity{UserID: *userID})
+			id, _ := strconv.ParseInt(*userID, 10, 64)
+			ctx := kit.WithIdentity(r.Context(), kit.Identity{UserID: id})
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

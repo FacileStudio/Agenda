@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/FacileStudio/Agenda/apps/api/internal/authcontext"
+	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/errors"
 	"github.com/FacileStudio/tronc/httpjson"
 
@@ -52,14 +52,11 @@ func (s *Service) resolve(next http.Handler) http.Handler {
 }
 
 func (s *Service) scope(r *http.Request) (scope, error) {
-	identity, ok := authcontext.IdentityFromContext(r.Context())
+	identity, ok := kit.FromContext(r.Context())
 	if !ok {
 		return scope{}, errors.Unauthorized("missing auth")
 	}
-	userID, err := strconv.ParseInt(identity.UserID, 10, 64)
-	if err != nil {
-		return scope{}, errors.Unauthorized("missing auth")
-	}
+	userID := identity.UserID
 	registre, err := s.registreSpace(r, userID)
 	if err != nil {
 		return scope{}, err
