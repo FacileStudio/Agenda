@@ -24,7 +24,8 @@ mise run db
 
 `casier login` opens a browser for the SSO round trip and stores the token in the keychain;
 Casier is `SSO_ONLY`, so there is no password path and no token to paste. `mise run hooks`
-points `core.hooksPath` at `.githooks`, which wires up the pre-push quality gate.
+installs `lefthook.yml`'s hooks: the suite's shared commit hooks and a pre-push that runs
+`scripts/check.sh` and `filet gate .` (filet's rules, then douane).
 `mise run install` runs `bun install --frozen-lockfile` in `apps/client`.
 
 `mise run db` is `casier run -- docker compose -f docker-compose.yml -f
@@ -100,14 +101,14 @@ migration tool and no migration files.
 | `mise run check` | `sh ./scripts/check.sh` | The full quality gate: Go, then the client |
 | `mise run check-go` | `sh ./scripts/check.sh --go-only` | Go half only |
 | `mise run format` | `sh ./scripts/check.sh --format` | `go fmt ./...`, rewriting files in place |
-| `mise run hooks` | `git config core.hooksPath .githooks` | Enables the tracked hooks in this clone |
+| `mise run hooks` | `lefthook install --reset-hooks-path` | Installs the tracked `lefthook.yml` hooks in this clone |
 
 Client scripts, run from `apps/client`: `bun run dev`, `bun run build`, `bun run preview`,
 `bun run check` (`svelte-check` against `tsconfig.json`).
 
 ## The quality gate
 
-`scripts/check.sh` is the gate, and `.githooks/pre-push` does nothing but exec it. It
+`scripts/check.sh` is the gate, and lefthook's pre-push runs it before `filet gate .`. It
 reports and never rewrites, except under `--format`:
 
 1. `gofmt -l .` over `apps/api`, ignoring `vendor/`. Any listed file fails the gate.

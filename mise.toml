@@ -1,5 +1,6 @@
 [tools]
 go = "1.26"
+lefthook = "2.1.12"
 
 # The API reads its configuration from the process environment, so Casier can
 # supply it directly and no .env has to exist. `casier run` is network-first
@@ -50,5 +51,5 @@ description = "Format the Go sources in place"
 run = "sh ./scripts/check.sh --format"
 
 [tasks.hooks]
-description = "Enable the tracked git hooks in this clone"
-run = "git config core.hooksPath .githooks"
+description = "Install the tracked lefthook hooks in this clone"
+run = "lefthook install --reset-hooks-path"
