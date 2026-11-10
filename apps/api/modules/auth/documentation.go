@@ -3,6 +3,7 @@ package auth
 import (
 	documentation "github.com/FacileStudio/Agenda/apps/api/internal/documentation"
 	"github.com/FacileStudio/porte"
+	"github.com/FacileStudio/porte/kit"
 )
 
 var Documentation = documentation.Module{
@@ -71,5 +72,6 @@ var Documentation = documentation.Module{
 			RequestBody:  BackchannelLogoutRequest{},
 			ResponseBody: porte.LogoutResponse{},
 		},
+		kit.InvitationsRoute(),
 	},
 }

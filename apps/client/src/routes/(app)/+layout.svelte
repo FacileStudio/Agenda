@@ -2,7 +2,7 @@
 	import { onMount, setContext } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { UserMenu, getI18n, icons, ideasNavItem, toast } from '@facile/muse';
+	import { UserMenu, getI18n, icons, ideasNavItem, toast, type UserMenuInvitations } from '@facile/muse';
 	import { ApiError, backend, type UserProfile, type CalendarItem } from '$lib/backend';
 	import { sortCalendars } from '$lib/calendar-filter.svelte';
 	import IdeasButton from '$lib/components/IdeasButton.svelte';
@@ -17,6 +17,7 @@
 	let user = $state<UserProfile | null>(null);
 	let loaded = $state(false);
 	let calendars = $state<CalendarItem[]>([]);
+	let invitations = $state<UserMenuInvitations | null>(null);
 
 	function setUser(nextUser: UserProfile) {
 		user = nextUser;
@@ -46,6 +47,9 @@
 			setUser(result.user);
 			loaded = true;
 			resumeReturn();
+			backend.invitations()
+				.then((b) => (invitations = b.href ? { count: b.count, href: b.href } : null))
+				.catch(() => (invitations = null));
 			backend.syncProfile().then(async (r) => {
 				if (r.synced) {
 					const fresh = await backend.me();
@@ -106,6 +110,7 @@
 		settingsHref: '/settings',
 		subscription: { href: 'https://sso.facile.studio/spaces' },
 		helpHref: 'https://github.com/FacileStudio/Agenda/tree/main/docs',
+		invitations,
 		onSignOut: signOut,
 		onLocaleChange: rememberLocale,
 		theme: theme.preference,

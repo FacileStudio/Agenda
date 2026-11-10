@@ -170,21 +170,22 @@ func run() int {
 	router.Use(middleware.MaxBodySize(4 << 20))
 
 	if err := mountRoutes(router, mounts{
-		env:       appEnv,
-		db:        db,
-		sqlDB:     sqlDB,
-		sessions:  sessions,
-		kit:       kit,
-		auth:      authService,
-		calendars: calendarService,
-		events:    eventService,
-		spaces:    spaceService,
-		users:     userService,
-		settings:  settingsService,
-		directory: registreSync,
-		deletions: deletions,
-		mcp:       mcpService,
-		ideas:     ideasService,
+		env:         appEnv,
+		db:          db,
+		sqlDB:       sqlDB,
+		sessions:    sessions,
+		kit:         kit,
+		auth:        authService,
+		calendars:   calendarService,
+		events:      eventService,
+		spaces:      spaceService,
+		users:       userService,
+		settings:    settingsService,
+		directory:   registreSync,
+		deletions:   deletions,
+		mcp:         mcpService,
+		ideas:       ideasService,
+		invitations: invitationsConfig(appEnv, identities, appLogger),
 	}); err != nil {
 		appLogger.Error("failed to mount routes", slog.Any("error", err))
 		return 1
@@ -249,6 +250,8 @@ type mounts struct {
 	deletions *spaces.Deletions
 	mcp       *mcp.Service
 	ideas     *ideas.Service
+
+	invitations *porteKit.InvitationsConfig
 }
 
 // startDirectory follows Registre's spaces and its GDPR deletions when SSO is
@@ -355,8 +358,8 @@ func mountRoutes(router chi.Router, m mounts) error {
 		if m.mcp != nil {
 			mcp.RegisterPendingRoutes(r, m.mcp, m.auth)
 		}
-		if m.ideas != nil && mountErr == nil {
-			mountErr = ideas.RegisterRoutes(r, m.ideas, m.auth)
+		if mountErr == nil {
+			mountErr = mountOptional(r, m)
 		}
 	})
 	return mountErr

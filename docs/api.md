@@ -46,6 +46,7 @@ probe answers whether or not the edge proxy forwards only `/api/*`.
 | GET | `/api/auth/oidc` | no | — | 302 to the provider |
 | GET | `/api/auth/oidc/callback` | no | — | 302 to `OIDC_SUCCESS_URL` |
 | POST | `/api/auth/sync-profile` | yes | — | Re-pulls name and avatar from the provider |
+| GET | `/api/me/invitations` | yes | — | `{"count": n, "href": url}`: pending Registre space invitations for the user menu (`porte/kit` `MountInvitations`). Any failure answers 200 `{"count":0}` without `href`. Cached 60 s per user. Mounted only with `OIDC_ISSUER` |
 
 There is no register or login route: people sign in through Registre only, and
 `/api/auth/register` and `/api/auth/login` answer 404. The OIDC routes exist only when

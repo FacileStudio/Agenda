@@ -22,6 +22,7 @@ import (
 	"github.com/FacileStudio/Agenda/apps/api/modules/ideas"
 	"github.com/FacileStudio/Agenda/apps/api/modules/spaces"
 	"github.com/FacileStudio/porte/directory"
+	porteKit "github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/porte/oidc"
 	portepg "github.com/FacileStudio/porte/pg"
 	"github.com/FacileStudio/porte/session"
@@ -38,6 +39,7 @@ var clientCalls = []struct {
 	path   string
 }{
 	{http.MethodGet, "/api/auth/config"},
+	{http.MethodGet, "/api/me/invitations"},
 	{http.MethodPost, "/api/auth/logout"},
 	{http.MethodPost, "/api/auth/sync-profile"},
 	{http.MethodGet, "/api/auth/oidc"},
@@ -152,6 +154,10 @@ func testRouter(t *testing.T) chi.Router {
 		directory: spaces.NewDirectory(nil, directory.Client{Issuer: appEnv.OIDC.Issuer}, appLogger),
 		deletions: spaces.NewDeletions(nil, directory.Client{Issuer: appEnv.OIDC.Issuer}, spaces.Erasers{}, appEnv.StorageDir, appLogger),
 		mcp:       testMCP(t),
+		invitations: &porteKit.InvitationsConfig{
+			Directory:  directory.Client{Issuer: appEnv.OIDC.Issuer, ClientID: "agenda", ClientSecret: "secret"},
+			Identities: store.Identities(),
+		},
 		ideas: ideas.NewService(nil, ideas.Config{
 			URL:   "http://bulle.invalid",
 			Token: func(context.Context) (string, error) { return "", nil },

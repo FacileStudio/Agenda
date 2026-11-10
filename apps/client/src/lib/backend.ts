@@ -135,6 +135,12 @@ export type PendingAction = {
 	event?: PendingEvent;
 };
 
+/** The pending Registre space invitations for the user menu. `href` is absent when they could not be read. */
+export type InvitationsResponse = {
+	count: number;
+	href?: string;
+};
+
 export class ApiError extends Error {
 	status: number;
 	upgradeUrl?: string;
@@ -247,6 +253,9 @@ export const backend = {
 		return apiFetch<MeResponse>('/users/me').then((r) => ({
 			user: normalizeUser(r.user)
 		}));
+	},
+	invitations() {
+		return apiFetch<InvitationsResponse>('/me/invitations');
 	},
 	syncProfile() {
 		return apiFetch<{ synced: boolean }>('/auth/sync-profile', { method: 'POST' });
