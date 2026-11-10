@@ -90,12 +90,8 @@ func (k *Kit) fail(w http.ResponseWriter, r *http.Request, reason string) {
 // classified as the caller's problem says what it was; everything else is an
 // internal failure and says nothing, because its message is for the log.
 func failureReason(err error) string {
-	var apiErr *errors.Error
-	if stderrors.As(err, &apiErr) {
-		switch apiErr.Code {
-		case "invalid_argument", "already_exists", "unauthenticated", "permission_denied":
-			return apiErr.Message
-		}
+	if apiErr, ok := callerError(err); ok {
+		return apiErr.Message
 	}
 	return "could not sign you in"
 }

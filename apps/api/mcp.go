@@ -11,16 +11,18 @@ import (
 	"github.com/FacileStudio/Agenda/apps/api/modules/mcp"
 	"github.com/FacileStudio/porte"
 	"github.com/FacileStudio/porte/mcpauth"
+	"github.com/FacileStudio/porte/oidc"
 	mcpkit "github.com/FacileStudio/tronc/mcp"
 )
 
 // newMCP builds the MCP server when MCP_RESOURCE is set, SSO is on and
 // ENCRYPTION_KEY signs the confirmations, and nothing otherwise. The
 // verifier runs Registre discovery here, so a wrong issuer fails at boot like
-// the OIDC kit does.
+// the OIDC kit does. A person's first MCP call creates their account through
+// the OIDC kit, as a first web login would.
 func newMCP(
 	ctx context.Context, sqlDB *sql.DB, appEnv env.Config, calendarService *calendars.Service,
-	eventService *events.Service, identities porte.IdentityStore, appLogger *slog.Logger,
+	eventService *events.Service, identities porte.IdentityStore, kit *oidc.Kit, appLogger *slog.Logger,
 ) (*mcp.Service, error) {
 	if appEnv.OIDC == nil || appEnv.MCP.Resource == "" || len(appEnv.MCP.StateKey) == 0 {
 		return nil, nil
@@ -30,6 +32,8 @@ func newMCP(
 		Resource:    appEnv.MCP.Resource,
 		ScopePrefix: "agenda",
 		Identities:  identities,
+		Provision:   true,
+		Accounts:    kit,
 		Logger:      appLogger,
 	})
 	if err != nil {

@@ -4,7 +4,7 @@ github.com/FacileStudio/Journal/sdk/journal
 # github.com/FacileStudio/antenne-client/go v0.0.0-20260824150250-7681849d44f9
 ## explicit; go 1.24.0
 github.com/FacileStudio/antenne-client/go
-# github.com/FacileStudio/porte v0.15.1
+# github.com/FacileStudio/porte v0.16.0
 ## explicit; go 1.26
 github.com/FacileStudio/porte
 github.com/FacileStudio/porte/exchange
@@ -20,7 +20,7 @@ github.com/FacileStudio/porte/directory
 # github.com/FacileStudio/porte/forfait v0.1.1
 ## explicit; go 1.22
 github.com/FacileStudio/porte/forfait
-# github.com/FacileStudio/porte/mcpauth v0.1.0
+# github.com/FacileStudio/porte/mcpauth v0.2.0
 ## explicit; go 1.26
 github.com/FacileStudio/porte/mcpauth
 # github.com/FacileStudio/tronc v0.19.0
@@ -147,6 +147,7 @@ golang.org/x/oauth2/internal
 ## explicit; go 1.25.0
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
+golang.org/x/sync/singleflight
 # golang.org/x/sys v0.47.0
 ## explicit; go 1.25.0
 golang.org/x/sys/cpu

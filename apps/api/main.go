@@ -132,7 +132,7 @@ func run() int {
 	spaceService := spaces.NewService(db)
 	userService := users.NewService(db, authService)
 	settingsService := settings.NewService(db)
-	mcpService, err := newMCP(context.Background(), sqlDB, appEnv, calendarService, eventService, identities, appLogger)
+	mcpService, err := newMCP(context.Background(), sqlDB, appEnv, calendarService, eventService, identities, kit, appLogger)
 	if err != nil {
 		appLogger.Error("failed to build the MCP server", slog.Any("error", err))
 		return 1
