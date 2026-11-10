@@ -1,7 +1,7 @@
 github.com/FacileStudio/Journal/sdk/journal v0.0.0-20260708221941-db985ad2b1ba h1:/DSby1r2Ix9vsPKfDky0rRY/skp8p2Nq+I/B3cc9M9g=
 github.com/FacileStudio/Journal/sdk/journal v0.0.0-20260708221941-db985ad2b1ba/go.mod h1:mb3rZqpSwA4CMrP9LQe2eWdM/4np3xzkRy6l/WWSaUg=
-github.com/FacileStudio/antenne-client/go v1.0.0 h1:DaiSu71H9vez382mhjtGH8JXznTE1YMA2Ezm49pPs9Q=
-github.com/FacileStudio/antenne-client/go v1.0.0/go.mod h1:L36VhKkpNZ0zLo0AfV8w3NwaKv6poZpDnff4xlq+Zso=
+github.com/FacileStudio/antenne-client/go v1.1.0 h1:DVfiUneBwgeobaUWmNUNr7jCEOuHc1g2lUfKGM3Zpzs=
+github.com/FacileStudio/antenne-client/go v1.1.0/go.mod h1:L36VhKkpNZ0zLo0AfV8w3NwaKv6poZpDnff4xlq+Zso=
 github.com/FacileStudio/porte v0.18.1 h1:c+BvuVwUJ+EdgXmJZZfCH07vBVhkNPfNJtszwQdraY0=
 github.com/FacileStudio/porte v0.18.1/go.mod h1:V7gSnyj+w9itRiG9yesKXc0Vc+OYL+IJojWa1LOmkow=
 github.com/FacileStudio/porte/directory v0.4.0 h1:U+86bDXChiMUBUQnN5VwEyiBoCiLwduwo5IYqRBkC60=

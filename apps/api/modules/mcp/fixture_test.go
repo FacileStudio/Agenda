@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"github.com/FacileStudio/Agenda/apps/api/internal/bus"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -134,7 +135,7 @@ func (f *fixture) build(t *testing.T) *Service {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.events = events.NewService(f.db)
+	f.events = events.NewService(f.db).WithOutbox(bus.New(true))
 	service, err := NewService(calendars.NewService(f.db), f.events, Config{
 		Resource: f.resource, Issuer: f.issuer.URL, Version: "test", StateKey: []byte("state-key"), Verifier: verifier,
 		Pending: mcpkit.PostgresPending{DB: sqlDB}, PerMinute: f.perMinute,

@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/FacileStudio/Agenda/apps/api/internal/bus"
 	"github.com/FacileStudio/Agenda/apps/api/internal/crypto"
 	"github.com/FacileStudio/Agenda/apps/api/internal/database"
 	docs "github.com/FacileStudio/Agenda/apps/api/internal/documentation"
@@ -131,7 +132,8 @@ func run() int {
 		return 1
 	}
 
-	porteAuth, err := buildAuth(context.Background(), sqlDB, appEnv, appLogger)
+	outbox := bus.New(appEnv.Antenne != nil)
+	porteAuth, err := buildAuth(context.Background(), sqlDB, appEnv, outbox, appLogger)
 	if err != nil {
 		appLogger.Error("failed to build authentication", slog.Any("error", err))
 		return 1
@@ -139,8 +141,8 @@ func run() int {
 	sessions, kit, identities := porteAuth.sessions, porteAuth.oidc, porteAuth.identities
 
 	authService := auth.NewService(sessions, porteAuth.users)
-	calendarService := calendars.NewService(db)
-	eventService := events.NewService(db)
+	calendarService := calendars.NewService(db).WithOutbox(outbox)
+	eventService := events.NewService(db).WithOutbox(outbox)
 	spaceService := spaces.NewService(db)
 	userService := users.NewService(db, authService)
 	settingsService := settings.NewService(db)
@@ -160,7 +162,7 @@ func run() int {
 	}
 
 	if appEnv.Antenne != nil {
-		poolClient := pool.NewClient(*appEnv.Antenne, pool.NewMirror(db, eventService, calendarService, appLogger), appLogger)
+		poolClient := pool.NewClient(*appEnv.Antenne, pool.NewMirror(db, eventService, calendarService, appLogger), sqlDB, appLogger)
 		poolClient.Start(context.Background())
 		defer poolClient.Stop()
 	}
@@ -195,6 +197,7 @@ func run() int {
 		deletions:   deletions,
 		mcp:         mcpService,
 		ideas:       ideasService,
+		outbox:      outbox,
 		invitations: invitationsConfig(appEnv, identities, appLogger),
 	}); err != nil {
 		appLogger.Error("failed to mount routes", slog.Any("error", err))
@@ -260,6 +263,7 @@ type mounts struct {
 	deletions *spaces.Deletions
 	mcp       *mcp.Service
 	ideas     *ideas.Service
+	outbox    *bus.Outbox
 
 	invitations *porteKit.InvitationsConfig
 }
@@ -309,13 +313,13 @@ type porteAuth struct {
 // Registre only; there is no local password kit. Discovery runs here, so an
 // unreachable or half-configured issuer fails at boot rather than on
 // somebody's first login.
-func buildAuth(ctx context.Context, sqlDB *sql.DB, appEnv env.Config, appLogger *slog.Logger) (porteAuth, error) {
+func buildAuth(ctx context.Context, sqlDB *sql.DB, appEnv env.Config, outbox *bus.Outbox, appLogger *slog.Logger) (porteAuth, error) {
 	store, err := newPorteStore(sqlDB)
 	if err != nil {
 		return porteAuth{}, err
 	}
 	resealInBackground(ctx, store, appLogger)
-	users := auth.NewStore(sqlDB)
+	users := auth.NewStore(sqlDB, outbox)
 	cfg := appEnv.Porte()
 
 	sessions, err := session.New(cfg, session.Deps{Sessions: store.Sessions(), Logger: appLogger})
@@ -345,7 +349,7 @@ func mountRoutes(router chi.Router, m mounts) error {
 	apiref.Mount(router, referenceConfig())
 	router.Handle("/files/*", http.StripPrefix("/files/", http.FileServer(http.Dir(m.env.StorageDir))))
 
-	caldav.RegisterRoutes(router, m.db, m.auth)
+	caldav.RegisterRoutes(router, m.db, m.auth, m.outbox)
 	if m.mcp != nil {
 		mcp.RegisterRoutes(router, m.mcp)
 	}

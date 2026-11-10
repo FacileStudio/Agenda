@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/FacileStudio/Agenda/apps/api/internal/bus"
 	"github.com/FacileStudio/porte/kit"
 )
 
@@ -22,6 +23,10 @@ const (
 	erasePendingActions = `DELETE FROM mcp_actions WHERE user_id = ($1::bigint)::text`
 	anonymiseAuthorship = `UPDATE events SET created_by_id = NULL WHERE created_by_id = $1`
 
+	ownedEventIDs = `SELECT e.id, e.calendar_id FROM events e JOIN calendars c ON c.id = e.calendar_id
+		WHERE c.owner_id = $1 AND c.space_id IS NULL AND e.source = '' ORDER BY e.id`
+	ownedCalendarIDs = `SELECT id FROM calendars WHERE owner_id = $1 AND space_id IS NULL ORDER BY id`
+
 	fillAccountColumns = `UPDATE users SET created_at = now(),
 		avatar_url = '', avatar_source = '', avatar_upload_path = '', password_hash = '',
 		oidc_access_token = '', oidc_refresh_token = '',
@@ -31,14 +36,72 @@ const (
 
 // NewStore is porte's user store over Agenda's users table. Agenda has no
 // admin flag, so a new account gets no privileges. The picture lives in
-// oidc_picture_url, beside the upload path the kit does not know about.
-func NewStore(db *sql.DB) *kit.Store {
+// oidc_picture_url, beside the upload path the kit does not know about. An
+// erasure queues the deletion of the person's calendars and events on outbox,
+// with ids only; a nil outbox publishes nothing.
+func NewStore(db *sql.DB, outbox *bus.Outbox) *kit.Store {
 	return &kit.Store{
-		DB:        db,
-		Columns:   kit.Columns{Picture: "oidc_picture_url"},
-		OnCreate:  fillNewAccount,
-		EraseData: eraseData,
+		DB:       db,
+		Columns:  kit.Columns{Picture: "oidc_picture_url"},
+		OnCreate: fillNewAccount,
+		EraseData: func(ctx context.Context, tx *sql.Tx, userID int64) error {
+			if err := publishErasure(ctx, tx, outbox, userID); err != nil {
+				return err
+			}
+			return eraseData(ctx, tx, userID)
+		},
 	}
+}
+
+// publishErasure queues calendar_event.deleted for every event in the
+// person's own calendars and calendar.deleted for each of those calendars,
+// before eraseData removes them in the same transaction. The payloads carry
+// the ids and nothing personal.
+func publishErasure(ctx context.Context, tx *sql.Tx, outbox *bus.Outbox, userID int64) error {
+	if outbox == nil {
+		return nil
+	}
+	events, err := idRows(ctx, tx, ownedEventIDs, userID, 2)
+	if err != nil {
+		return err
+	}
+	for _, row := range events {
+		if err := outbox.ErasedEvent(ctx, tx, row[0], row[1]); err != nil {
+			return err
+		}
+	}
+	calendars, err := idRows(ctx, tx, ownedCalendarIDs, userID, 1)
+	if err != nil {
+		return err
+	}
+	for _, row := range calendars {
+		if err := outbox.ErasedCalendar(ctx, tx, row[0]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// idRows reads rows of width integer columns.
+func idRows(ctx context.Context, tx *sql.Tx, query string, userID int64, width int) ([][]int64, error) {
+	rows, err := tx.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out [][]int64
+	for rows.Next() {
+		row := make([]int64, width)
+		targets := make([]any, width)
+		for i := range row {
+			targets[i] = &row[i]
+		}
+		if err := rows.Scan(targets...); err != nil {
+			return nil, err
+		}
+		out = append(out, row)
+	}
+	return out, rows.Err()
 }
 
 // fillNewAccount writes, in the insert's transaction, the columns the kit does

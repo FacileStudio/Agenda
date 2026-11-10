@@ -11,7 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/FacileStudio/Agenda/apps/api/internal/bus"
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
+	"github.com/FacileStudio/antenne-client/go/envelope"
 	"github.com/FacileStudio/tronc/errors"
 
 	"gorm.io/gorm"
@@ -21,12 +23,38 @@ var errReadOnly = errors.Forbidden("this event comes from an Opus task and is re
 
 // Service implements event persistence, validation and calendar access control.
 type Service struct {
-	orm *gorm.DB
+	orm    *gorm.DB
+	outbox *bus.Outbox
 }
 
 // NewService builds an event service over the given database.
 func NewService(orm *gorm.DB) *Service {
 	return &Service{orm: orm}
+}
+
+// WithOutbox makes every event write also queue its change for the Antenne
+// pool, in the write's transaction. A nil outbox publishes nothing.
+func (s *Service) WithOutbox(outbox *bus.Outbox) *Service {
+	s.outbox = outbox
+	return s
+}
+
+// write runs change and queues the event's publication in one transaction,
+// so the change is published if and only if it commits.
+func (s *Service) write(ctx context.Context, action envelope.Action, evt *schemas.Event, actorID int64, change func(*gorm.DB) error) error {
+	return s.orm.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := change(tx); err != nil {
+			return err
+		}
+		return s.outbox.Event(tx, action, evt, actorID)
+	})
+}
+
+func actorOf(id *int64) int64 {
+	if id == nil {
+		return 0
+	}
+	return *id
 }
 
 // ListEvents returns a calendar's events overlapping [from, to]. When both
@@ -149,7 +177,9 @@ func (s *Service) insertEvent(ctx context.Context, calendarID int64, creatorID *
 		return nil, err
 	}
 
-	if err := s.orm.WithContext(ctx).Create(evt).Error; err != nil {
+	if err := s.write(ctx, envelope.ActionCreated, evt, actorOf(creatorID), func(tx *gorm.DB) error {
+		return tx.Create(evt).Error
+	}); err != nil {
 		return nil, errors.Internal("failed to create event", err)
 	}
 	s.bumpSyncToken(ctx, calendarID)
@@ -201,10 +231,10 @@ func (s *Service) UpdateEvent(ctx context.Context, userID int64, eventID int64, 
 			return nil, err
 		}
 	}
-	return s.applyUpdate(ctx, evt, req)
+	return s.applyUpdate(ctx, evt, req, userID)
 }
 
-func (s *Service) applyUpdate(ctx context.Context, evt *schemas.Event, req *UpdateEventRequest) (*EventResponse, error) {
+func (s *Service) applyUpdate(ctx context.Context, evt *schemas.Event, req *UpdateEventRequest, actorID int64) (*EventResponse, error) {
 	sourceCalendarID := evt.CalendarID
 	moved := req.CalendarID != 0 && req.CalendarID != evt.CalendarID
 	if moved {
@@ -233,7 +263,9 @@ func (s *Service) applyUpdate(ctx context.Context, evt *schemas.Event, req *Upda
 		return nil, err
 	}
 
-	if err := s.orm.WithContext(ctx).Omit("CreatedBy").Save(evt).Error; err != nil {
+	if err := s.write(ctx, envelope.ActionUpdated, evt, actorID, func(tx *gorm.DB) error {
+		return tx.Omit("CreatedBy").Save(evt).Error
+	}); err != nil {
 		return nil, errors.Internal("failed to update event", err)
 	}
 	s.bumpSyncToken(ctx, evt.CalendarID)
@@ -255,7 +287,9 @@ func (s *Service) DeleteEvent(ctx context.Context, userID int64, eventID int64) 
 	if evt.Source != "" {
 		return errReadOnly
 	}
-	if err := s.orm.WithContext(ctx).Delete(evt).Error; err != nil {
+	if err := s.write(ctx, envelope.ActionDeleted, evt, userID, func(tx *gorm.DB) error {
+		return tx.Delete(evt).Error
+	}); err != nil {
 		return errors.Internal("failed to delete event", err)
 	}
 	s.bumpSyncToken(ctx, evt.CalendarID)

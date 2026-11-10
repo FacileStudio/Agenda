@@ -65,6 +65,19 @@ const (
 	FiletCheckFailed Channel = "filet.check.failed"
 	// FiletCheckPassed is emitted by Antenne's filet webhook provider with Antenne's normalized filet run payload.
 	FiletCheckPassed Channel = "filet.check.passed"
+
+	// CalendarCreated is emitted by Agenda with an envelope.Event[envelope.Calendar].
+	CalendarCreated Channel = "calendar.created"
+	// CalendarUpdated is emitted by Agenda with an envelope.Event[envelope.Calendar].
+	CalendarUpdated Channel = "calendar.updated"
+	// CalendarDeleted is emitted by Agenda with an envelope.Event[envelope.Calendar].
+	CalendarDeleted Channel = "calendar.deleted"
+	// CalendarEventCreated is emitted by Agenda with an envelope.Event[envelope.CalendarEvent].
+	CalendarEventCreated Channel = "calendar_event.created"
+	// CalendarEventUpdated is emitted by Agenda with an envelope.Event[envelope.CalendarEvent].
+	CalendarEventUpdated Channel = "calendar_event.updated"
+	// CalendarEventDeleted is emitted by Agenda with an envelope.Event[envelope.CalendarEvent].
+	CalendarEventDeleted Channel = "calendar_event.deleted"
 )
 
 // All returns every channel in the catalog, in declaration order.
@@ -79,5 +92,7 @@ func All() []Channel {
 		MonitorDown, MonitorUp,
 		GitPush, GitPullRequest, GitIssue, GitEvent,
 		FiletCheckFailed, FiletCheckPassed,
+		CalendarCreated, CalendarUpdated, CalendarDeleted,
+		CalendarEventCreated, CalendarEventUpdated, CalendarEventDeleted,
 	}
 }

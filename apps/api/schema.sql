@@ -1,3 +1,21 @@
+CREATE TABLE public.antenne_outbox (
+    id bigint NOT NULL,
+    channel text NOT NULL,
+    payload jsonb NOT NULL,
+    idempotency_key text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    sent_at timestamp with time zone
+);
+
+CREATE SEQUENCE public.antenne_outbox_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.antenne_outbox_id_seq OWNED BY public.antenne_outbox.id;
+
 CREATE TABLE public.app_settings (
     id bigint NOT NULL,
     encryption_key text DEFAULT ''::text NOT NULL
@@ -246,6 +264,8 @@ CREATE SEQUENCE public.users_id_seq
 
 ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
 
+ALTER TABLE ONLY public.antenne_outbox ALTER COLUMN id SET DEFAULT nextval('public.antenne_outbox_id_seq'::regclass);
+
 ALTER TABLE ONLY public.app_settings ALTER COLUMN id SET DEFAULT nextval('public.app_settings_id_seq'::regclass);
 
 ALTER TABLE ONLY public.calendar_members ALTER COLUMN id SET DEFAULT nextval('public.calendar_members_id_seq'::regclass);
@@ -263,6 +283,12 @@ ALTER TABLE ONLY public.space_members ALTER COLUMN id SET DEFAULT nextval('publi
 ALTER TABLE ONLY public.spaces ALTER COLUMN id SET DEFAULT nextval('public.spaces_id_seq'::regclass);
 
 ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
+
+ALTER TABLE ONLY public.antenne_outbox
+    ADD CONSTRAINT antenne_outbox_idempotency_key_key UNIQUE (idempotency_key);
+
+ALTER TABLE ONLY public.antenne_outbox
+    ADD CONSTRAINT antenne_outbox_pkey PRIMARY KEY (id);
 
 ALTER TABLE ONLY public.app_settings
     ADD CONSTRAINT app_settings_pkey PRIMARY KEY (id);
@@ -311,6 +337,10 @@ ALTER TABLE ONLY public.spaces
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+
+CREATE INDEX antenne_outbox_sent ON public.antenne_outbox USING btree (sent_at) WHERE (sent_at IS NOT NULL);
+
+CREATE INDEX antenne_outbox_unsent ON public.antenne_outbox USING btree (id) WHERE (sent_at IS NULL);
 
 CREATE UNIQUE INDEX idx_calendar_member ON public.calendar_members USING btree (calendar_id, user_id);
 

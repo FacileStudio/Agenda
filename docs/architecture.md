@@ -193,6 +193,8 @@ The vendored go-webdav copy carries local patches. They are documented in
 ## Cross-app integration
 
 Logs ship to Journal when both `JOURNAL_URL` and `JOURNAL_TOKEN` are set; the Journal SDK
-wraps the `slog` handler. Agenda is **not** wired into the Nook Pool — there is no `pool`
-or `enveloppe` dependency in `go.mod`. Identity federation, when enabled, goes through
-Authentik over standard OIDC like the rest of the suite.
+wraps the `slog` handler. With `ANTENNE_URL` set, `internal/pool` joins the Antenne pool:
+it mirrors Opus tasks into an "Opus tasks" calendar and drains `antenne_outbox`, where
+`internal/bus` queues every calendar and event change in the write's transaction (see
+[configuration.md](configuration.md#antenne-pool)). Identity federation goes through
+Registre over OIDC like the rest of the suite.

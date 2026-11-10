@@ -155,6 +155,23 @@ date, deleting the task or unassigning it removes the event; reassigning moves i
 events are read-only over the HTTP API and CalDAV (403, "this event comes from an Opus task and is read-only: edit or delete the task in Opus"). The pool keeps the acked offset per
 app, so a restart resumes where it stopped, and replays are idempotent.
 
+Agenda also publishes its own calendars and events. Every write that creates, changes or
+deletes one queues `calendar.created|updated|deleted` or `calendar_event.created|updated|deleted`
+in `antenne_outbox` inside the write's transaction (`internal/bus`, antenne-client's `outbox`):
+the REST handlers, an occurrence edit, CalDAV PUT, DELETE, MKCOL and MKCALENDAR, the MCP tools,
+and account erasure. The pool client's drainer sends the queue with `EmitNow` every 2 s, so a
+change made while the pool is down waits in the table. The payloads are antenne-client's
+`envelope.Calendar` (`facile_id`, `name`, `owner_email`, empty for a space calendar,
+`actor_email`) and `envelope.CalendarEvent` (`facile_id`, `calendar_facile_id`, `title`,
+`starts_at`, `ends_at`, `all_day`, `actor_email`): never a description, a location or an
+attendee. An erased person's events and calendars go out as deletions carrying the ids only.
+`facile_id` is the row's integer id as a string. Events mirrored from Opus and the calendars
+the Registre sync creates or renames are not published. Without `ANTENNE_URL` nothing is
+queued and nothing is sent.
+
+The client retries the first connection and every later one by itself
+(`WithPersistentConnect`), logging each failed attempt at warn.
+
 ## Compose-only
 
 `DB_NAME`, `DB_USER`, and `DB_PASSWORD` are also consumed by the `db` service in

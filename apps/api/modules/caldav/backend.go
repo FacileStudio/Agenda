@@ -15,7 +15,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/FacileStudio/Agenda/apps/api/internal/bus"
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
+	"github.com/FacileStudio/antenne-client/go/envelope"
 
 	"github.com/emersion/go-ical"
 	"github.com/emersion/go-webdav"
@@ -27,12 +29,15 @@ const davPrefix = "/dav"
 
 // Backend adapts Agenda's calendars and events to go-webdav's caldav interface.
 type Backend struct {
-	db *gorm.DB
+	db     *gorm.DB
+	outbox *bus.Outbox
 }
 
-// NewBackend builds a CalDAV backend over the given database.
-func NewBackend(db *gorm.DB) *Backend {
-	return &Backend{db: db}
+// NewBackend builds a CalDAV backend over the given database. Its calendar
+// and event writes queue their changes on outbox; a nil outbox publishes
+// nothing.
+func NewBackend(db *gorm.DB, outbox *bus.Outbox) *Backend {
+	return &Backend{db: db, outbox: outbox}
 }
 
 func (b *Backend) CurrentUserPrincipal(ctx context.Context) (string, error) {
@@ -78,7 +83,7 @@ func (b *Backend) CreateCalendar(ctx context.Context, calendar *caldav.Calendar)
 		Color:      "#6366f1",
 		SyncToken:  newSyncToken(),
 	}
-	if err := b.db.WithContext(ctx).Create(cal).Error; err != nil {
+	if err := b.createCalendar(ctx, cal, user.ID); err != nil {
 		return webdav.NewHTTPError(http.StatusInternalServerError, err)
 	}
 	return nil
@@ -170,7 +175,7 @@ func (b *Backend) HandleMkcalendar(w http.ResponseWriter, r *http.Request) {
 		Color:      color,
 		SyncToken:  newSyncToken(),
 	}
-	if err := b.db.WithContext(ctx).Create(cal).Error; err != nil {
+	if err := b.createCalendar(ctx, cal, user.ID); err != nil {
 		http.Error(w, "failed to create calendar", http.StatusInternalServerError)
 		return
 	}
@@ -456,12 +461,16 @@ func (b *Backend) PutCalendarObject(ctx context.Context, objPath string, calenda
 		evt.IsAllDay = !strings.Contains(dtProp.Value, "T")
 	}
 
-	var dbErr error
+	action := envelope.ActionUpdated
 	if notFound {
-		dbErr = b.db.WithContext(ctx).Create(&evt).Error
-	} else {
-		dbErr = b.db.WithContext(ctx).Save(&evt).Error
+		action = envelope.ActionCreated
 	}
+	dbErr := b.writeEvent(ctx, action, &evt, actorOf(ctx), func(tx *gorm.DB) error {
+		if notFound {
+			return tx.Create(&evt).Error
+		}
+		return tx.Save(&evt).Error
+	})
 	if dbErr != nil {
 		return nil, webdav.NewHTTPError(http.StatusInternalServerError, dbErr)
 	}
@@ -498,12 +507,19 @@ func (b *Backend) DeleteCalendarObject(ctx context.Context, objPath string) erro
 	if mirrored > 0 {
 		return webdav.NewHTTPError(http.StatusForbidden, errMirrored)
 	}
-	result := b.db.WithContext(ctx).Where("uid = ? AND calendar_id = ?", uid, calID).Delete(&schemas.Event{})
-	if result.Error != nil {
-		return webdav.NewHTTPError(http.StatusInternalServerError, result.Error)
-	}
-	if result.RowsAffected == 0 {
+	var evt schemas.Event
+	lookupErr := b.db.WithContext(ctx).Where("uid = ? AND calendar_id = ?", uid, calID).First(&evt).Error
+	if stderrors.Is(lookupErr, gorm.ErrRecordNotFound) {
 		return webdav.NewHTTPError(http.StatusNotFound, fmt.Errorf("event not found"))
+	}
+	if lookupErr != nil {
+		return webdav.NewHTTPError(http.StatusInternalServerError, lookupErr)
+	}
+	deleteErr := b.writeEvent(ctx, envelope.ActionDeleted, &evt, actorOf(ctx), func(tx *gorm.DB) error {
+		return tx.Delete(&evt).Error
+	})
+	if deleteErr != nil {
+		return webdav.NewHTTPError(http.StatusInternalServerError, deleteErr)
 	}
 
 	b.bumpSyncToken(ctx, calID)
@@ -735,7 +751,7 @@ func (b *Backend) ensurePersonalCalendar(ctx context.Context, userID int64) {
 		IsPersonal: true,
 		SyncToken:  newSyncToken(),
 	}
-	b.db.WithContext(ctx).Create(cal)
+	_ = b.createCalendar(ctx, cal, userID)
 }
 
 // validatePathUser rejects requests where the email segment in the CalDAV path

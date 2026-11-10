@@ -100,7 +100,7 @@ func erasingDeletions(t *testing.T, db *gorm.DB, gone int64) (*Deletions, string
 		t.Fatalf("sql handle: %v", err)
 	}
 	storage := t.TempDir()
-	erasers := Erasers{Account: auth.NewStore(sqlDB).EraseAccount}
+	erasers := Erasers{Account: auth.NewStore(sqlDB, nil).EraseAccount}
 	deletions := NewDeletions(db, directory.Client{Issuer: testIssuer}, erasers, storage,
 		slog.New(slog.NewTextHandler(io.Discard, nil)))
 	return deletions, seedAvatar(t, db, storage, gone)

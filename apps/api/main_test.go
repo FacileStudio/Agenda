@@ -134,7 +134,7 @@ func testRouter(t *testing.T) chi.Router {
 		t.Fatalf("session.New: %v", err)
 	}
 	kit, err := oidc.New(context.Background(), appEnv.Porte(), oidc.Deps{
-		Users:      auth.NewStore(nil),
+		Users:      auth.NewStore(nil, nil),
 		Identities: store.Identities(),
 		Codes:      store.LoginCodes(),
 		Sessions:   sessions,
@@ -143,7 +143,7 @@ func testRouter(t *testing.T) chi.Router {
 	if err != nil {
 		t.Fatalf("oidc.New: %v", err)
 	}
-	authService := auth.NewService(sessions, auth.NewStore(nil))
+	authService := auth.NewService(sessions, auth.NewStore(nil, nil))
 
 	router := chi.NewRouter()
 	if err := mountRoutes(router, mounts{

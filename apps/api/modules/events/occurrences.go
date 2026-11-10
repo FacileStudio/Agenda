@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
+	"github.com/FacileStudio/antenne-client/go/envelope"
 	"github.com/FacileStudio/tronc/errors"
 
 	"github.com/emersion/go-ical"
+	"gorm.io/gorm"
 )
 
 // seriesCtx is the parsed series an occurrence edit works on. at is the
@@ -74,10 +76,10 @@ func (s *Service) editSeries(ctx context.Context, userID, eventID int64, when st
 	if err := edit(c); err != nil {
 		return nil, err
 	}
-	return s.saveSeries(ctx, c)
+	return s.saveSeries(ctx, c, userID)
 }
 
-func (s *Service) saveSeries(ctx context.Context, c *seriesCtx) (*EventResponse, error) {
+func (s *Service) saveSeries(ctx context.Context, c *seriesCtx, actorID int64) (*EventResponse, error) {
 	evt := c.evt
 	evt.ETag = newETag()
 	evt.Sequence++
@@ -90,7 +92,9 @@ func (s *Service) saveSeries(ctx context.Context, c *seriesCtx) (*EventResponse,
 		return nil, errors.Internal("failed to encode the event's calendar data", err)
 	}
 	evt.RawICS = raw
-	if err := s.orm.WithContext(ctx).Omit("CreatedBy").Save(evt).Error; err != nil {
+	if err := s.write(ctx, envelope.ActionUpdated, evt, actorID, func(tx *gorm.DB) error {
+		return tx.Omit("CreatedBy").Save(evt).Error
+	}); err != nil {
 		return nil, errors.Internal("failed to update event", err)
 	}
 	s.bumpSyncToken(ctx, evt.CalendarID)

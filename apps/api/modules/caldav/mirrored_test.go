@@ -65,7 +65,7 @@ func TestMirroredEventRejectsCalDAVPutAndDelete(t *testing.T) {
 		t.Fatalf("create event: %v", err)
 	}
 
-	backend := NewBackend(db)
+	backend := NewBackend(db, nil)
 	ctx := withUser(context.Background(), &user)
 	objPath := davPrefix + "/" + user.Email + "/calendars/" + strconv.FormatInt(cal.ID, 10) + "/mirror@agenda.ics"
 

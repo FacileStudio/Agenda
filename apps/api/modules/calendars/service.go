@@ -9,7 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/FacileStudio/Agenda/apps/api/internal/bus"
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
+	"github.com/FacileStudio/antenne-client/go/envelope"
 	"github.com/FacileStudio/tronc/errors"
 
 	"gorm.io/gorm"
@@ -17,12 +19,37 @@ import (
 
 // Service implements calendar persistence, access control and membership.
 type Service struct {
-	orm *gorm.DB
+	orm    *gorm.DB
+	outbox *bus.Outbox
 }
 
 // NewService builds a calendar service over the given database.
 func NewService(orm *gorm.DB) *Service {
 	return &Service{orm: orm}
+}
+
+// WithOutbox makes every calendar write also queue its change for the Antenne
+// pool, in the write's transaction. A nil outbox publishes nothing.
+func (s *Service) WithOutbox(outbox *bus.Outbox) *Service {
+	s.outbox = outbox
+	return s
+}
+
+// write runs change and queues the calendar's publication in one transaction.
+func (s *Service) write(ctx context.Context, action envelope.Action, cal *schemas.Calendar, actorID int64, change func(*gorm.DB) error) error {
+	return s.orm.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := change(tx); err != nil {
+			return err
+		}
+		return s.outbox.Calendar(tx, action, cal, actorID)
+	})
+}
+
+// create inserts cal and queues calendar.created.
+func (s *Service) create(ctx context.Context, cal *schemas.Calendar, actorID int64) error {
+	return s.write(ctx, envelope.ActionCreated, cal, actorID, func(tx *gorm.DB) error {
+		return tx.Create(cal).Error
+	})
 }
 
 func (s *Service) EnsurePersonalCalendar(ctx context.Context, userID int64) error {
@@ -39,7 +66,7 @@ func (s *Service) EnsurePersonalCalendar(ctx context.Context, userID int64) erro
 		IsPersonal: true,
 		SyncToken:  syncToken(),
 	}
-	return s.orm.WithContext(ctx).Create(cal).Error
+	return s.create(ctx, cal, userID)
 }
 
 // EnsureCalendar returns the id of the user's calendar with the given slug,
@@ -54,7 +81,7 @@ func (s *Service) EnsureCalendar(ctx context.Context, userID int64, slug, name, 
 		return 0, errors.Internal("failed to look up calendar", err)
 	}
 	cal = schemas.Calendar{OwnerID: userID, Slug: slug, Name: name, Color: color, SyncToken: syncToken()}
-	if err := s.orm.WithContext(ctx).Create(&cal).Error; err != nil {
+	if err := s.create(ctx, &cal, userID); err != nil {
 		return 0, errors.Internal("failed to create calendar", err)
 	}
 	return cal.ID, nil
@@ -131,7 +158,7 @@ func (s *Service) CreateCalendar(ctx context.Context, userID int64, req *CreateC
 		EchoURL:     req.EchoURL,
 		SyncToken:   syncToken(),
 	}
-	if err := s.orm.WithContext(ctx).Create(cal).Error; err != nil {
+	if err := s.create(ctx, cal, userID); err != nil {
 		return nil, errors.Internal("failed to create calendar", err)
 	}
 	resp := toResponse(cal, "owner")
@@ -168,7 +195,9 @@ func (s *Service) UpdateCalendar(ctx context.Context, userID int64, calendarID i
 	cal.Color = req.Color
 	cal.Description = req.Description
 	cal.EchoURL = req.EchoURL
-	if err := s.orm.WithContext(ctx).Save(cal).Error; err != nil {
+	if err := s.write(ctx, envelope.ActionUpdated, cal, userID, func(tx *gorm.DB) error {
+		return tx.Save(cal).Error
+	}); err != nil {
 		return nil, errors.Internal("failed to update calendar", err)
 	}
 	resp := toResponse(cal, role)
@@ -189,19 +218,34 @@ func (s *Service) DeleteCalendar(ctx context.Context, userID int64, calendarID i
 	if cal.IsPersonal {
 		return errors.Invalid("cannot delete personal calendar")
 	}
-	return s.orm.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		eventIDs := tx.Model(&schemas.Event{}).Select("id").Where("calendar_id = ?", calendarID)
-		if err := tx.Where("event_id IN (?)", eventIDs).Delete(&schemas.EventAttendee{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("calendar_id = ?", calendarID).Delete(&schemas.Event{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("calendar_id = ?", calendarID).Delete(&schemas.CalendarMember{}).Error; err != nil {
-			return err
-		}
-		return tx.Delete(cal).Error
+	return s.write(ctx, envelope.ActionDeleted, cal, userID, func(tx *gorm.DB) error {
+		return s.deleteWithEvents(tx, cal, userID)
 	})
+}
+
+// deleteWithEvents removes a calendar with its events, their attendees and its
+// shares, queueing calendar_event.deleted for each event it held.
+func (s *Service) deleteWithEvents(tx *gorm.DB, cal *schemas.Calendar, actorID int64) error {
+	var evts []schemas.Event
+	if err := tx.Where("calendar_id = ?", cal.ID).Find(&evts).Error; err != nil {
+		return err
+	}
+	for i := range evts {
+		if err := s.outbox.Event(tx, envelope.ActionDeleted, &evts[i], actorID); err != nil {
+			return err
+		}
+	}
+	eventIDs := tx.Model(&schemas.Event{}).Select("id").Where("calendar_id = ?", cal.ID)
+	if err := tx.Where("event_id IN (?)", eventIDs).Delete(&schemas.EventAttendee{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Where("calendar_id = ?", cal.ID).Delete(&schemas.Event{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Where("calendar_id = ?", cal.ID).Delete(&schemas.CalendarMember{}).Error; err != nil {
+		return err
+	}
+	return tx.Delete(cal).Error
 }
 
 func (s *Service) loadWithAccess(ctx context.Context, userID int64, calendarID int64) (*schemas.Calendar, string, error) {

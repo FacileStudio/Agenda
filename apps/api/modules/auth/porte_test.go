@@ -51,7 +51,7 @@ func testStore(t *testing.T, db *gorm.DB) *kit.Store {
 	if err != nil {
 		t.Fatalf("sql handle: %v", err)
 	}
-	return NewStore(sqlDB)
+	return NewStore(sqlDB, nil)
 }
 
 func claims(subject, email string, verified bool) porte.Claims {

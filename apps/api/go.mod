@@ -4,7 +4,7 @@ go 1.26.11
 
 require (
 	github.com/FacileStudio/Journal/sdk/journal v0.0.0-20260708221941-db985ad2b1ba
-	github.com/FacileStudio/antenne-client/go v1.0.0
+	github.com/FacileStudio/antenne-client/go v1.1.0
 	github.com/FacileStudio/porte v0.18.1
 	github.com/FacileStudio/porte/directory v0.4.0
 	github.com/FacileStudio/porte/mcpauth v0.2.0

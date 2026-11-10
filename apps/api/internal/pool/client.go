@@ -2,31 +2,36 @@ package pool
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	stderrors "errors"
 	"log/slog"
-	"math"
 	"time"
 
+	"github.com/FacileStudio/Agenda/apps/api/internal/bus"
 	antenne "github.com/FacileStudio/antenne-client/go"
+	"github.com/FacileStudio/antenne-client/go/outbox"
 )
 
-// Client keeps the Antenne Pool connection alive and feeds task events to a
-// Mirror. The pool keeps a durable per-app ack cursor, so a restart resumes
-// where the last run stopped.
+// Client keeps the Antenne Pool connection alive, feeds task events to a
+// Mirror and drains Agenda's outbox onto the pool. The pool keeps a durable
+// per-app ack cursor, so a restart resumes where the last run stopped, and
+// queued changes wait in antenne_outbox while the pool is down.
 type Client struct {
-	client *antenne.Client
-	logger *slog.Logger
-	cancel context.CancelFunc
+	client  *antenne.Client
+	drainer *outbox.Drainer
+	logger  *slog.Logger
+	cancel  context.CancelFunc
 }
 
-// NewClient subscribes the mirror to the Opus task channels. Call Start to
-// connect.
-func NewClient(cfg antenne.Config, mirror *Mirror, logger *slog.Logger) *Client {
+// NewClient subscribes the mirror to the Opus task channels and declares the
+// calendar channels Agenda publishes. Call Start to connect.
+func NewClient(cfg antenne.Config, mirror *Mirror, db *sql.DB, logger *slog.Logger) *Client {
 	channels := TaskChannels()
 	cfg.Events.Listen = channels
+	cfg.Events.Emit = emitted()
 	client := antenne.NewClient(&cfg,
-		antenne.WithMaxReconnect(math.MaxInt32),
+		antenne.WithPersistentConnect(),
 		antenne.WithOnConnect(func() { logger.Info("pool: connected") }),
 		antenne.WithOnError(func(err error) {
 			var transient *antenne.TransientError
@@ -40,7 +45,35 @@ func NewClient(cfg antenne.Config, mirror *Mirror, logger *slog.Logger) *Client 
 	for _, channel := range channels {
 		client.Listen(channel, handler(mirror, channel, logger))
 	}
-	return &Client{client: client, logger: logger}
+	return &Client{client: client, drainer: newDrainer(db, client, logger), logger: logger}
+}
+
+// newDrainer sends the outbox on client, logging each published channel and
+// treating a pool that is not connected yet as a wait rather than a failure.
+func newDrainer(db *sql.DB, client *antenne.Client, logger *slog.Logger) *outbox.Drainer {
+	emit := func(channel string, payload any) error {
+		if err := client.EmitNow(channel, payload); err != nil {
+			return err
+		}
+		logger.Info("pool: published", slog.String("channel", channel))
+		return nil
+	}
+	return outbox.NewDrainer(db, emit, outbox.WithOnError(func(err error) {
+		if stderrors.Is(err, antenne.ErrNotConnected) {
+			logger.Debug("pool: outbox waits for the connection")
+			return
+		}
+		logger.Warn("pool: outbox drain failed", slog.Any("error", err))
+	}))
+}
+
+func emitted() []string {
+	channels := bus.Channels()
+	out := make([]string, len(channels))
+	for i, channel := range channels {
+		out[i] = string(channel)
+	}
+	return out
 }
 
 const applyTimeout = 30 * time.Second
@@ -60,36 +93,17 @@ func handler(mirror *Mirror, channel string, logger *slog.Logger) antenne.EventH
 	}
 }
 
-// Start dials the pool in the background, retrying with backoff until the
-// first connection succeeds. The antenne client reconnects by itself after that.
+// Start connects in the background and runs the outbox drainer. The antenne
+// client retries the first connection and every later one by itself.
 func (c *Client) Start(ctx context.Context) {
 	ctx, c.cancel = context.WithCancel(ctx)
-	go func() {
-		backoff := 5 * time.Second
-		for {
-			attempt, cancel := context.WithTimeout(ctx, 10*time.Second)
-			err := c.client.Connect(attempt)
-			cancel()
-			if err == nil {
-				return
-			}
-			if stderrors.Is(err, antenne.ErrClosed) {
-				return
-			}
-			c.logger.Warn("pool: dial failed, retrying", slog.Any("error", err), slog.Duration("retry_in", backoff))
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(backoff):
-			}
-			if backoff *= 2; backoff > time.Minute {
-				backoff = time.Minute
-			}
-		}
-	}()
+	if err := c.client.Connect(ctx); err != nil {
+		c.logger.Error("pool: connect", slog.Any("error", err))
+	}
+	go c.drainer.Run(ctx)
 }
 
-// Stop closes the pool connection.
+// Stop ends the drainer and closes the pool connection.
 func (c *Client) Stop() {
 	if c.cancel != nil {
 		c.cancel()

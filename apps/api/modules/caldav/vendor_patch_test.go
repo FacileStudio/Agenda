@@ -37,7 +37,7 @@ func patchedServer(t *testing.T) (*httptest.Server, string) {
 	if err := db.Create(&cal).Error; err != nil {
 		t.Fatalf("create calendar: %v", err)
 	}
-	handler := &gocaldav.Handler{Backend: NewBackend(db), Prefix: davPrefix}
+	handler := &gocaldav.Handler{Backend: NewBackend(db, nil), Prefix: davPrefix}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		handler.ServeHTTP(w, r.WithContext(withUser(r.Context(), &user)))
 	}))

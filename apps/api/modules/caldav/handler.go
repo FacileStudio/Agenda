@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/FacileStudio/Agenda/apps/api/internal/bus"
 	"github.com/FacileStudio/Agenda/apps/api/internal/middleware"
 	"github.com/FacileStudio/Agenda/apps/api/modules/auth"
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
@@ -28,12 +29,12 @@ import (
 // (a typical client stays under 10 req/min). go-webdav has no MKCALENDAR
 // support, only MKCOL, so Apple Calendar's calendar creation would 405; the
 // davHandler intercepts it and routes it to the backend.
-func RegisterRoutes(router chi.Router, db *gorm.DB, authService *auth.Service) {
+func RegisterRoutes(router chi.Router, db *gorm.DB, authService *auth.Service, outbox *bus.Outbox) {
 	for _, m := range []string{"PROPFIND", "PROPPATCH", "MKCALENDAR", "REPORT", "COPY", "MOVE", "LOCK", "UNLOCK"} {
 		chi.RegisterMethod(m)
 	}
 
-	backend := NewBackend(db)
+	backend := NewBackend(db, outbox)
 	handler := &gocaldav.Handler{
 		Backend: backend,
 		Prefix:  davPrefix,

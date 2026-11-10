@@ -105,6 +105,16 @@ func WithMaxReconnect(n int) ClientOption {
 	return func(c *Client) { c.maxReconnect = n }
 }
 
+// WithPersistentConnect makes the client keep trying until Disconnect. When the
+// first connection fails, Connect returns nil and retries in the background
+// with the same capped, jittered backoff as a reconnect. Every failed attempt,
+// the first included, reaches the WithOnError callback as a *TransientError,
+// and reconnects are unlimited, whatever WithMaxReconnect says. Use it with a
+// durable outbox, where giving up loses nothing but delays everything.
+func WithPersistentConnect() ClientOption {
+	return func(c *Client) { c.persistent = true }
+}
+
 type Client struct {
 	config           *Config
 	conn             *websocket.Conn
@@ -114,7 +124,9 @@ type Client struct {
 	connected        bool
 	closed           bool
 	maxReconnect     int
+	persistent       bool
 	reconnectAttempt int
+	backoff          func(attempt int) time.Duration
 	handlers         map[string][]EventHandler
 	offsets          map[string]int64
 	mu               sync.RWMutex
@@ -131,6 +143,7 @@ func NewClient(config *Config, opts ...ClientOption) *Client {
 	c := &Client{
 		config:       config,
 		maxReconnect: 20,
+		backoff:      reconnectDelay,
 		handlers:     make(map[string][]EventHandler),
 		offsets:      make(map[string]int64),
 		done:         make(chan struct{}),
@@ -153,6 +166,19 @@ func (c *Client) Connect(ctx context.Context) error {
 	if c.isClosed() {
 		return ErrClosed
 	}
+	err := c.dial(ctx)
+	if err == nil || !c.persistent || errors.Is(err, ErrClosed) {
+		return err
+	}
+	c.mu.Lock()
+	c.reconnectAttempt = 1
+	c.mu.Unlock()
+	c.reportError(&TransientError{Attempt: 1, Err: err})
+	go c.scheduleReconnect()
+	return nil
+}
+
+func (c *Client) dial(ctx context.Context) error {
 	if err := c.register(ctx); err != nil {
 		return fmt.Errorf("registration failed: %w", err)
 	}
@@ -160,6 +186,12 @@ func (c *Client) Connect(ctx context.Context) error {
 		return fmt.Errorf("websocket connect failed: %w", err)
 	}
 	return nil
+}
+
+func (c *Client) reportError(err error) {
+	if c.onError != nil {
+		c.onError(err)
+	}
 }
 
 // Disconnect closes the connection for good. It is terminal and idempotent: no
@@ -514,9 +546,11 @@ func (c *Client) handleMessage(raw []byte) {
 //
 // Log it at warn (or not at all) and act on the terminal error instead: the
 // client reports "max reconnection attempts reached" as a plain error once it
-// gives up, and that one means something.
+// gives up, and that one means something. Under WithPersistentConnect it never
+// gives up, so every connection error it reports is transient.
 type TransientError struct {
-	// Attempt is the reconnection attempt that failed, starting at 1.
+	// Attempt is the reconnection attempt that failed, starting at 1. Under
+	// WithPersistentConnect, a failed first connection is attempt 1.
 	Attempt int
 	Err     error
 }
@@ -528,58 +562,60 @@ func (e *TransientError) Error() string {
 func (e *TransientError) Unwrap() error { return e.Err }
 
 func (c *Client) scheduleReconnect() {
-	c.mu.RLock()
-	attempt := c.reconnectAttempt
-	maxReconnect := c.maxReconnect
-	closed := c.closed
-	c.mu.RUnlock()
-
-	if closed {
-		return
-	}
-	if attempt >= maxReconnect {
-		if c.onError != nil {
-			c.onError(fmt.Errorf("max reconnection attempts reached"))
+	for {
+		c.mu.Lock()
+		attempt := c.reconnectAttempt
+		if c.closed {
+			c.mu.Unlock()
+			return
 		}
-		return
+		if !c.persistent && attempt >= c.maxReconnect {
+			c.mu.Unlock()
+			c.reportError(fmt.Errorf("max reconnection attempts reached"))
+			return
+		}
+		c.reconnectAttempt++
+		c.mu.Unlock()
+
+		if !c.wait(c.backoff(attempt)) {
+			return
+		}
+		err := c.reconnect()
+		if err == nil || c.isClosed() {
+			return
+		}
+		c.reportError(&TransientError{Attempt: attempt + 1, Err: err})
 	}
+}
 
-	delay := time.Duration(math.Min(
-		float64(500*time.Millisecond)*math.Pow(2, float64(attempt)),
-		float64(30*time.Second),
-	)) + time.Duration(float64(500*time.Millisecond)*randFloat())
-
-	c.mu.Lock()
-	c.reconnectAttempt++
-	c.mu.Unlock()
-
+func (c *Client) wait(delay time.Duration) bool {
 	timer := time.NewTimer(delay)
 	defer timer.Stop()
 	select {
 	case <-timer.C:
+		return !c.isClosed()
 	case <-c.done:
-		return
+		return false
 	}
-	if c.isClosed() {
-		return
-	}
+}
 
+func (c *Client) reconnect() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if err := c.register(ctx); err != nil {
-		if c.onError != nil {
-			c.onError(&TransientError{Attempt: attempt + 1, Err: fmt.Errorf("reconnect register: %w", err)})
-		}
-		c.scheduleReconnect()
-		return
+		return fmt.Errorf("reconnect register: %w", err)
 	}
 	if err := c.openWebSocket(ctx); err != nil {
-		if c.onError != nil {
-			c.onError(&TransientError{Attempt: attempt + 1, Err: fmt.Errorf("reconnect ws: %w", err)})
-		}
-		c.scheduleReconnect()
-		return
+		return fmt.Errorf("reconnect ws: %w", err)
 	}
+	return nil
+}
+
+func reconnectDelay(attempt int) time.Duration {
+	return time.Duration(math.Min(
+		float64(500*time.Millisecond)*math.Pow(2, float64(attempt)),
+		float64(30*time.Second),
+	)) + time.Duration(float64(500*time.Millisecond)*randFloat())
 }
 
 func generateID() string {

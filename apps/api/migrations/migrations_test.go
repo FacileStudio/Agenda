@@ -3,8 +3,11 @@ package migrations
 import (
 	"context"
 	"io/fs"
+	"slices"
 	"strings"
 	"testing"
+
+	"github.com/FacileStudio/antenne-client/go/outbox"
 
 	"github.com/FacileStudio/tronc/testdb"
 	"gorm.io/gorm"
@@ -81,8 +84,8 @@ func baselineUp(t *testing.T) string {
 // version through every migration in order.
 func TestUpBuildsAnEmptyDatabase(t *testing.T) {
 	db := openSchema(t, "agenda_migrations_fresh", runUp)
-	if got := appliedVersions(t, db); len(got) != 2 || got[0] != 1 || got[1] != 2 {
-		t.Fatalf("applied versions %v, want [1 2]", got)
+	if got := appliedVersions(t, db); !slices.Equal(got, []int64{1, 2, 3}) {
+		t.Fatalf("applied versions %v, want [1 2 3]", got)
 	}
 	if got := columnDefault(t, db, "users", "created_at"); got != "now()" {
 		t.Fatalf("users.created_at default %q, want now()", got)
@@ -132,8 +135,8 @@ func assertStampsLegacy(t *testing.T, prefix, ledger string) {
 	if err := runUp(db); err != nil {
 		t.Fatalf("up on a legacy database: %v", err)
 	}
-	if got := appliedVersions(t, db); len(got) != 2 || got[0] != 1 || got[1] != 2 {
-		t.Fatalf("applied versions %v, want the stamped baseline then 2", got)
+	if got := appliedVersions(t, db); !slices.Equal(got, []int64{1, 2, 3}) {
+		t.Fatalf("applied versions %v, want the stamped baseline then 2 and 3", got)
 	}
 	if got := columnDefault(t, db, "users", "created_at"); got != "now()" {
 		t.Fatalf("users.created_at default %q, want now()", got)
@@ -147,5 +150,17 @@ func assertStampsLegacy(t *testing.T, prefix, ledger string) {
 	}
 	if kept.Name != "Ada" || kept.Locale != "fr" {
 		t.Fatalf("the existing row changed: %+v", kept)
+	}
+}
+
+// TestOutboxMigrationIsTheLibrarys checks 00003 is antenne-client's outbox
+// migration byte for byte, so the table is the one the drainer queries.
+func TestOutboxMigrationIsTheLibrarys(t *testing.T) {
+	raw, err := fs.ReadFile(FS, "00003_antenne_outbox.sql")
+	if err != nil {
+		t.Fatalf("read 00003: %v", err)
+	}
+	if string(raw) != outbox.Migration {
+		t.Fatal("00003_antenne_outbox.sql differs from outbox.Migration; copy the library's migration again")
 	}
 }
