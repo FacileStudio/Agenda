@@ -78,7 +78,7 @@ Rate limits are per-route: 3 requests per minute on `POST /api/auth/register`, 1
 
 ## Authentication
 
-Sign-in glue is `porte/kit` (porte v0.18.0). `modules/auth/store.go` builds the
+Sign-in glue is `porte/kit` (porte v0.18.1). `modules/auth/store.go` builds the
 `kit.Store` over Agenda's `users` table with `Columns{Picture: "oidc_picture_url"}` and no
 admin column, so a new account gets no privileges. `auth.Service.RequireAuth` is
 `kit.RequireAuth`: porte authenticates the cookie or bearer credential, then the kit

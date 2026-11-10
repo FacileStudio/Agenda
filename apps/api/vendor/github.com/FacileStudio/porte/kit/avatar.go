@@ -31,7 +31,8 @@ func (s *Store) BackfillPictures(ctx context.Context, issuer string) (int64, err
 	if prefix == "" {
 		return 0, nil
 	}
-	result, err := s.DB.ExecContext(ctx, s.Columns.resolved().backfillSQL(), prefix, base)
+	spellings := providerSpellings(base)
+	result, err := s.DB.ExecContext(ctx, s.Columns.resolved().backfillSQL(), prefix, spellings[0], spellings[1])
 	if err != nil {
 		return 0, errors.Internal("failed to backfill pictures", err)
 	}

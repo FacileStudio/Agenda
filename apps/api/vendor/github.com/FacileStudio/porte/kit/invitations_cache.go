@@ -3,7 +3,7 @@ package kit
 import (
 	"context"
 	stderrors "errors"
-	"strings"
+	"slices"
 	"sync"
 	"time"
 
@@ -37,11 +37,11 @@ func (i *Invitations) subject(ctx context.Context, userID int64) (string, error)
 	if err != nil {
 		return "", err
 	}
-	issuer := strings.TrimRight(i.cfg.Directory.Issuer, "/")
+	issuer := providerSpellings(i.cfg.Directory.Issuer)
 	var best string
 	var bestSynced time.Time
 	for _, identity := range stored {
-		if strings.TrimRight(identity.Provider, "/") != issuer || identity.PasswordHash != "" || identity.Subject == "" {
+		if !slices.Contains(issuer, identity.Provider) || identity.PasswordHash != "" || identity.Subject == "" {
 			continue
 		}
 		if best == "" || identity.SyncedAt.After(bestSynced) {

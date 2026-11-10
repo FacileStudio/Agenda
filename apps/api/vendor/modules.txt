@@ -6,7 +6,7 @@ github.com/FacileStudio/Journal/sdk/journal
 github.com/FacileStudio/antenne-client/go
 github.com/FacileStudio/antenne-client/go/catalog
 github.com/FacileStudio/antenne-client/go/envelope
-# github.com/FacileStudio/porte v0.18.0
+# github.com/FacileStudio/porte v0.18.1
 ## explicit; go 1.26
 github.com/FacileStudio/porte
 github.com/FacileStudio/porte/exchange

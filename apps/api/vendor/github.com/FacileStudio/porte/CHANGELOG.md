@@ -5,6 +5,24 @@ session from undoing a deliberate choice.
 
 ## [Unreleased]
 
+## v0.18.1 — 2026-11-10
+
+Root module: **v0.18.1**; nested modules unchanged. Fix; no migration.
+
+### Fixed
+
+- **`porte/kit` treats `<issuer>` and `<issuer>/` as one provider everywhere.** The sign-in lookup,
+  the second-subject refusal and `EraseAccount` compared the stored provider to the presented one
+  exactly. A person whose identity was stored in the other spelling was not found by subject, fell
+  through to the verified-email rule, and could get a second identity of the same provider linked
+  to their account; an erasure notice in the other spelling erased nothing. Apps configured the
+  issuer both ways over time (Casier ignores the slash), so production rows mix the two. One
+  helper now gives both spellings and every lookup, the backfill and the invitations subject
+  included, matches either, preferring the exact one when both exist. No schema change, no row
+  rewritten, and porte's `oidc`, `session` and `pg` packages, routes, status codes, cookies, CSRF
+  rule, `/auth/config` body and `pg.Schema` are unchanged. Apps with mixed rows can adopt
+  `kit.Store` and the erase hook without a data migration.
+
 ## v0.18.0 — 2026-11-10
 
 Root module: **v0.18.0**; `directory` **v0.4.0**; `forfait` and `mcpauth` unchanged. Additive; no

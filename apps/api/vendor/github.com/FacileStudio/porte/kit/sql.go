@@ -24,7 +24,7 @@ func (c Columns) identitySQL() string {
 
 func (c Columns) linkedSQL() string {
 	return "SELECT u." + quote(c.ID) + " FROM porte_identities i JOIN " + quote(c.Table) + " u ON u." + quote(c.ID) +
-		" = i.user_id WHERE i.provider = $1 AND i.subject = $2"
+		" = i.user_id WHERE i.provider IN ($1, $2) AND i.subject = $3 ORDER BY i.provider = $1 DESC LIMIT 1"
 }
 
 func (c Columns) byEmailSQL() string {
@@ -60,5 +60,5 @@ func (c Columns) updateSQL(userID int64, p profile) (string, []any) {
 
 func (c Columns) backfillSQL() string {
 	return "UPDATE " + quote(c.Table) + " u SET " + quote(c.Picture) + " = $1 || i.subject FROM porte_identities i" +
-		" WHERE i.user_id = u." + quote(c.ID) + " AND rtrim(i.provider, '/') = $2 AND coalesce(u." + quote(c.Picture) + ", '') = ''"
+		" WHERE i.user_id = u." + quote(c.ID) + " AND i.provider IN ($2, $3) AND coalesce(u." + quote(c.Picture) + ", '') = ''"
 }

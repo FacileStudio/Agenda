@@ -11,5 +11,5 @@ export default defineConfig({
 			'/dav': 'http://127.0.0.1:4000'
 		}
 	},
-	optimizeDeps: { exclude: ['@facile/muse'] }
+	optimizeDeps: { exclude: ['@facile/muse', '@facile/client'] }
 });

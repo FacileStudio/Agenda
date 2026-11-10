@@ -15,7 +15,8 @@ import (
 // One transaction, under the lock UpsertFromOIDC takes, runs EraseData for
 // the rows the person owns and then deletes the users row; an EraseData
 // error rolls both back. The receiver delivers at least once, so an
-// identity that resolves to no account is a success.
+// identity that resolves to no account is a success. The provider matches
+// with or without one trailing slash, as at sign-in.
 func (s *Store) EraseAccount(ctx context.Context, provider, subject string) error {
 	return s.inTx(ctx, func(tx *sql.Tx) error {
 		return s.erase(ctx, tx, provider, subject)
@@ -24,7 +25,8 @@ func (s *Store) EraseAccount(ctx context.Context, provider, subject string) erro
 
 func (s *Store) erase(ctx context.Context, tx *sql.Tx, provider, subject string) error {
 	c := s.Columns.resolved()
-	userID, err := scanID(tx.QueryRowContext(ctx, c.linkedSQL(), provider, subject))
+	spellings := providerSpellings(provider)
+	userID, err := scanID(tx.QueryRowContext(ctx, c.linkedSQL(), spellings[0], spellings[1], subject))
 	if err != nil {
 		return errors.Internal("failed to resolve the erased identity", err)
 	}

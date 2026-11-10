@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	stderrors "errors"
+	"strings"
 
 	"github.com/FacileStudio/porte"
 	"github.com/FacileStudio/tronc/errors"
@@ -37,6 +38,8 @@ var (
 // runs under one advisory lock, so two first sign-ins cannot both become
 // the first account. A linked account's profile is refreshed: the picture
 // always, the email only when verified, the name and locale only when sent.
+// A provider matches with or without one trailing slash, the exact spelling
+// first, so an app whose rows mix both spellings needs no data migration.
 func (s *Store) UpsertFromOIDC(ctx context.Context, claims porte.Claims) (int64, error) {
 	p, err := profileFrom(claims)
 	if err != nil {
@@ -53,7 +56,8 @@ func (s *Store) UpsertFromOIDC(ctx context.Context, claims porte.Claims) (int64,
 
 func (s *Store) resolve(ctx context.Context, tx *sql.Tx, claims porte.Claims, p profile) (int64, error) {
 	c := s.Columns.resolved()
-	linked, err := scanID(tx.QueryRowContext(ctx, c.linkedSQL(), claims.Provider, claims.Subject))
+	spellings := providerSpellings(claims.Provider)
+	linked, err := scanID(tx.QueryRowContext(ctx, c.linkedSQL(), spellings[0], spellings[1], claims.Subject))
 	if err != nil {
 		return 0, errors.Internal("failed to resolve the identity", err)
 	}
@@ -77,8 +81,9 @@ func mayLink(ctx context.Context, tx *sql.Tx, userID int64, claims porte.Claims)
 		return errors.Conflict("an account with this email already exists and the identity provider did not verify the address")
 	}
 	var held int64
-	err := tx.QueryRowContext(ctx, `SELECT count(*) FROM porte_identities WHERE user_id = $1 AND provider = $2`,
-		userID, claims.Provider).Scan(&held)
+	spellings := providerSpellings(claims.Provider)
+	err := tx.QueryRowContext(ctx, `SELECT count(*) FROM porte_identities WHERE user_id = $1 AND provider IN ($2, $3)`,
+		userID, spellings[0], spellings[1]).Scan(&held)
 	if err != nil {
 		return errors.Internal("failed to read the account's identities", err)
 	}
@@ -86,6 +91,16 @@ func mayLink(ctx context.Context, tx *sql.Tx, userID int64, claims porte.Claims)
 		return errors.Conflict("this account is already linked to another identity from the same provider")
 	}
 	return nil
+}
+
+// providerSpellings is the provider as given, then the same provider with its
+// single trailing slash toggled. Apps configured the issuer both ways over
+// time, so a stored identity of either spelling is the same provider.
+func providerSpellings(provider string) []string {
+	if trimmed, ok := strings.CutSuffix(provider, "/"); ok {
+		return []string{provider, trimmed}
+	}
+	return []string{provider, provider + "/"}
 }
 
 func (s *Store) create(ctx context.Context, tx *sql.Tx, p profile) (int64, error) {
