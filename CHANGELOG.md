@@ -2,11 +2,25 @@
 
 All notable changes to Agenda are documented here.
 
-## [Unreleased]
+## [0.16.0] - 2026-11-10
+
+### Added
+
+- User menu: pending Registre space invitations, with a count pill and a dot on the avatar, from `GET /api/me/invitations` (`porte/kit` `MountInvitations`, mounted with `OIDC_ISSUER`). Any failure answers `{"count":0}` and shows no row.
+- Tests: `TestVendoredGoWebdavPatches` pins the five hand-made go-webdav patches CalDAV clients rely on (`cs:getctag`, trailing-slash principal and home set, the root PROPFIND href, PROPPATCH answering 207 with 403). A `go mod vendor` that drops them now fails the build.
 
 ### Changed
 
-- Licence: Agenda is now licensed under `AGPL-3.0-only` (see `LICENSE`); before this, the repository carried no licence.
+- Auth: the sign-in glue is `porte/kit` (porte v0.18.0). `internal/authcontext`, `internal/middleware/auth.go`, `internal/oidcavatar`, the unused `internal/authcrypto` and the hand-written user store are gone. Routes and their unauthenticated status codes are unchanged (172 routes walked before and after). The stored email is now rewritten at sign-in only when Registre marks it verified, by owner decision for every suite app.
+- Bus: antenne-client v1.0.0 (`ConfigFromEnv`, `catalog`, `envelope`) for the Opus task mirror. `ANTENNE_INSTANCE` is read as the older spelling of `ANTENNE_URL`, and a URL without `ANTENNE_SECRET` now fails boot instead of silently turning the mirror off. Agenda publishes nothing, so it has no outbox.
+- Client: `@facile/client` v0.1.0 for the fetch kernel and the theme store. The client always calls `/api` relative; `VITE_API_BASE_URL` and `apps/client/.env.example` are gone, and Vite proxies `/api`, `/files` and `/dav` to `:4000` in development. A 401 on a call other than the session probe now goes to `/login`. The theme renders exactly as before; the stored `agenda.theme` choice is kept.
+- Gates: `filet.yml` is `preset: facile` plus Agenda's two exceptions (identical findings), CI runs filet v0.19.0 and douane 0.7.0 (`-fail critical -scope prod`), and `lefthook.yml` replaces `.githooks/` with a pre-push that runs `scripts/check.sh` and `filet gate .`.
+- build: tronc v0.19.0 to v0.21.0, porte v0.16.0 to v0.18.0, porte/directory v0.3.0 to v0.4.0, antenne-client to v1.0.0, `@facile/muse` v0.17.1 to v0.18.0, Go 1.26.11 (`go.mod` and the build image, clearing douane's critical stdlib and toolchain findings), go-jose v4.1.6 and x/text v0.41.0.
+- Licence: Agenda is now licensed under `AGPL-3.0-only` (see `LICENSE`); before this, the repository carried no licence. v0.16.0 is the first release under it.
+
+### Fixed
+
+- Erasure: a person Registre erases now also loses their pending MCP actions (`mcp_actions`), in the same transaction as the account. The erasure test asserts no row in any table references them afterwards.
 
 ## [0.15.1] - 2026-11-10
 
