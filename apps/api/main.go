@@ -149,8 +149,8 @@ func run() int {
 		return 1
 	}
 
-	if appEnv.Antenne.Enabled() {
-		poolClient := pool.NewClient(appEnv.Antenne, pool.NewMirror(db, eventService, calendarService, appLogger), appLogger)
+	if appEnv.Antenne != nil {
+		poolClient := pool.NewClient(*appEnv.Antenne, pool.NewMirror(db, eventService, calendarService, appLogger), appLogger)
 		poolClient.Start(context.Background())
 		defer poolClient.Stop()
 	}

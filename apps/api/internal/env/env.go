@@ -2,6 +2,7 @@ package env
 
 import (
 	"crypto/sha256"
+	stderrors "errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -10,7 +11,21 @@ import (
 	troncenv "github.com/FacileStudio/tronc/env"
 
 	"github.com/FacileStudio/porte"
+
+	antenne "github.com/FacileStudio/antenne-client/go"
+	"github.com/FacileStudio/antenne-client/go/envelope"
 )
+
+// antenneFromEnv reads the optional Antenne Pool settings: ANTENNE_URL (or the
+// older ANTENNE_INSTANCE), ANTENNE_SECRET, ANTENNE_INSTANCE_ID and ANTENNE_APP.
+// No URL is nil, the pool off. A URL without a secret fails boot.
+func antenneFromEnv() (*antenne.Config, error) {
+	cfg, err := antenne.ConfigFromEnv(string(envelope.AppAgenda))
+	if stderrors.Is(err, antenne.ErrNotConfigured) {
+		return nil, nil
+	}
+	return cfg, err
+}
 
 // OIDCConfig holds the OpenID Connect provider settings read from the
 // OIDC_* environment variables.
@@ -30,19 +45,6 @@ type OIDCConfig struct {
 	ScopePrefix     string
 }
 
-// AntenneConfig holds the optional Antenne Pool settings. The pool is enabled
-// only when URL and Secret are both set.
-type AntenneConfig struct {
-	URL        string
-	Secret     string
-	InstanceID string
-}
-
-// Enabled reports whether the pool connection is configured.
-func (c AntenneConfig) Enabled() bool {
-	return c.URL != "" && c.Secret != ""
-}
-
 // Config is the assembled application configuration: shared tronc settings
 // plus Agenda-specific storage, OIDC and encryption settings.
 type Config struct {
@@ -50,7 +52,7 @@ type Config struct {
 	StorageDir    string
 	OIDC          *OIDCConfig
 	EncryptionKey []byte
-	Antenne       AntenneConfig
+	Antenne       *antenne.Config
 	MCP           MCP
 	BulleURL      string
 }
@@ -68,19 +70,16 @@ type MCP struct {
 // when required OIDC fields are missing for a configured issuer, or when the
 // database DSN cannot be resolved.
 func Load() (Config, error) {
-	core, err := loadCore()
-	if err != nil {
+	core, coreErr := loadCore()
+	pool, poolErr := antenneFromEnv()
+	if err := stderrors.Join(coreErr, poolErr); err != nil {
 		return Config{}, err
 	}
 	cfg := Config{
 		Core:       core,
 		StorageDir: troncenv.String("STORAGE_DIR", "./data"),
 		BulleURL:   troncenv.String("BULLE_URL", ""),
-		Antenne: AntenneConfig{
-			URL:        troncenv.String("ANTENNE_URL", ""),
-			Secret:     troncenv.String("ANTENNE_SECRET", ""),
-			InstanceID: troncenv.String("ANTENNE_INSTANCE_ID", ""),
-		},
+		Antenne:    pool,
 	}
 
 	if issuer := troncenv.String("OIDC_ISSUER", ""); issuer != "" {

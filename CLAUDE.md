@@ -126,7 +126,7 @@ the root because their URLs are held outside this repo:
 - `CORS_ALLOWED_ORIGINS` — Comma-separated origins, scheme included (only needed for a
   separate client deploy). `ALLOWED_ORIGINS`, `DOMAINS`, `DOMAIN`, `CORS_ORIGINS`,
   `TRUSTED_ORIGINS` and `CLIENT_ORIGIN` are read as fallbacks.
-- `ANTENNE_URL`, `ANTENNE_SECRET`, `ANTENNE_INSTANCE_ID` — Optional Antenne Pool; mirrors Opus tasks with a due date into a read-only "Opus tasks" calendar (`internal/pool`)
+- `ANTENNE_URL`, `ANTENNE_SECRET`, `ANTENNE_INSTANCE_ID` — Optional Antenne Pool, read by antenne-client v1's `ConfigFromEnv` (`ANTENNE_INSTANCE` is the older spelling of the URL); a URL without a secret fails boot. Agenda only listens: it mirrors Opus tasks with a due date into a read-only "Opus tasks" calendar (`internal/pool`) and publishes nothing, so it has no outbox
 - `OIDC_*` — OpenID Connect config; `OIDC_ISSUER` is required in production
 
 ## Conventions

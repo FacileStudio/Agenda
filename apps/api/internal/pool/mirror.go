@@ -14,6 +14,7 @@ import (
 	"github.com/FacileStudio/Agenda/apps/api/modules/calendars"
 	"github.com/FacileStudio/Agenda/apps/api/modules/events"
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
+	"github.com/FacileStudio/antenne-client/go/catalog"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -25,17 +26,17 @@ const (
 	calendarName  = "Opus tasks"
 	calendarColor = "#8b5cf6"
 
-	channelTaskCreated = "task.created"
-	channelTaskUpdated = "task.updated"
-	channelTaskDeleted = "task.deleted"
+	channelTaskCreated = string(catalog.TaskCreated)
+	channelTaskUpdated = string(catalog.TaskUpdated)
+	channelTaskDeleted = string(catalog.TaskDeleted)
 )
 
-var TaskChannels = []string{
-	channelTaskCreated,
-	channelTaskUpdated,
-	channelTaskDeleted,
-	"task.status_changed",
-	"task.actor_changed",
+// TaskChannels are the Opus task channels the mirror listens to.
+func TaskChannels() []string {
+	return []string{
+		channelTaskCreated, channelTaskUpdated, channelTaskDeleted,
+		string(catalog.TaskStatusChanged), string(catalog.TaskActorChanged),
+	}
 }
 
 // Mirror turns Opus task events into read-only all-day events.

@@ -7,9 +7,11 @@ import (
 	"strings"
 	"time"
 	_ "time/tzdata"
+
+	"github.com/FacileStudio/antenne-client/go/envelope"
 )
 
-const appOpus = "Opus"
+const appOpus = string(envelope.AppOpus)
 
 type taskPayload struct {
 	ID         int64  `json:"id"`
@@ -21,14 +23,6 @@ type taskPayload struct {
 	OwnerEmail string `json:"owner_email"`
 }
 
-type envelope struct {
-	App            string       `json:"app"`
-	FacileID       string       `json:"facile_id"`
-	Timestamp      string       `json:"timestamp"`
-	IdempotencyKey string       `json:"idempotency_key"`
-	Payload        *taskPayload `json:"payload"`
-}
-
 type decoded struct {
 	task    taskPayload
 	app     string
@@ -36,11 +30,11 @@ type decoded struct {
 }
 
 func decodeTask(raw json.RawMessage) (decoded, error) {
-	var env envelope
+	var env envelope.Event[*taskPayload]
 	if err := json.Unmarshal(raw, &env); err != nil {
 		return decoded{}, err
 	}
-	out := decoded{app: env.App, version: eventVersion(env)}
+	out := decoded{app: string(env.App), version: eventVersion(env)}
 	if env.Payload == nil {
 		return out, nil
 	}
@@ -51,7 +45,7 @@ func decodeTask(raw json.RawMessage) (decoded, error) {
 	return out, nil
 }
 
-func eventVersion(env envelope) int64 {
+func eventVersion(env envelope.Event[*taskPayload]) int64 {
 	if i := strings.LastIndex(env.IdempotencyKey, ":"); i >= 0 {
 		if ms, err := strconv.ParseInt(env.IdempotencyKey[i+1:], 10, 64); err == nil && ms > 0 {
 			return ms

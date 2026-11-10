@@ -9,11 +9,7 @@ import (
 	"time"
 
 	antenne "github.com/FacileStudio/antenne-client/go"
-
-	"github.com/FacileStudio/Agenda/apps/api/internal/env"
 )
-
-const appName = "Agenda"
 
 // Client keeps the Antenne Pool connection alive and feeds task events to a
 // Mirror. The pool keeps a durable per-app ack cursor, so a restart resumes
@@ -26,14 +22,10 @@ type Client struct {
 
 // NewClient subscribes the mirror to the Opus task channels. Call Start to
 // connect.
-func NewClient(cfg env.AntenneConfig, mirror *Mirror, logger *slog.Logger) *Client {
-	client := antenne.NewClient(&antenne.Config{
-		App:        appName,
-		Instance:   cfg.URL,
-		Secret:     cfg.Secret,
-		InstanceID: cfg.InstanceID,
-		Events:     antenne.EventConfig{Listen: TaskChannels},
-	},
+func NewClient(cfg antenne.Config, mirror *Mirror, logger *slog.Logger) *Client {
+	channels := TaskChannels()
+	cfg.Events.Listen = channels
+	client := antenne.NewClient(&cfg,
 		antenne.WithMaxReconnect(math.MaxInt32),
 		antenne.WithOnConnect(func() { logger.Info("pool: connected") }),
 		antenne.WithOnError(func(err error) {
@@ -45,8 +37,7 @@ func NewClient(cfg env.AntenneConfig, mirror *Mirror, logger *slog.Logger) *Clie
 			logger.Error("pool: error", slog.Any("error", err))
 		}),
 	)
-	for _, channel := range TaskChannels {
-		channel := channel
+	for _, channel := range channels {
 		client.Listen(channel, handler(mirror, channel, logger))
 	}
 	return &Client{client: client, logger: logger}

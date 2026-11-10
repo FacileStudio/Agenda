@@ -142,8 +142,8 @@ legacy `/auth/oidc/callback` keeps working: that root path is registered as a 30
 
 | Variable | Required | Default | What it does |
 |---|---|---|---|
-| `ANTENNE_URL` | no | — | Base URL of the Antenne instance |
-| `ANTENNE_SECRET` | no | — | Pool shared secret. The pool is enabled only when this and `ANTENNE_URL` are set |
+| `ANTENNE_URL` | no | — | Base URL of the Antenne instance. `ANTENNE_INSTANCE` is read when it is empty. Empty turns the pool off |
+| `ANTENNE_SECRET` | no | — | Pool shared secret. Required once `ANTENNE_URL` is set: a URL without a secret fails boot |
 | `ANTENNE_INSTANCE_ID` | no | — | Distinguishes this Agenda from another one on the same pool |
 | `DUE_DATE_TIMEZONE` | no | `Europe/Paris` | Zone used to read the date of an Opus due date sent as a UTC instant, since Opus stores local midnight as UTC |
 
