@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
 	"github.com/FacileStudio/porte"
@@ -125,5 +126,20 @@ func TestARecycledAddressIsNotHandedToANewSubject(t *testing.T) {
 
 	if _, err := store.UpsertFromOIDC(context.Background(), claims("sub-newcomer", "lea@facile.studio", true)); err == nil {
 		t.Fatal("a second subject of the same issuer took over a linked account")
+	}
+}
+
+func TestASignedUpAccountLoadsAsAUserRow(t *testing.T) {
+	db := openTestDatabase(t)
+	id, err := testStore(t, db).UpsertFromOIDC(context.Background(), claims("sub-new", "new@facile.studio", true))
+	if err != nil {
+		t.Fatalf("sign-up: %v", err)
+	}
+	var user schemas.User
+	if err := db.First(&user, id).Error; err != nil {
+		t.Fatalf("load the new account: %v", err)
+	}
+	if user.CreatedAt.IsZero() || time.Since(user.CreatedAt) > time.Minute {
+		t.Errorf("created_at = %v, want the sign-up time", user.CreatedAt)
 	}
 }

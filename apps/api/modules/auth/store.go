@@ -21,6 +21,12 @@ const (
 	eraseMemberships    = `DELETE FROM space_members WHERE user_id = $1`
 	erasePendingActions = `DELETE FROM mcp_actions WHERE user_id = ($1::bigint)::text`
 	anonymiseAuthorship = `UPDATE events SET created_by_id = NULL WHERE created_by_id = $1`
+
+	fillAccountColumns = `UPDATE users SET created_at = now(),
+		avatar_url = '', avatar_source = '', avatar_upload_path = '', password_hash = '',
+		oidc_access_token = '', oidc_refresh_token = '',
+		oidc_token_expiry = '0001-01-01 00:00:00+00', profile_synced_at = '0001-01-01 00:00:00+00'
+		WHERE id = $1`
 )
 
 // NewStore is porte's user store over Agenda's users table. Agenda has no
@@ -30,8 +36,17 @@ func NewStore(db *sql.DB) *kit.Store {
 	return &kit.Store{
 		DB:        db,
 		Columns:   kit.Columns{Picture: "oidc_picture_url"},
+		OnCreate:  fillNewAccount,
 		EraseData: eraseData,
 	}
+}
+
+// fillNewAccount writes, in the insert's transaction, the columns the kit does
+// not name, with the values GORM wrote before the kit: the sign-up time and
+// empty strings and zero times rather than NULL.
+func fillNewAccount(ctx context.Context, tx *sql.Tx, userID int64) error {
+	_, err := tx.ExecContext(ctx, fillAccountColumns, userID)
+	return err
 }
 
 // eraseData deletes what an erased person owns, before the kit deletes the
