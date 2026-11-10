@@ -2,6 +2,18 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.18.0] - 2026-11-10
+
+### Added
+
+- Bus: Agenda publishes its calendars and events on the Antenne pool, on `calendar.created`, `calendar.updated`, `calendar.deleted`, `calendar_event.created`, `calendar_event.updated` and `calendar_event.deleted` (antenne-client v1.1.0). Every write queues its change in `antenne_outbox` inside the write's own transaction, so a change is published if and only if it commits: the REST calendar and event handlers (including occurrence edits and the events a deleted calendar held), CalDAV PUT, DELETE, MKCOL and MKCALENDAR, the MCP tools, and account erasure. The pool client drains the outbox with `EmitNow`. Payloads carry only `envelope.Calendar` and `envelope.CalendarEvent` fields, never a description, a location or an attendee; an erased person's events and calendars go out as deletions carrying the ids only. `facile_id` is the row's integer id as a decimal string. Events mirrored from Opus and the calendars the Registre space sync creates or renames are not published. Nothing is queued or sent when `ANTENNE_URL` is unset.
+- Database: `00003_antenne_outbox.sql`, antenne-client's `outbox.Migration` byte for byte.
+
+### Changed
+
+- Bus: the pool connection uses antenne-client's `WithPersistentConnect`, which retries the first connection and every later one by itself; Agenda's own dial loop and `WithMaxReconnect(math.MaxInt32)` are gone. Agenda declares the six calendar channels it emits when it registers.
+- build: antenne-client/go v1.0.0 to v1.1.0. Re-vendored with the go-webdav patch kept (`TestVendoredGoWebdavPatches` passes).
+
 ## [0.17.0] - 2026-11-10
 
 ### Changed
