@@ -98,7 +98,7 @@ session.
 When Registre erases a person, `porte/directory` calls `spaces.Deletions.ErasePerson`. It
 runs the kit's `EraseAccount`, whose `EraseData` (`modules/auth/store.go`) deletes the
 personal calendars with their events, attendees and shares, the person's own shares,
-attendances and space memberships, and clears their authorship of
+attendances, space memberships and pending MCP actions, and clears their authorship of
 events in other calendars, all in the transaction that deletes the `users` row. The
 uploaded avatar file goes after the commit. `TestErasePersonDeletesPersonalDataAndKeepsSharedEvents`
 asserts no row references the person afterwards.

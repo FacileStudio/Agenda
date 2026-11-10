@@ -19,6 +19,7 @@ const (
 	eraseOwnShares      = `DELETE FROM calendar_members WHERE user_id = $1`
 	eraseOwnAttendance  = `DELETE FROM event_attendees WHERE user_id = $1`
 	eraseMemberships    = `DELETE FROM space_members WHERE user_id = $1`
+	erasePendingActions = `DELETE FROM mcp_actions WHERE user_id = ($1::bigint)::text`
 	anonymiseAuthorship = `UPDATE events SET created_by_id = NULL WHERE created_by_id = $1`
 )
 
@@ -35,13 +36,13 @@ func NewStore(db *sql.DB) *kit.Store {
 
 // eraseData deletes what an erased person owns, before the kit deletes the
 // users row in the same transaction: personal calendars with their events,
-// attendees and shares, the person's own shares, attendances and memberships.
-// Events the person wrote in calendars owned by others
+// attendees and shares, the person's own shares, attendances, memberships and
+// pending MCP actions. Events the person wrote in calendars owned by others
 // or by a space stay, with no author.
 func eraseData(ctx context.Context, tx *sql.Tx, userID int64) error {
 	for _, statement := range []string{
 		eraseOwnedAttendees, eraseOwnedEvents, eraseOwnedShares, eraseOwnedCalendars,
-		eraseOwnShares, eraseOwnAttendance, eraseMemberships, anonymiseAuthorship,
+		eraseOwnShares, eraseOwnAttendance, eraseMemberships, erasePendingActions, anonymiseAuthorship,
 	} {
 		if _, err := tx.ExecContext(ctx, statement, userID); err != nil {
 			return err

@@ -38,6 +38,19 @@ func mustCreate(t *testing.T, db *gorm.DB, row any) {
 	}
 }
 
+func seedAccess(t *testing.T, db *gorm.DB, userID int64) {
+	t.Helper()
+	for _, statement := range []string{
+		`INSERT INTO porte_sessions (token_hash, user_id, label) VALUES ('h-' || (?::bigint)::text, ?, 'caldav')`,
+		`INSERT INTO mcp_actions (id, user_id, kind, target, digest, expires_at)
+		 VALUES ('a-' || (?::bigint)::text, (?::bigint)::text, 'delete_event', '{}', 'd', now() + interval '1 hour')`,
+	} {
+		if err := db.Exec(statement, userID, userID).Error; err != nil {
+			t.Fatalf("seed access: %v", err)
+		}
+	}
+}
+
 func seedAvatar(t *testing.T, db *gorm.DB, storage string, userID int64) string {
 	t.Helper()
 	path := filepath.Join(storage, "avatars", "user-gone.png")
@@ -75,6 +88,7 @@ func seedErasure(t *testing.T, db *gorm.DB) erasureFixture {
 	mustCreate(t, db, &theirs)
 	mustCreate(t, db, &schemas.EventAttendee{EventID: theirs.ID, UserID: &gone, Email: "gone@facile.studio"})
 	mustCreate(t, db, &schemas.CalendarMember{CalendarID: kept.ID, UserID: gone, Role: "reader"})
+	seedAccess(t, db, gone)
 	deletions, avatar := erasingDeletions(t, db, gone)
 	return erasureFixture{gone: gone, other: other, deletions: deletions, avatar: avatar}
 }
@@ -100,6 +114,10 @@ func assertNothingReferences(t *testing.T, db *gorm.DB, f erasureFixture) {
 		`SELECT count(*) FROM event_attendees WHERE user_id = ?`,
 		`SELECT count(*) FROM calendar_members WHERE user_id = ?`,
 		`SELECT count(*) FROM space_members WHERE user_id = ?`,
+		`SELECT count(*) FROM events WHERE created_by_id = ?`,
+		`SELECT count(*) FROM mcp_actions WHERE user_id = (?::bigint)::text`,
+		`SELECT count(*) FROM porte_sessions WHERE user_id = ?`,
+		`SELECT count(*) FROM porte_identities WHERE user_id = ?`,
 	} {
 		if got := count(t, db, query, f.gone); got != 0 {
 			t.Errorf("%s = %d, want 0", query, got)
