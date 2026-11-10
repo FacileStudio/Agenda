@@ -2,6 +2,12 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.16.2] - 2026-11-10
+
+### Fixed
+
+- CalDAV: the `/dav` rate limiter updated its per-address counters from concurrent requests without synchronisation, a data race that could admit more than 100 requests a minute or corrupt a counter. One mutex now guards the counters. The limits and the refusal are unchanged: 100 requests per minute per address in a fixed window, then `429` with the `rate_limited` JSON envelope and `Retry-After` counting down to the window's end. It stays a fixed window rather than tronc's token bucket, which would change both the admission pattern and `Retry-After` that CalDAV clients see.
+
 ## [0.16.1] - 2026-11-10
 
 ### Fixed
