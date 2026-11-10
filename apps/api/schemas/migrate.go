@@ -27,6 +27,7 @@ func MigrateWithIssuer(db *gorm.DB, issuer string) error {
 		&Event{},
 		&ExternalVersion{},
 		&EventAttendee{},
+		&ForfaitState{},
 	); err != nil {
 		return err
 	}

@@ -31,6 +31,7 @@ type Directory struct {
 	syncer *directory.Syncer
 	logger *slog.Logger
 	retry  time.Duration
+	extra  func(context.Context, directory.Snapshot) error
 }
 
 // NewDirectory builds the sync over Agenda's tables. The client's issuer is
@@ -38,8 +39,22 @@ type Directory struct {
 // subject finds its Agenda user.
 func NewDirectory(orm *gorm.DB, client directory.Client, logger *slog.Logger) *Directory {
 	d := &Directory{orm: orm, issuer: client.Issuer, client: client, logger: logger, retry: firstImportRetry}
-	d.syncer = &directory.Syncer{Client: client, Apply: d.Apply, Logger: logger}
+	d.syncer = &directory.Syncer{Client: client, Apply: d.sync, Logger: logger}
 	return d
+}
+
+// OnSnapshot runs fn on every snapshot before the spaces are applied.
+func (d *Directory) OnSnapshot(fn func(context.Context, directory.Snapshot) error) {
+	d.extra = fn
+}
+
+func (d *Directory) sync(ctx context.Context, snapshot directory.Snapshot) error {
+	if d.extra != nil {
+		if err := d.extra(ctx, snapshot); err != nil {
+			return err
+		}
+	}
+	return d.Apply(ctx, snapshot)
 }
 
 // Handler answers Registre's nudge with 202 and schedules a pull.

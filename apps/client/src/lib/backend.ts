@@ -108,7 +108,7 @@ export type ApiTokenCreated = {
 };
 
 type ApiErrorPayload = {
-	error?: { message?: string };
+	error?: { message?: string; upgrade_url?: string };
 };
 
 /** The event a pending action would delete, as it is now. */
@@ -137,16 +137,46 @@ export type PendingAction = {
 
 export class ApiError extends Error {
 	status: number;
+	upgradeUrl?: string;
 
-	constructor(status: number, message: string) {
+	constructor(status: number, message: string, upgradeUrl?: string) {
 		super(message);
 		this.name = 'ApiError';
 		this.status = status;
+		this.upgradeUrl = upgradeUrl;
 	}
 }
 
+export type BulleIdea = {
+	id: string;
+	kind: string;
+	title: string;
+	why: string;
+	draft: string;
+	sources: { label: string; ref: string }[] | null;
+	status: string;
+	expires_at: string;
+};
+
+export type IdeasResponse = {
+	ai_access: boolean;
+	upgrade_url?: string;
+	ideas: BulleIdea[];
+	generating: boolean;
+	last_batch_at: string | null;
+};
+
+export type IdeaRunResponse = {
+	id: string;
+	state: 'running' | 'needs_approval' | 'done' | 'failed';
+	summary: string;
+	outputs: { call_id: string; tool: string; url: string; preview: string }[] | null;
+	pending_approvals: { call_id: string; tool: string; args: unknown }[] | null;
+	continue_url: string;
+};
+
 // Methods that cannot change anything, and so do not need the CSRF header.
-const REGISTRE_SPACES_URL = 'https://sso.facile.studio/spaces';
+export const REGISTRE_SPACES_URL = 'https://sso.facile.studio/spaces';
 
 /**
  * Where a space is managed. Registre owns every shared space's name, members and roles;
@@ -171,6 +201,8 @@ function withCSRF(headers: Headers, method: string): Headers {
 	return headers;
 }
 
+const spaceQuery = (spaceId: number | null): string => (spaceId === null ? '' : `?space_id=${spaceId}`);
+
 async function apiFetch<T>(path: string, options: RequestInit = {}) {
 	const headers = withCSRF(new Headers(options.headers), options.method ?? 'GET');
 	if (!headers.has('Content-Type') && options.body) {
@@ -184,9 +216,14 @@ async function apiFetch<T>(path: string, options: RequestInit = {}) {
 		} catch {
 			payload = undefined;
 		}
-		throw new ApiError(response.status, payload?.error?.message || `Request failed with status ${response.status}`);
+		throw new ApiError(
+			response.status,
+			payload?.error?.message || `Request failed with status ${response.status}`,
+			response.status === 402 ? payload?.error?.upgrade_url : undefined
+		);
 	}
-	return (await response.json()) as T;
+	const text = await response.text();
+	return (text ? JSON.parse(text) : {}) as T;
 }
 
 export function resolveFileUrl(path: string) {
@@ -223,6 +260,28 @@ export const backend = {
 	},
 	dismissPending(id: string) {
 		return apiFetch<{ status: string }>(`/mcp/pending/${encodeURIComponent(id)}/dismiss`, { method: 'POST' });
+	},
+
+	listIdeas(spaceId: number | null) {
+		return apiFetch<IdeasResponse>(`/ideas${spaceQuery(spaceId)}`);
+	},
+	generateIdeas(spaceId: number | null) {
+		return apiFetch<{ batch_id: string }>(`/ideas/generate${spaceQuery(spaceId)}`, { method: 'POST' });
+	},
+	runIdea(id: string, spaceId: number | null) {
+		return apiFetch<{ run_id: string }>(`/ideas/${encodeURIComponent(id)}/run${spaceQuery(spaceId)}`, { method: 'POST' });
+	},
+	dismissIdea(id: string) {
+		return apiFetch<object>(`/ideas/${encodeURIComponent(id)}/dismiss`, { method: 'POST' });
+	},
+	ideaRun(runId: string) {
+		return apiFetch<IdeaRunResponse>(`/ideas/runs/${encodeURIComponent(runId)}`);
+	},
+	decideIdea(runId: string, callId: string, approve: boolean) {
+		return apiFetch<object>(`/ideas/runs/${encodeURIComponent(runId)}/approvals/${encodeURIComponent(callId)}`, {
+			method: 'POST',
+			body: JSON.stringify({ approve })
+		});
 	},
 
 	listCalendars(spaceId?: number) {

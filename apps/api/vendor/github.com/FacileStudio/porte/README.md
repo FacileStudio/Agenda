@@ -54,6 +54,7 @@ reasoning behind both.
 | `porte/local` | Email and password: argon2id, register, login | `porte/session`, `x/crypto`, tronc, chi |
 | `porte/magiclink` | Passwordless sign-in: a one-time emailed link, single use, rate limited, landing in the same session | `porte/session`, tronc, chi |
 | `porte/pg` | The identity tables and the stores over them | `database/sql` |
+| `porte/exchange` | Per-user RFC 8693 token exchange from the stored Registre refresh token to another app's audience: refreshes serialized per user, rotations persisted, tokens cached, `ErrReconnect` | the contract, tronc |
 | `porte/avatarfs` | A filesystem `AvatarStore`: atomic writes, a guarded key, and an `http.Handler` that serves them | the standard library |
 | `porte/loopback` | The CLI's half of the CLI login: the loopback listener, the login URL, the pages a browser lands on | the standard library |
 | `porte/devicelogin` | The CLI's default login: the RFC 8628 device grant against Registre, then the app's device exchange | the standard library |

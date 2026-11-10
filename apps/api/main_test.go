@@ -19,6 +19,7 @@ import (
 
 	"github.com/FacileStudio/Agenda/apps/api/internal/env"
 	"github.com/FacileStudio/Agenda/apps/api/modules/auth"
+	"github.com/FacileStudio/Agenda/apps/api/modules/ideas"
 	"github.com/FacileStudio/Agenda/apps/api/modules/spaces"
 	"github.com/FacileStudio/porte/directory"
 	"github.com/FacileStudio/porte/oidc"
@@ -71,6 +72,12 @@ var clientCalls = []struct {
 	{http.MethodPost, directory.DeletionsPath},
 	{http.MethodGet, "/api/settings/"},
 	{http.MethodPut, "/api/settings/"},
+	{http.MethodGet, "/api/ideas"},
+	{http.MethodPost, "/api/ideas/generate"},
+	{http.MethodPost, "/api/ideas/i1/run"},
+	{http.MethodPost, "/api/ideas/i1/dismiss"},
+	{http.MethodGet, "/api/ideas/runs/r1"},
+	{http.MethodPost, "/api/ideas/runs/r1/approvals/c1"},
 	{http.MethodGet, "/api/health"},
 	{http.MethodGet, "/api/ready"},
 	{http.MethodGet, "/health"},
@@ -137,7 +144,7 @@ func testRouter(t *testing.T) chi.Router {
 	authService := auth.NewService(nil, sessions, appLogger)
 
 	router := chi.NewRouter()
-	mountRoutes(router, mounts{
+	if err := mountRoutes(router, mounts{
 		env:       appEnv,
 		sessions:  sessions,
 		kit:       kit,
@@ -145,7 +152,13 @@ func testRouter(t *testing.T) chi.Router {
 		directory: spaces.NewDirectory(nil, directory.Client{Issuer: appEnv.OIDC.Issuer}, appLogger),
 		deletions: spaces.NewDeletions(nil, directory.Client{Issuer: appEnv.OIDC.Issuer}, nil, appEnv.StorageDir, appLogger),
 		mcp:       testMCP(t),
-	})
+		ideas: ideas.NewService(nil, ideas.Config{
+			URL:   "http://bulle.invalid",
+			Token: func(context.Context) (string, error) { return "", nil },
+		}),
+	}); err != nil {
+		t.Fatalf("mountRoutes: %v", err)
+	}
 	return router
 }
 

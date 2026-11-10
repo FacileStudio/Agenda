@@ -23,6 +23,7 @@ import (
 	"github.com/FacileStudio/Agenda/apps/api/modules/caldav"
 	"github.com/FacileStudio/Agenda/apps/api/modules/calendars"
 	"github.com/FacileStudio/Agenda/apps/api/modules/events"
+	"github.com/FacileStudio/Agenda/apps/api/modules/ideas"
 	"github.com/FacileStudio/Agenda/apps/api/modules/mcp"
 	"github.com/FacileStudio/Agenda/apps/api/modules/settings"
 	"github.com/FacileStudio/Agenda/apps/api/modules/spaces"
@@ -140,6 +141,12 @@ func run() int {
 	registreSync, deletions, stopSync := startDirectory(db, appEnv, appLogger)
 	defer stopSync()
 
+	ideasService, err := newIdeas(context.Background(), db, appEnv, identities, registreSync, appLogger)
+	if err != nil {
+		appLogger.Error("failed to set up ideas", slog.Any("error", err))
+		return 1
+	}
+
 	if appEnv.Antenne.Enabled() {
 		poolClient := pool.NewClient(appEnv.Antenne, pool.NewMirror(db, eventService, calendarService, appLogger), appLogger)
 		poolClient.Start(context.Background())
@@ -160,7 +167,7 @@ func run() int {
 	})
 	router.Use(middleware.MaxBodySize(4 << 20))
 
-	mountRoutes(router, mounts{
+	if err := mountRoutes(router, mounts{
 		env:       appEnv,
 		db:        db,
 		sqlDB:     sqlDB,
@@ -175,7 +182,11 @@ func run() int {
 		directory: registreSync,
 		deletions: deletions,
 		mcp:       mcpService,
-	})
+		ideas:     ideasService,
+	}); err != nil {
+		appLogger.Error("failed to mount routes", slog.Any("error", err))
+		return 1
+	}
 
 	if spa.Available(clientDir) {
 		router.Handle("/*", middleware.Gzip(spa.Handler(spa.Config{Dir: clientDir})))
@@ -235,6 +246,7 @@ type mounts struct {
 	directory *spaces.Directory
 	deletions *spaces.Deletions
 	mcp       *mcp.Service
+	ideas     *ideas.Service
 }
 
 // startDirectory follows Registre's spaces and its GDPR deletions when SSO is
@@ -305,7 +317,7 @@ func buildAuth(ctx context.Context, db *gorm.DB, appEnv env.Config, appLogger *s
 // so an unknown API path 404s instead of falling through to the SPA catch-all;
 // CalDAV, the avatar file server and the legacy OIDC callback stay at the root
 // because their URLs are held by external clients, stored rows or Authentik.
-func mountRoutes(router chi.Router, m mounts) {
+func mountRoutes(router chi.Router, m mounts) error {
 	health.Mount(router, health.DB(m.sqlDB))
 	router.Get("/version", versionHandler)
 	apiref.Mount(router, referenceConfig())
@@ -319,6 +331,7 @@ func mountRoutes(router chi.Router, m mounts) {
 		router.Get("/auth/oidc/callback", redirectUnderAPI)
 	}
 
+	var ideasErr error
 	router.Route("/api", func(r chi.Router) {
 		auth.RegisterRoutes(r, m.sessions, m.kit)
 		calendars.RegisterRoutes(r, m.calendars, m.auth)
@@ -333,7 +346,11 @@ func mountRoutes(router chi.Router, m mounts) {
 		if m.mcp != nil {
 			mcp.RegisterPendingRoutes(r, m.mcp, m.auth)
 		}
+		if m.ideas != nil {
+			ideasErr = ideas.RegisterRoutes(r, m.ideas, m.auth)
+		}
 	})
+	return ideasErr
 }
 
 // referenceConfig describes the API reference served at /docs. Registry paths
@@ -351,6 +368,7 @@ func referenceConfig() apiref.Config {
 			users.Documentation,
 			settings.Documentation,
 			mcp.Documentation,
+			ideas.Documentation,
 		}},
 	}
 }

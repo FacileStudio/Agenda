@@ -17,6 +17,7 @@
 	import CalendarAgendaView from '$lib/components/CalendarAgendaView.svelte';
 	import EventModal from '$lib/components/EventModal.svelte';
 	import CalendarFilter from '$lib/components/CalendarFilter.svelte';
+	import IdeasButton from '$lib/components/IdeasButton.svelte';
 	import { calendarFilter, visibleCalendars } from '$lib/calendar-filter.svelte';
 	import { MONDAY_FIRST, t } from '$lib/i18n/index.svelte';
 	import { capitalize, formatDate } from '$lib/i18n/format';
@@ -198,6 +199,7 @@
 	<header class="flex shrink-0 flex-col gap-2 px-3 pt-3 pb-2 sm:px-5">
 		<div class="flex flex-wrap items-center gap-2 sm:gap-3">
 			<UserMenu user={app.navUser} trigger="avatar" {...app.userMenu} />
+			<IdeasButton />
 
 			<CalendarFilter calendars={app.calendars} />
 

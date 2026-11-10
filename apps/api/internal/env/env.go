@@ -52,6 +52,7 @@ type Config struct {
 	EncryptionKey []byte
 	Antenne       AntenneConfig
 	MCP           MCP
+	BulleURL      string
 }
 
 // MCP turns on the remote MCP server. Resource is the canonical URI clients
@@ -74,6 +75,7 @@ func Load() (Config, error) {
 	cfg := Config{
 		Core:       core,
 		StorageDir: troncenv.String("STORAGE_DIR", "./data"),
+		BulleURL:   troncenv.String("BULLE_URL", ""),
 		Antenne: AntenneConfig{
 			URL:        troncenv.String("ANTENNE_URL", ""),
 			Secret:     troncenv.String("ANTENNE_SECRET", ""),
