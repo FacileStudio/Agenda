@@ -8,7 +8,7 @@ How the image is built, what Compose declares, and how Agenda is routed on la ru
 
 1. `oven/bun:1` installs `apps/client` dependencies with `--frozen-lockfile` and runs
    `bun run build`, producing static files in `/app/build`.
-2. `golang:1.24-alpine` builds the API with
+2. `golang:1.26.11-alpine` builds the API with
    `go build -mod=vendor -trimpath -ldflags="-s -w" -o /agenda .`. Dependencies come from
    the committed `apps/api/vendor` directory, so the build never reaches the network — and
    so the local go-webdav patches described in [development.md](development.md) are what

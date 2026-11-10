@@ -6,7 +6,7 @@ Self-hosted calendar for creative studios. Part of the Facile Suite.
 
 | Layer    | Stack                                                        |
 | -------- | ------------------------------------------------------------ |
-| API      | Go 1.24, Chi router, GORM, PostgreSQL 16                    |
+| API      | Go 1.26.11, Chi router, GORM, PostgreSQL 16                 |
 | Client   | SvelteKit 5 (Svelte 5 runes), Tailwind CSS 4, muse        |
 | Build    | `go build -mod=vendor`, Bun                                 |
 | Deploy   | Docker Compose (single container: distroless Go binary)      |

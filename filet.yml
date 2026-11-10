@@ -1,68 +1,17 @@
-# The Go family's coding standard, enforced by filet.
-# https://github.com/FacileStudio/filet
+# The Go family's coding standard, enforced by filet: the suite's `facile` preset
+# plus what this repository's layout demands. https://github.com/FacileStudio/filet
 #
 #   filet check .     the rules
-#   filet roast .     the rules, with commentary
-#   filet docker .    the Dockerfile
+#   filet gate .      the rules, against the committed baseline
 #
-# This file is the fork source for every Go-family repository. A fork inherits
-# it verbatim and adds only what its own layout demands — the exceptions to
-# `requiredFiles` below are the expected place for that, and each one names its
-# reason so that removing it is an argument rather than an edit.
-#
-# filet's own defaults are stricter than the established tools, because filet was
-# refactored until it met them. The limits below are instead the *published*
-# defaults of the tools they come from, so a fork inherits numbers it can point
-# at rather than numbers someone picked to make a count go away.
+# A preset's lists are replaced, not merged, so requiredFiles restates the
+# preset's glob before adding the exception.
 
-# The defaults already cover node_modules, vendor, build, dist, target, testdata
-# and coverage, and every dotted directory is skipped whether it is listed or
-# not — so .svelte-kit, .gocache, .gomodcache and .local need no entry here.
-# Listing them anyway would read as if they mattered.
+preset: facile
 
 kind: app
 
-ignore:
-  - node_modules
-  - vendor
-  - build
-  - dist
-  - testdata
-  - coverage
-
-extensions: [.go, .ts, .svelte, .sh]
-
-limits:
-  fileLines: 250        # filet's own default: split the file
-  funcsPerFile: 8
-  funcLines: 30         # filet's own default
-  funcStatements: 25    # filet's own default
-  lineLength: 120       # lll default
-  params: 5
-  returns: 3
-  nesting: 4            # filet's own default
-  complexity: 10        # filet's own default
-  structFields: 12      # filet's own default
-  interfaceMethods: 4   # filet's own default
-
 architecture:
-  requiredDirs: [apps/api, apps/client]
   requiredFiles:
     "apps/api/modules/*": [router.go]
-    "apps/api/modules/caldav": []  # CalDAV is mounted from internal/server
-
-style:
-  banInlineComments: true
-  banTODO: true
-  requireDocComments: true
-  banGlobalMutable: true
-  banInit: true
-  banTrailingSpace: true
-
-disabled:
-  # gofmt/rustfmt/prettier owns line breaking; every survivor is a line no
-  # formatter could have wrapped. Flagging it is noise that teaches people to
-  # stop reading the output. Nothing else is disabled: a rule turned off here
-  # must be an argument, not a habit.
-  - gen.line.long
-failOn: error
+    "apps/api/modules/caldav": []  # caldav registers its routes from handler.go

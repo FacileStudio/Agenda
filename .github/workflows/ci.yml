@@ -77,9 +77,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: FacileStudio/filet@v0.3.0
+      - uses: FacileStudio/filet@v0.19.0
         with:
-          version: v0.3.0
+          version: v0.19.0
           fail-on: error
           antenne-url: ${{ secrets.ANTENNE_FILET_SECRET != '' && 'https://antenne.facile.studio/webhook/filet' || '' }}
           antenne-secret: ${{ secrets.ANTENNE_FILET_SECRET }}
+
+  douane:
+    runs-on: ubuntu-latest
+    env:
+      DOUANE_VERSION: 0.7.0
+      DOUANE_SHA256: 718745c1440905ff9c87c1d5eef866d3994beaec39e92f3c033835016f4d7dbb
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: install douane
+        run: |
+          set -eu
+          archive="douane_${DOUANE_VERSION}_linux_amd64.tar.gz"
+          base="https://github.com/FacileStudio/douane/releases/download/v${DOUANE_VERSION}"
+          curl -fsSLO "$base/$archive"
+          echo "${DOUANE_SHA256}  $archive" | sha256sum -c -
+          tar xzf "$archive" douane
+          ./douane --version
+
+      - name: scan
+        run: ./douane scan -fail critical -scope prod .
