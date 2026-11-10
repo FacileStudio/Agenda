@@ -58,9 +58,10 @@ type tokenVerifier interface {
 // issuer URL. There is deliberately no second lookup and no email fallback —
 // email is mutable at the provider, and matching on one is the account
 // takeover primitive v0.3.0 removed from the callback. A subject with no row
-// has never signed in here and is refused; porte does not provision an account
-// from a bearer token, because the callback is where account creation happens
-// and it is the path that holds the verified email.
+// has never signed in here and is refused; the Authorization header path does
+// not provision an account. Kit.ProvisionBearer is the one bearer path that
+// does, for porte/mcpauth when an app opts in, and it goes through the
+// callback's own write path.
 //
 // Refusal is also the whole of the deactivation story on this path. A JWT
 // carries no session row, so revoking sessions — which is all back-channel

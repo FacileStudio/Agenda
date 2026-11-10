@@ -2,6 +2,16 @@
 
 All notable changes to Agenda are documented here.
 
+## [Unreleased]
+
+### Fixed
+
+- MCP: a person's first call to `/mcp` now creates their Agenda account, exactly as a first web sign-in would, so a new Registre user can connect an MCP client without ever opening Agenda on the web. Before, a valid token for a person Agenda had never seen answered `401 invalid_token`. porte/mcpauth v0.2.0 (`Provision: true`) runs the OIDC kit's own login write path; it refuses a token without a verified email. Registre v0.10.3 carries the profile on resource-bound tokens.
+
+### Changed
+
+- build: porte v0.15.1 to v0.16.0 and porte/mcpauth v0.1.0 to v0.2.0.
+
 ## [0.15.0] - 2026-11-10
 
 ### Added

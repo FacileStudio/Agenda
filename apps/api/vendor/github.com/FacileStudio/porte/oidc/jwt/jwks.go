@@ -143,6 +143,7 @@ type payload struct {
 	Scope    string   `json:"scope"`
 	Act      actor    `json:"act"`
 	ClientID string   `json:"client_id"`
+	profileClaims
 }
 
 // registered holds the RFC 7519 claims the verifier checks itself.
@@ -180,5 +181,6 @@ func (p payload) claims() Claims {
 		ClientID:  p.ClientID,
 		ID:        p.ID,
 		ExpiresAt: time.Unix(p.ExpiresAt, 0),
+		Profile:   p.profile(),
 	}
 }

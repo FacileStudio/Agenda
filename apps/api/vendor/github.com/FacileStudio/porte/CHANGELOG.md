@@ -5,6 +5,45 @@ session from undoing a deliberate choice.
 
 ## [Unreleased]
 
+## v0.16.0 — 2026-11-10
+
+Root module: **v0.16.0**; `mcpauth` **v0.2.0**; `directory` stays at v0.3.0 and `forfait` at
+v0.1.1. Additive; no migration.
+
+**An MCP call creates the local account, through the web login's own write path.** Found live on
+2026-11-10: a Registre user who had never opened Courrier or Agenda on the web got
+`401 invalid_token` on `/mcp` with a valid, correctly scoped token, because `mcpauth` resolved
+`(iss, sub)` and never provisioned. The owner decided the account is created at the first MCP call.
+
+- **`(*oidc.Kit).ProvisionBearer(ctx, jwt.Claims)`** resolves a verified bearer token's subject and,
+  when it has no account, runs `persist`, the function the login callback runs: the avatar fetch,
+  the app's `UserStore.UpsertFromOIDC` with its linking rules and refusals, and the identity row.
+  There is no second provisioning implementation. The claims are normalised like the ID token's.
+- **Refusals before the store.** The token must carry an email (as the callback requires) and that
+  email must be verified: an explicit `email_verified: false` refuses, and so does silence unless
+  `TrustEmailWithoutVerifiedClaim` is set. An unattended creation path never adopts an address the
+  provider did not vouch for. With a roles scope configured, the token must carry roles, as the
+  callback requires. Every refusal, and every caller-class error from the app's store (a disabled
+  account answering `Forbidden`, a linking `Conflict`), wraps `oidc.ErrProvisionRefused`; a store
+  that failed does not.
+- **Access policy stays Registre's.** Registre refuses to mint a resource-bound token for a user who
+  may not use the app behind the resource (assigned-only apps included), at authorize, refresh and
+  exchange, exactly as it refuses the login. porte does not re-check it, as the callback does not.
+- **One account under concurrency.** Concurrent first calls for one subject share a single
+  provisioning (`singleflight`, per process), which looks the identity up again first, so twenty
+  parallel tool calls create one account. An existing account is returned without touching it.
+- **`mcpauth.Config{Provision: true, Accounts: kit}`** turns it on. It is opt-in: provisioning
+  needs the app's kit, which a zero `Config` cannot name, and an app upgrading the module keeps its
+  behaviour until its `main.go` says otherwise. `Verifier` refuses `Provision` without `Accounts`,
+  and an `Accounts` kit whose issuer differs from `Config.Issuer`. A refused provisioning is the
+  same fixed `invalid token`; a store failure is the same 500 as before.
+- **`jwt.Claims.Profile`** carries `email_verified` (nil when absent), `preferred_username`,
+  `picture` and `locale`, decoded loosely so an odd type drops the claim instead of the token.
+  Registre v0.10.2 puts them on resource-bound access tokens.
+
+Upgrade note: require `github.com/FacileStudio/porte/mcpauth v0.2.0` (pulls porte v0.16.0) and pass
+`Provision: true, Accounts: kit` where the app builds its verifier.
+
 ## v0.15.1 — 2026-11-10
 
 Root module: **v0.15.1**; nested modules unchanged. Fix; no migration.

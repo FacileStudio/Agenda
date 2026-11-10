@@ -27,6 +27,7 @@ import (
 
 	gooidc "github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
+	"golang.org/x/sync/singleflight"
 )
 
 // Deps are the stores the kit writes through, plus the session manager it
@@ -84,6 +85,10 @@ type Kit struct {
 	// populations and the kit must never confuse them, so nothing here
 	// reaches session.Manager.WithJWT.
 	cliTokens session.JWTVerifier
+
+	// provisioning joins concurrent first bearer calls for one subject into
+	// one account creation. See ProvisionBearer.
+	provisioning singleflight.Group
 }
 
 // New performs discovery and returns a kit. It is the boot path, so every

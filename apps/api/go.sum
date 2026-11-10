@@ -6,12 +6,16 @@ github.com/FacileStudio/porte v0.14.0 h1:5R/oO5ELG/KC6kgzXi9uv8e9SGXLdA0ru8IlqPr
 github.com/FacileStudio/porte v0.14.0/go.mod h1:iLtV3iaFheNiZWt+wfBF2FKB0XRLxve5GrhmJ6h3X0I=
 github.com/FacileStudio/porte v0.15.1 h1:iSlGH07xahrvp0Jp5k5F4cUK/+tF/QmegE6lpgcBHGQ=
 github.com/FacileStudio/porte v0.15.1/go.mod h1:iLtV3iaFheNiZWt+wfBF2FKB0XRLxve5GrhmJ6h3X0I=
+github.com/FacileStudio/porte v0.16.0 h1:Mm50dXQooJWkkd7XYguQHKb1x/8WH58btRE49TPB4bI=
+github.com/FacileStudio/porte v0.16.0/go.mod h1:GHlH3J5PensqCshTqjQHUIiV2ixbScRx2L6VuhpCNwM=
 github.com/FacileStudio/porte/directory v0.3.0 h1:BtdaNK7kbbv5s5whX4VyIHK0cJ4dC8f+timjyecnEfE=
 github.com/FacileStudio/porte/directory v0.3.0/go.mod h1:i7UxoAqCgqAq4ny9/bbuqT/Z69xD7GYG1w3fpH6EhTw=
 github.com/FacileStudio/porte/forfait v0.1.1 h1:eZFT3VIcOmHxbFQsUpQumBeqeBHsM29EYsAIswQo+Jk=
 github.com/FacileStudio/porte/forfait v0.1.1/go.mod h1:B+ki+HU6zT19PAC85ugVzpiJ0nzwolKtvQTtbjxRKD4=
 github.com/FacileStudio/porte/mcpauth v0.1.0 h1:nN3p6IR2SEvQluKN9gCzu/VMFO+O4I5y2mQ2BuUMTec=
 github.com/FacileStudio/porte/mcpauth v0.1.0/go.mod h1:qPPFGF+vf6jQQrobcjysvSDASo7v7ODCXizbRwMyJA8=
+github.com/FacileStudio/porte/mcpauth v0.2.0 h1:MrXEWCmgknDiNYWbRWPceUAGlBPSXfBjvhmMA9rKwA8=
+github.com/FacileStudio/porte/mcpauth v0.2.0/go.mod h1:OAwHhZW3zOQPtMWNIZZlG73/lP6BnVg9i5dUbsz7IM4=
 github.com/FacileStudio/tronc v0.18.0 h1:kVj4GbeB4ei1n4GYFbDNEiYISL1ZLHz6vjf7wW68WBA=
 github.com/FacileStudio/tronc v0.18.0/go.mod h1:tybAMjHeRg+NfnMtcNc0qR1UbREcWka4nZKyGcYEsWg=
 github.com/FacileStudio/tronc v0.19.0 h1:/kZiv9a7JZs2PDL79HRA4KuwBU89IiChUHaWQ+1y7Q4=

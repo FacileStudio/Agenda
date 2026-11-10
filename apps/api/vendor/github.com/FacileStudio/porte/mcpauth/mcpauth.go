@@ -10,6 +10,10 @@
 // for step-up, ProtectedResourceMetadata feeds the SDK's RFC 9728 handler, and
 // PlanGate answers the suite's 402 to a third-party client on a free plan.
 //
+// With Config.Provision, a person the app has never seen gets their account on
+// the first MCP call, through the app's porte OIDC kit: the web login's own
+// write path, with its linking rules and refusals.
+//
 // Tokens Bulle obtains by RFC 8693 exchange today name the app's own client id
 // as aud rather than the resource URI. Config.Audience keeps those verifying,
 // for delegated tokens only, until Registre binds every token to a resource.
@@ -62,6 +66,17 @@ type Config struct {
 	// Identities resolves (issuer, sub) to the local account.
 	Identities porte.IdentityStore
 
+	// Provision creates the local account on a subject's first MCP call,
+	// through Accounts, instead of refusing a person who never signed in to
+	// the app on the web. Off, such a token is refused with 401 as before.
+	Provision bool
+
+	// Accounts is the app's porte OIDC kit, *oidc.Kit, required when
+	// Provision is set. Its ProvisionBearer is the web login's own write
+	// path, so an MCP-created account is the account a web login would have
+	// created: same linking rules, same refusals.
+	Accounts Provisioner
+
 	// Client fetches discovery and JWKS. Nil means http.DefaultClient.
 	Client *http.Client
 
@@ -98,6 +113,9 @@ func Verifier(ctx context.Context, cfg Config) (auth.TokenVerifier, error) {
 func (c Config) validate() error {
 	if c.Issuer == "" || c.Identities == nil {
 		return errors.New("porte/mcpauth: an issuer and an identity store are required")
+	}
+	if err := c.validateProvision(); err != nil {
+		return err
 	}
 	if !scopePrefixPattern.MatchString(c.ScopePrefix) {
 		return fmt.Errorf("porte/mcpauth: scope prefix %q is not a lower-case app name", c.ScopePrefix)
@@ -160,9 +178,13 @@ func (v verifier) claims(ctx context.Context, rawToken string) (jwt.Claims, erro
 }
 
 // account resolves the claims to the local account through porte's bearer
-// path. A subject with no account is a refusal; a store that failed is not.
+// path, provisioning it first when the app opted in. A subject with no account
+// is a refusal; a store that failed is not.
 func (v verifier) account(ctx context.Context, claims jwt.Claims) (porte.Identity, error) {
 	identity, err := oidc.ResolveBearer(ctx, v.cfg.Identities, v.cfg.Issuer, claims)
+	if v.cfg.Provision && errors.Is(err, porte.ErrNotFound) {
+		return v.provision(ctx, claims)
+	}
 	if err != nil && claims.Subject != "" && !errors.Is(err, porte.ErrNotFound) {
 		return porte.Identity{}, v.unavailable(ctx, err)
 	}

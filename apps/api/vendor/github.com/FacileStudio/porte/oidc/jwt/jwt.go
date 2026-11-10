@@ -102,6 +102,10 @@ type Claims struct {
 	// ExpiresAt is the exp claim. Verify refuses a token without one, so it
 	// is never zero on a verified token.
 	ExpiresAt time.Time
+
+	// Profile is what the token asserts about the person beyond Email and
+	// Name, for a resource server that creates the account on first use.
+	Profile Profile
 }
 
 // Verifier verifies RS256 JWTs against a provider's JWKS.
