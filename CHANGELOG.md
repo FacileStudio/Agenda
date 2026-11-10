@@ -2,7 +2,7 @@
 
 All notable changes to Agenda are documented here.
 
-## [Unreleased]
+## [0.15.1] - 2026-11-10
 
 ### Fixed
 
