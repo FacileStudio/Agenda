@@ -2,6 +2,17 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.16.1] - 2026-11-10
+
+### Fixed
+
+- Sign-up: an account created at first sign-in had a NULL `created_at` and NULL text and time columns, because porte/kit inserts only the columns it names and GORM no longer filled the rest. The kit's `OnCreate` hook now writes the sign-up time and the empty values GORM wrote before, in the insert's transaction. Accounts created by v0.16.0 keep their NULLs until repaired by hand.
+
+### Changed
+
+- build: porte v0.18.0 to v0.18.1, which treats `<issuer>` and `<issuer>/` as one provider in the kit's sign-in, erase, backfill and invitations lookups.
+- Client: `@facile/client` is excluded from Vite's dependency prebundling, like muse, since both ship uncompiled Svelte source.
+
 ## [0.16.0] - 2026-11-10
 
 ### Added
