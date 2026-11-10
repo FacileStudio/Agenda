@@ -13,6 +13,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/FacileStudio/Agenda/apps/api/modules/mcp"
+	"github.com/FacileStudio/tronc/mcp/mcptest"
+	sdkauth "github.com/modelcontextprotocol/go-sdk/auth"
+
 	"github.com/FacileStudio/Agenda/apps/api/internal/env"
 	"github.com/FacileStudio/Agenda/apps/api/modules/auth"
 	"github.com/FacileStudio/Agenda/apps/api/modules/spaces"
@@ -140,6 +144,7 @@ func testRouter(t *testing.T) chi.Router {
 		auth:      authService,
 		directory: spaces.NewDirectory(nil, directory.Client{Issuer: appEnv.OIDC.Issuer}, appLogger),
 		deletions: spaces.NewDeletions(nil, directory.Client{Issuer: appEnv.OIDC.Issuer}, nil, appEnv.StorageDir, appLogger),
+		mcp:       testMCP(t),
 	})
 	return router
 }
@@ -264,4 +269,21 @@ func TestVersionIsTheReleaseVersion(t *testing.T) {
 	if strings.TrimSpace(recorder.Body.String()) != want {
 		t.Errorf("GET /version = %q, want %q", recorder.Body.String(), want)
 	}
+}
+
+// testMCP is the MCP service over nil services and an in-memory store,
+// enough to mount its routes.
+func testMCP(t *testing.T) *mcp.Service {
+	t.Helper()
+	refuse := func(context.Context, string, *http.Request) (*sdkauth.TokenInfo, error) {
+		return nil, sdkauth.ErrInvalidToken
+	}
+	service, err := mcp.NewService(nil, nil, mcp.Config{
+		Resource: "https://agenda.example/mcp", Issuer: "https://sso.example", StateKey: []byte("k"),
+		Verifier: refuse, Pending: mcptest.NewPending(),
+	})
+	if err != nil {
+		t.Fatalf("mcp.NewService: %v", err)
+	}
+	return service
 }

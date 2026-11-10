@@ -111,6 +111,30 @@ type ApiErrorPayload = {
 	error?: { message?: string };
 };
 
+/** The event a pending action would delete, as it is now. */
+export type PendingEvent = {
+	id: number;
+	calendar_id: number;
+	title: string;
+	start_at: string;
+	end_at: string;
+	is_all_day: boolean;
+	location: string;
+	recurring: boolean;
+};
+
+/** One action an MCP client asked for, waiting for the person. */
+export type PendingAction = {
+	id: string;
+	kind: string;
+	client_id: string;
+	summary: string;
+	created_at: string;
+	expires_at: string;
+	state: 'ready' | 'changed' | 'missing';
+	event?: PendingEvent;
+};
+
 export class ApiError extends Error {
 	status: number;
 
@@ -189,6 +213,16 @@ export const backend = {
 	},
 	syncProfile() {
 		return apiFetch<{ synced: boolean }>('/auth/sync-profile', { method: 'POST' });
+	},
+
+	listPending() {
+		return apiFetch<{ actions: PendingAction[] }>('/mcp/pending');
+	},
+	confirmPending(id: string) {
+		return apiFetch<{ status: string }>(`/mcp/pending/${encodeURIComponent(id)}/confirm`, { method: 'POST' });
+	},
+	dismissPending(id: string) {
+		return apiFetch<{ status: string }>(`/mcp/pending/${encodeURIComponent(id)}/dismiss`, { method: 'POST' });
 	},
 
 	listCalendars(spaceId?: number) {

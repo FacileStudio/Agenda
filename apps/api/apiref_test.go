@@ -20,7 +20,7 @@ import (
 func TestEveryRouteIsDocumented(t *testing.T) {
 	router := testRouter(t)
 
-	missing := apiref.Undocumented(router, referenceConfig(), "/dav", "/.well-known", "/files", "/auth/oidc/callback", "/version")
+	missing := apiref.Undocumented(router, referenceConfig(), "/dav", "/.well-known", "/files", "/auth/oidc/callback", "/version", "/mcp")
 	if len(missing) > 0 {
 		t.Errorf("routes missing from the API registry: %v", missing)
 	}

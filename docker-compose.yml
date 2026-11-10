@@ -34,6 +34,7 @@ services:
       OIDC_CLI_AUDIENCE: ${OIDC_CLI_AUDIENCE:-}
       OIDC_MACHINE_AUDIENCE: ${OIDC_MACHINE_AUDIENCE:-}
       OIDC_SCOPE_PREFIX: ${OIDC_SCOPE_PREFIX:-}
+      MCP_RESOURCE: ${MCP_RESOURCE:-https://agenda.facile.studio/mcp}
     healthcheck:
       test: ["CMD", "/agenda", "healthcheck"]
       interval: 10s
