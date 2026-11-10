@@ -5,6 +5,65 @@ session from undoing a deliberate choice.
 
 ## [Unreleased]
 
+## v0.18.0 — 2026-11-10
+
+Root module: **v0.18.0**; `directory` **v0.4.0**; `forfait` and `mcpauth` unchanged. Additive; no
+migration. Both tags carry the MIT `LICENSE` files.
+
+### Added
+
+- **`kit.MountInvitations`: pending space invitations for every app's user menu, written once.**
+  Opt-in and additive: not part of `kit.Mount`, and no existing route, status code, cookie, CSRF
+  rule, `/auth/config` body or `pg.Schema` changes. It registers `GET /me/invitations`, which
+  reads the signed-in user's Registre subject from the identity store (the row filed under the
+  issuer), asks Registre's `GET /api/directory/invitations` with the directory credentials, and
+  answers `{"count": n, "href": url}`: the one invitation's page when n is 1, else
+  `{issuer}/spaces`. Every failure answers 200 `{"count":0}` and logs at warn, because a menu
+  badge must never fail a page. Answers, failures included, are cached per user for 60 seconds
+  in a bounded cache, and concurrent requests for one user share one Registre call: each call
+  costs Registre an argon2 verification, and under load it answers 503, which must not be
+  retried by every page. `kit.InvitationsRoute()` documents the route for tronc/apiref. See
+  [docs/kit.md](docs/kit.md). The alternative was twenty hand-written copies of the same route.
+- **`directory`: `Client.Invitations(ctx, subject)`.** Reuses the client's Basic auth and issuer
+  handling. Strict about what it accepts: a count that disagrees with the list, trailing data, an
+  invitation without an id or with a link off the issuer's origin, or a body over
+  `MaxInvitationsBytes` (64 KiB) is `ErrUnavailable`. One call is bounded by
+  `InvitationsTimeout` (2 seconds) whatever the caller's deadline. An empty subject is
+  `ErrNoSubject` and sends nothing.
+- The root module now requires `directory`; its `replace ./directory` serves this repository's
+  builds and is ignored by consumers, so `directory/v0.4.0` is tagged first.
+
+### Changed
+
+- Licence: porte is now licensed under `MIT` (see `LICENSE`); before this, the repository carried no licence. The nested `directory`, `forfait` and `mcpauth` modules carry the same file.
+
+## v0.17.0 — 2026-11-10
+
+Root module: **v0.17.0**; `directory`, `forfait` and `mcpauth` unchanged. Additive; no migration.
+
+**`porte/kit`: the sign-in glue apps with their own `users` table wrote by hand.** Opt-in and
+additive. 19 apps carry a `modules/auth` that wraps porte the same way: a request identity, a
+`porte.UserStore` over their table, a middleware that hydrates the identity, a GDPR erase
+callback, a picture backfill and the two mount calls. The kit is that code once.
+
+- `kit.Store` implements `porte.UserStore` through `database/sql`, configured by `kit.Columns`
+  (table and column names; the default is `users(id, email, name, avatar_url, locale)`). It
+  applies porte/pg's linking rules, makes the first account admin when `Columns.Admin` is set,
+  and takes one advisory lock for every write. `OnCreate` and `EraseData` are the app's hooks,
+  both inside the store's transaction.
+- `kit.RequireAuth`, `kit.Identity` and `kit.FromContext` replace `internal/authcontext` and
+  `internal/middleware/auth.go`.
+- `(*kit.Store).EraseAccount` has the `directory.Deletions.OnPersonDeleted` signature.
+- `kit.PictureURL` and `(*kit.Store).BackfillPictures` replace `internal/oidcavatar`.
+- `kit.Mount` delegates to `session.Manager.Mount` and `oidc.Kit.Mount` and adds no route.
+  The conformance vectors pass unchanged with the routes mounted through it.
+- Decided by the owner: the store rewrites the stored email at sign-in only when the provider
+  marks it verified, as Sonde and Antenne did. This holds for every app, with no option to
+  change it. Sablier, Nuage and Casier rewrote it on every sign-in and adopt the rule with the kit.
+
+Proven on Sonde (branch `conv/kit-proof`, not merged): 467 lines removed, 85 added.
+See [docs/kit.md](docs/kit.md).
+
 ## v0.16.0 — 2026-11-10
 
 Root module: **v0.16.0**; `mcpauth` **v0.2.0**; `directory` stays at v0.3.0 and `forfait` at

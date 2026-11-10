@@ -2,11 +2,9 @@ package middleware
 
 import (
 	"fmt"
-	"math"
 	"net"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
 )
 
@@ -40,66 +38,60 @@ type RatelimitConfig struct {
 	// first; mount this middleware below RealIP or provide a KeyFunc.
 	KeyFunc func(*http.Request) string
 	// StatusCode is the status answered with on refusal. Zero means 429.
+	// It is ignored when OnRefuse is set.
 	StatusCode int
-}
-
-type ratelimitBucket struct {
-	tokens float64
-	last   time.Time
+	// MaxKeys bounds how many keys the limiter remembers, for a limiter that
+	// faces public traffic where every new address is a new key. When the
+	// bound is reached, the keys that have gone longest without a request are
+	// forgotten first, and a forgotten key starts again from a full bucket.
+	// Zero or negative keeps every key forever. Values of one count as two.
+	MaxKeys int
+	// OnRefuse writes the refusal instead of the plain-text default, for an
+	// app whose clients already parse a JSON error envelope on 429. Retry-After
+	// is set before it runs; it writes the status and the body. Nil keeps
+	// StatusCode and RateLimitExceededBody.
+	OnRefuse func(http.ResponseWriter, *http.Request)
 }
 
 // Ratelimit admits at most Limit requests per second per key, tolerating
 // bursts up to Burst, and answers anything beyond with StatusCode carrying
 // RateLimitExceededBody and a Retry-After estimate.
 //
-// State lives in a process-local map guarded by one mutex and entries are
-// never evicted. The tradeoff is deliberate: eviction policy needs a second
-// clock or a heap per entry, and every Facile deployment sits behind Traefik
-// with a bounded set of users, so the map grows with distinct keys and stops
-// growing when the user base does. A service taking raw IPs from a hostile
-// public range must not use this as-is — that shape of traffic turns the map
-// into an unbounded memory tax paid per attacker packet.
+// State lives in a process-local map guarded by one mutex. Unless MaxKeys is
+// set, entries are never evicted. That default is deliberate: every Facile
+// deployment sits behind Traefik with a bounded set of users, so the map grows
+// with distinct keys and stops growing when the user base does. A service
+// taking raw IPs from a hostile public range must set MaxKeys, or that shape
+// of traffic turns the map into an unbounded memory tax paid per attacker
+// packet.
 //
 // The bucket refills continuously rather than on a ticker, so a quiet minute
 // restores capacity exactly and no background goroutine exists to start,
 // leak, or schedule around.
 func Ratelimit(cfg RatelimitConfig) func(http.Handler) http.Handler {
-	state := newRatelimitState(cfg)
+	limiter := NewLimiter(cfg)
+	keyOf := cfg.KeyFunc
+	if keyOf == nil {
+		keyOf = remoteAddrKey
+	}
+	status := orDefaultStatus(cfg.StatusCode)
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-			allowed, waitFor := state.allow(state.keyOf(request), time.Now())
+			allowed, waitFor := limiter.take(keyOf(request), time.Now())
 			if allowed {
 				next.ServeHTTP(w, request)
 				return
 			}
 			w.Header().Set("Retry-After", strconv.Itoa(waitFor))
+			if cfg.OnRefuse != nil {
+				cfg.OnRefuse(w, request)
+				return
+			}
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-			w.WriteHeader(state.status)
+			w.WriteHeader(status)
 			_, _ = fmt.Fprint(w, RateLimitExceededBody)
 		})
-	}
-}
-
-func newRatelimitState(cfg RatelimitConfig) *ratelimitState {
-	limit := cfg.Limit
-	if limit <= 0 {
-		limit = DefaultRatelimitLimit
-	}
-	burst := cfg.Burst
-	if burst <= 0 {
-		burst = int(math.Ceil(limit))
-	}
-	keyOf := cfg.KeyFunc
-	if keyOf == nil {
-		keyOf = remoteAddrKey
-	}
-	return &ratelimitState{
-		limit:  limit,
-		burst:  burst,
-		bucket: make(map[string]*ratelimitBucket),
-		keyOf:  keyOf,
-		status: orDefaultStatus(cfg.StatusCode),
 	}
 }
 
@@ -117,34 +109,4 @@ func remoteAddrKey(request *http.Request) string {
 		return host
 	}
 	return request.RemoteAddr
-}
-
-type ratelimitState struct {
-	mu     sync.Mutex
-	limit  float64
-	burst  int
-	bucket map[string]*ratelimitBucket
-	keyOf  func(*http.Request) string
-	status int
-}
-
-func (state *ratelimitState) allow(key string, now time.Time) (bool, int) {
-	state.mu.Lock()
-	defer state.mu.Unlock()
-
-	bucket, ok := state.bucket[key]
-	if !ok {
-		bucket = &ratelimitBucket{tokens: float64(state.burst), last: now}
-		state.bucket[key] = bucket
-	}
-
-	bucket.tokens = math.Min(float64(state.burst), bucket.tokens+now.Sub(bucket.last).Seconds()*state.limit)
-	bucket.last = now
-
-	if bucket.tokens >= 1 {
-		bucket.tokens--
-		return true, 0
-	}
-	wait := int(math.Ceil((1 - bucket.tokens) / state.limit))
-	return false, max(wait, 1)
 }

@@ -55,13 +55,14 @@ reasoning behind both.
 | `porte/magiclink` | Passwordless sign-in: a one-time emailed link, single use, rate limited, landing in the same session | `porte/session`, tronc, chi |
 | `porte/pg` | The identity tables and the stores over them | `database/sql` |
 | `porte/exchange` | Per-user RFC 8693 token exchange from the stored Registre refresh token to another app's audience: refreshes serialized per user, rotations persisted, tokens cached, `ErrReconnect` | the contract, tronc |
+| `porte/kit` | Opt-in glue for an app with its own `users` table: the request identity, a `UserStore` over that table, `RequireAuth`, the erase callback, the picture backfill, `Mount`, and the opt-in `MountInvitations` user-menu route. See [docs/kit.md](docs/kit.md) | `porte/session`, `porte/oidc`, `database/sql`, tronc, chi |
 | `porte/avatarfs` | A filesystem `AvatarStore`: atomic writes, a guarded key, and an `http.Handler` that serves them | the standard library |
 | `porte/loopback` | The CLI's half of the CLI login: the loopback listener, the login URL, the pages a browser lands on | the standard library |
 | `porte/devicelogin` | The CLI's default login: the RFC 8628 device grant against Registre, then the app's device exchange | the standard library |
 | `porte/spaces` | Space membership authorization: the role ladder, `Resolve`, `Require`, `CanLeave`, `AssignableBy`/`AssignableOver`. No CRUD, no routes, no ORM | the standard library |
 | `porte/spaces/spacestest` | `Conformance(t, newStore)` and `ConformanceWithLadder`: the invariants, run against an app's own `Store` and its own role vocabulary | `porte/spaces`, `testing` |
 | `porte/magiclink/magiclinktest` | `Conformance(t, newStore, newUser)`: single use, supersession and the rate counts, run against an app's own `MagicLinkStore` | `porte`, `testing` |
-| `porte/directory` | Nested module: Registre's spaces, members and plan entitlements, pulled as one snapshot and nudged on change, plus the GDPR deletion receiver | the standard library |
+| `porte/directory` | Nested module: Registre's spaces, members and plan entitlements, pulled as one snapshot and nudged on change, plus the GDPR deletion receiver and a person's pending invitations | the standard library |
 | `porte/forfait` | Nested module: plan enforcement over the directory snapshot. `Enabled`, `Limit`, `Check`, fail-open until the first snapshot | `porte/directory` |
 | `porte/mcpauth` | Nested module: the MCP resource-server side of Registre tokens. A go-sdk `TokenVerifier`, the RFC 9728 metadata, `Require` with step-up challenges, and the `ai.access` plan gate for third-party clients | `porte/oidc`, `porte/forfait`, go-sdk, tronc |
 
@@ -300,3 +301,7 @@ wiring. It is next.
 
 Part of the [Facile Suite](https://facile.studio) — self-hosted tools for creative studios
 and freelancers. One login, zero cloud dependency.
+
+## License
+
+porte is licensed under the [MIT License](LICENSE).

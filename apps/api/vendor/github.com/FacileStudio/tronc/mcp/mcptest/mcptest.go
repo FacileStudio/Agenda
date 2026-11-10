@@ -58,10 +58,13 @@ type metadata struct {
 func Run(t *testing.T, cfg Config) {
 	t.Helper()
 	meta := checkChallenge(t, cfg)
-	if t.Failed() || len(meta.ScopesSupported) != 2 {
-		t.Fatalf("metadata must list a read and a write scope, got %v", meta.ScopesSupported)
+	if t.Failed() || len(meta.ScopesSupported) < 1 || len(meta.ScopesSupported) > 2 {
+		t.Fatalf("metadata must list a read scope and, unless every tool is read-only, a write scope; got %v", meta.ScopesSupported)
 	}
-	read, write := meta.ScopesSupported[0], meta.ScopesSupported[1]
+	read, write := meta.ScopesSupported[0], ""
+	if len(meta.ScopesSupported) == 2 {
+		write = meta.ScopesSupported[1]
+	}
 	prefix, _, _ := strings.Cut(read, ".")
 	t.Run("get is not allowed", func(t *testing.T) { checkGet(t, cfg) })
 	t.Run("foreign origin is refused", func(t *testing.T) { checkOrigin(t, cfg) })
@@ -185,9 +188,13 @@ func checkSchema(t *testing.T, label string, schema any) {
 }
 
 // checkWriteScope checks a read-only token gets a 403 step-up challenge on a
-// write tool and can still list tools.
+// write tool and can still list tools, and that a server listing no write
+// scope serves no write tool.
 func checkWriteScope(t *testing.T, cfg Config, tools []*sdk.Tool, read, write string) {
 	index := slices.IndexFunc(tools, func(tool *sdk.Tool) bool { return !tool.Annotations.ReadOnlyHint })
+	if index >= 0 && write == "" {
+		t.Fatalf("%s writes, but the metadata lists no write scope", tools[index].Name)
+	}
 	if index < 0 {
 		t.Skip("no write tool")
 	}

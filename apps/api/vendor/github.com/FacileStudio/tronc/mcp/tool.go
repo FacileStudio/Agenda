@@ -131,6 +131,9 @@ func (s *Server) register(tools []Tool) error {
 			return err
 		}
 		a := tool.spec.Annotations
+		if !a.ReadOnly && s.opts.Scopes.Write == "" {
+			return fmt.Errorf("mcp: tool %q writes, so the server needs a write scope", tool.spec.Name)
+		}
 		if !a.ReadOnly {
 			s.writes[tool.spec.Name] = true
 		}

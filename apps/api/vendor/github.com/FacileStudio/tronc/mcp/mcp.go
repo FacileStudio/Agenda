@@ -76,7 +76,8 @@ type Options struct {
 	Verifier auth.TokenVerifier
 
 	// Scopes are the read and write scopes. Zero means Name.read and
-	// Name.write.
+	// Name.write. A server whose tools are all read-only may set Read alone,
+	// and then advertises only that scope.
 	Scopes Scopes
 
 	// RateLimit caps calls per person. A zero Limit means two a second with a
@@ -100,15 +101,19 @@ type Options struct {
 	ListTTL time.Duration
 }
 
-// Scopes are an app's two MCP scopes. A token with Write may call every
-// tool; a token with only Read may call the read-only ones.
+// Scopes are an app's MCP scopes. A token with Write may call every tool; a
+// token with only Read may call the read-only ones. Write is empty on a
+// read-only server.
 type Scopes struct {
 	Read  string
 	Write string
 }
 
-// List returns both scopes, read first, as scopes_supported wants them.
+// List returns the scopes, read first, as scopes_supported wants them.
 func (s Scopes) List() []string {
+	if s.Write == "" {
+		return []string{s.Read}
+	}
 	return []string{s.Read, s.Write}
 }
 
@@ -193,8 +198,8 @@ func normalize(opts *Options) error {
 	if opts.Scopes == (Scopes{}) {
 		opts.Scopes = Scopes{Read: opts.Name + ".read", Write: opts.Name + ".write"}
 	}
-	if opts.Scopes.Read == "" || opts.Scopes.Write == "" {
-		return errors.New("mcp: both a read and a write scope are required")
+	if opts.Scopes.Read == "" {
+		return errors.New("mcp: a read scope is required")
 	}
 	if opts.ListTTL == 0 {
 		opts.ListTTL = DefaultListTTL
@@ -227,8 +232,10 @@ func (s *Server) endpoint() http.Handler {
 		Stateless:    true,
 		JSONResponse: true,
 	})
-	limited := middleware.Ratelimit(s.opts.RateLimit)(transport)
-	gated := writeGate(s.writes, s.opts.Scopes.Write, s.metadataURL)(limited)
+	gated := middleware.Ratelimit(s.opts.RateLimit)(transport)
+	if len(s.writes) > 0 {
+		gated = writeGate(s.writes, s.opts.Scopes.Write, s.metadataURL)(gated)
+	}
 	authed := requireToken(s.opts.Verifier, &auth.RequireBearerTokenOptions{
 		ResourceMetadataURL: s.metadataURL,
 		Scopes:              []string{s.opts.Scopes.Read},
