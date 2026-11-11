@@ -2,6 +2,14 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.18.1] - 2026-11-11
+
+### Changed
+
+- MCP: the server and the confirm page run on tronc/mcp v0.22.0's shared `NewApp` and `PendingPage`. Agenda's own list, confirm and dismiss handlers and the `PendingList`, `PendingResult` and `EmptyRequest` types are gone. Tool names and schemas do not change, and the event digest keeps its field list, so actions opened before this release still confirm.
+- MCP: a delegated token on `/api/mcp/pending` now gets "only the person's own session can confirm actions" (code still `permission_denied`). The API reference names the list schema `PendingList_PendingItem`, documents the `id` path param on confirm and dismiss, and an optional `url` in the result.
+- build: tronc v0.21.0 to v0.22.0. Re-vendored with the go-webdav patch kept (`TestVendoredGoWebdavPatches` passes).
+
 ## [0.18.0] - 2026-11-10
 
 ### Added
