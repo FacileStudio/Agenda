@@ -2,6 +2,13 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.18.2] - 2026-11-11
+
+### Fixed
+
+- build: clear the douane high and medium findings. Client: vite 7.3.7 to 7.3.8, @sveltejs/kit 2.70.4, svelte 5.57.3, and refreshed transitive deps (devalue, postcss, source-map-js, nanoid). `overrides` pin cookie ^0.7.2 and esbuild ^0.28.1. API: go-chi/chi v5.3.1 to v5.4.0, re-vendored by hand with the go-webdav patch kept (`TestVendoredGoWebdavPatches` passes).
+- build: left open: @sveltejs/kit findings fixed only in 3.0.0 (low) and deepmerge (no fix released).
+
 ## [0.18.1] - 2026-11-11
 
 ### Changed
