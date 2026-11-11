@@ -2,6 +2,12 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.18.3] - 2026-11-11
+
+### Fixed
+
+- fix(brand): favicons, touch and manifest icons, the link preview image and `site.webmanifest` come from muse v0.19.2's brand generator, and `app.html` carries its head block: the catalog title "Agenda · The shared studio calendar", its description, theme colours and Open Graph and Twitter tags. The landing page no longer overrides the title and description, and the landing header, footer and sign-in screen show the catalog icon `solar:calendar-add-bold-duotone`.
+
 ## [0.18.2] - 2026-11-11
 
 ### Fixed
