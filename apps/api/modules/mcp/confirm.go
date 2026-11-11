@@ -2,11 +2,8 @@ package mcp
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/FacileStudio/Agenda/apps/api/modules/events"
@@ -32,12 +29,7 @@ func (t *toolset) kinds() map[string]mcpkit.Kind {
 
 // refOf reads the user and the event an action targets.
 func refOf(a mcpkit.Action) (int64, int64, error) {
-	userID, errUser := strconv.ParseInt(a.UserID, 10, 64)
-	eventID, errEvent := strconv.ParseInt(a.Target, 10, 64)
-	if errUser != nil || errEvent != nil {
-		return 0, 0, errTarget
-	}
-	return userID, eventID, nil
+	return mcpkit.TargetIDs(a, errTarget)
 }
 
 // loadEvent loads the event an action targets.
@@ -74,8 +66,7 @@ func digest(e events.EventResponse) string {
 		e.ETag, e.UpdatedAt.UTC().Format(time.RFC3339Nano), e.Title, e.StartAt.UTC().Format(time.RFC3339),
 		e.EndAt.UTC().Format(time.RFC3339), e.RecurrenceRule, strconv.FormatInt(e.CalendarID, 10),
 	}
-	sum := sha256.Sum256([]byte(strings.Join(fields, "\x00")))
-	return hex.EncodeToString(sum[:16])
+	return mcpkit.Digest(fields...)
 }
 
 // question is what the client asks the person.

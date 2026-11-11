@@ -26,7 +26,7 @@ func TestToolWritesQueueOneRowEach(t *testing.T) {
 
 	eventID, id := pendingDelete(t, f)
 	bustest.AssertQueued(t, f.db, func() error {
-		if got := onPage(f, f.service.handleConfirm, id, ""); got.Code != 200 || f.exists(eventID) {
+		if got := onPage(f, "confirm", id, ""); got.Code != 200 || f.exists(eventID) {
 			t.Fatalf("want the event deleted, got %d %s", got.Code, got.Body)
 		}
 		return nil

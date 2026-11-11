@@ -97,6 +97,18 @@ func (p *Pending) Resolve(_ context.Context, userID, id, outcome string) error {
 	return nil
 }
 
+// Erase deletes every action of userIDs.
+func (p *Pending) Erase(_ context.Context, userIDs ...string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for id, r := range p.actions {
+		if slices.Contains(userIDs, r.action.UserID) {
+			delete(p.actions, id)
+		}
+	}
+	return nil
+}
+
 // Outcome is the recorded outcome of action id, for assertions.
 func (p *Pending) Outcome(id string) string {
 	p.mu.Lock()

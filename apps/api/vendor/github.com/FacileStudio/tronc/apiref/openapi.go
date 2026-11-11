@@ -225,7 +225,7 @@ func (b *schemaBuilder) reflectType(typ reflect.Type) map[string]any {
 
 	switch typ.Kind() {
 	case reflect.Struct:
-		name := typ.Name()
+		name := schemaName(typ)
 		if name != "" {
 			if _, exists := b.schemas[name]; !exists {
 				b.schemas[name] = map[string]any{"type": "object"}
@@ -266,47 +266,25 @@ func (b *schemaBuilder) reflectType(typ reflect.Type) map[string]any {
 func (b *schemaBuilder) reflectStruct(typ reflect.Type) map[string]any {
 	properties := map[string]any{}
 	var required []string
+	var promoted []map[string]any
 
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
-		if !field.IsExported() {
+		if embedded, ok := embeddedStruct(field); ok {
+			promoted = append(promoted, b.reflectStruct(embedded))
 			continue
 		}
-
-		jsonTag := field.Tag.Get("json")
-		if jsonTag == "-" {
+		prop, ok := b.reflectField(field)
+		if !ok {
 			continue
 		}
-
-		fieldName := field.Name
-		omitempty := false
-		if jsonTag != "" {
-			parts := strings.Split(jsonTag, ",")
-			if parts[0] != "" {
-				fieldName = parts[0]
-			}
-			for _, opt := range parts[1:] {
-				if opt == "omitempty" {
-					omitempty = true
-				}
-			}
-		} else {
-			fieldName = strings.ToLower(fieldName[:1]) + fieldName[1:]
+		properties[prop.name] = prop.schema
+		if prop.required {
+			required = append(required, prop.name)
 		}
-
-		validateTag := field.Tag.Get("validate")
-		isRequired := strings.Contains(validateTag, "required") ||
-			(!omitempty && field.Type.Kind() != reflect.Pointer && field.Type.Kind() != reflect.Slice && field.Type.Kind() != reflect.Map)
-
-		fieldSchema := b.reflectType(field.Type)
-		if doc := field.Tag.Get("doc"); doc != "" {
-			fieldSchema["description"] = doc
-		}
-
-		properties[fieldName] = fieldSchema
-		if isRequired {
-			required = append(required, fieldName)
-		}
+	}
+	for _, inner := range promoted {
+		required = promote(properties, required, inner)
 	}
 
 	res := map[string]any{
