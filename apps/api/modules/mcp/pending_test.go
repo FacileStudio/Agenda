@@ -1,7 +1,6 @@
 package mcp
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -24,16 +23,19 @@ func pendingDelete(t *testing.T, f *fixture) (int64, string) {
 	return args["event_id"].(int64), out.ConfirmURL[strings.LastIndex(out.ConfirmURL, "=")+1:]
 }
 
-// onPage calls a confirm page handler as the signed-in person, or as a
-// delegated token when actor is set.
-func onPage(f *fixture, handler http.HandlerFunc, id, actor string) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(http.MethodPost, "/api/mcp/pending/"+id+"/confirm", nil)
+// onPage calls a confirm page route as the signed-in person, or as a
+// delegated token when actor is set. An empty route lists the actions.
+func onPage(f *fixture, route, id, actor string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	if route != "" {
+		req = httptest.NewRequest(http.MethodPost, "/"+id+"/"+route, nil)
+	}
 	ctx := kit.WithIdentity(req.Context(), kit.Identity{UserID: f.userID})
 	ctx = porte.WithIdentity(ctx, porte.Identity{UserID: f.userID, Actor: actor})
-	routes := chi.NewRouteContext()
-	routes.URLParams.Add("id", id)
+	router := chi.NewRouter()
+	f.service.page.Routes(router)
 	recorder := httptest.NewRecorder()
-	handler(recorder, req.WithContext(context.WithValue(ctx, chi.RouteCtxKey, routes)))
+	router.ServeHTTP(recorder, req.WithContext(ctx))
 	return recorder
 }
 
@@ -43,17 +45,18 @@ func onPage(f *fixture, handler http.HandlerFunc, id, actor string) *httptest.Re
 func TestConfirmPageDeletesOnce(t *testing.T) {
 	f := newFixture(t)
 	eventID, id := pendingDelete(t, f)
-	if got := onPage(f, f.service.handleConfirm, id, "bulle"); got.Code != http.StatusForbidden || !f.exists(eventID) {
+	if got := onPage(f, "confirm", id, "bulle"); got.Code != http.StatusForbidden || !f.exists(eventID) {
 		t.Fatalf("a delegated token must not confirm, got %d", got.Code)
 	}
-	list := onPage(f, f.service.handleList, "", "")
-	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), `"state":"ready"`) {
+	list := onPage(f, "", "", "")
+	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), `"state":"ready"`) ||
+		!strings.Contains(list.Body.String(), `"event":{"id":`) {
 		t.Fatalf("want one ready action on the page, got %d %s", list.Code, list.Body)
 	}
-	if got := onPage(f, f.service.handleConfirm, id, ""); got.Code != http.StatusOK || f.exists(eventID) {
+	if got := onPage(f, "confirm", id, ""); got.Code != http.StatusOK || f.exists(eventID) {
 		t.Fatalf("want the event deleted, got %d %s", got.Code, got.Body)
 	}
-	if again := onPage(f, f.service.handleConfirm, id, ""); again.Code != http.StatusNotFound {
+	if again := onPage(f, "confirm", id, ""); again.Code != http.StatusNotFound {
 		t.Fatalf("a confirmation is single use, got %d", again.Code)
 	}
 }
@@ -69,7 +72,7 @@ func TestEditedEventIsNotDeleted(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if got := onPage(f, f.service.handleConfirm, id, ""); got.Code != http.StatusPreconditionFailed || !f.exists(eventID) {
+	if got := onPage(f, "confirm", id, ""); got.Code != http.StatusPreconditionFailed || !f.exists(eventID) {
 		t.Fatalf("want 412 and the event kept, got %d", got.Code)
 	}
 }

@@ -36,7 +36,6 @@ type toolset struct {
 	calendars *calendars.Service
 	events    *events.Service
 	confirm   *mcpkit.Confirmations
-	appURL    string
 }
 
 // userOf reads the Agenda user id from the verified token of the request.

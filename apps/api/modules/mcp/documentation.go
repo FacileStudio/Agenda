@@ -1,6 +1,9 @@
 package mcp
 
-import documentation "github.com/FacileStudio/Agenda/apps/api/internal/documentation"
+import (
+	documentation "github.com/FacileStudio/Agenda/apps/api/internal/documentation"
+	mcpkit "github.com/FacileStudio/tronc/mcp"
+)
 
 // Documentation describes the confirm page routes for the API reference. The
 // MCP endpoint itself is outside /api: POST /mcp speaks the Model Context
@@ -17,30 +20,13 @@ var Documentation = documentation.Module{
 
 // pendingRoutes documents the three confirm page routes.
 func pendingRoutes() []documentation.Route {
-	unauthorized := documentation.Error{Status: 401, Code: "unauthenticated", Description: "The request carries no valid session."}
-	delegated := documentation.Error{Status: 403, Code: "permission_denied", Description: "A delegated token cannot confirm actions."}
-	gone := documentation.Error{Status: 404, Code: "not_found", Description: "The action ran, was dismissed or expired."}
-	return []documentation.Route{
-		{
-			Method: "GET", Path: "/mcp/pending", Summary: "List actions waiting for confirmation",
-			Description: "Open actions, newest first, with their event as it is now. state is ready, changed (the " +
-				"event was edited after the request, so it cannot be confirmed) or missing.",
-			Auth: "session cookie or bearer token", ResponseBody: PendingList{},
-			Errors: []documentation.Error{unauthorized, delegated},
-		},
-		{
-			Method: "POST", Path: "/mcp/pending/{id}/confirm", Summary: "Confirm an action",
-			Description: "Deletes the event, once. An event edited since the request is refused with 412 and the " +
-				"action closes.",
-			Auth: "session cookie or bearer token", RequestBody: EmptyRequest{}, ResponseBody: PendingResult{},
-			Errors: []documentation.Error{unauthorized, delegated, gone,
-				{Status: 412, Code: "failed_precondition", Description: "The event changed after the request."}},
-		},
-		{
-			Method: "POST", Path: "/mcp/pending/{id}/dismiss", Summary: "Dismiss an action",
-			Description: "Closes the action without running it. The event stays.",
-			Auth:        "session cookie or bearer token", RequestBody: EmptyRequest{}, ResponseBody: PendingResult{},
-			Errors: []documentation.Error{unauthorized, delegated, gone},
-		},
-	}
+	return mcpkit.PendingRoutes[PendingItem](mcpkit.PendingDoc{
+		Auth: "session cookie or bearer token",
+		List: "Open actions, newest first, with their event as it is now. state is ready, changed (the " +
+			"event was edited after the request, so it cannot be confirmed) or missing.",
+		Confirm: "Deletes the event, once. An event edited since the request is refused with 412 and the " +
+			"action closes.",
+		Dismiss: "Closes the action without running it. The event stays.",
+		Changed: "The event changed after the request.",
+	})
 }

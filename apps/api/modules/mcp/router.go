@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"github.com/FacileStudio/porte/kit"
+	mcpkit "github.com/FacileStudio/tronc/mcp"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -16,8 +17,14 @@ func RegisterRoutes(router chi.Router, service *Service) {
 func RegisterPendingRoutes(router chi.Router, service *Service, authService kit.Authenticator) {
 	router.Route("/mcp/pending", func(r chi.Router) {
 		r.Use(authService.RequireAuth)
-		r.Get("/", service.handleList)
-		r.Post("/{id}/confirm", service.handleConfirm)
-		r.Post("/{id}/dismiss", service.handleDismiss)
+		service.pending().Routes(r)
 	})
+}
+
+// pending is the confirm page, or nil on a nil service.
+func (s *Service) pending() *mcpkit.PendingPage[PendingItem] {
+	if s == nil {
+		return nil
+	}
+	return s.page
 }

@@ -75,6 +75,10 @@ type Pending interface {
 	// Resolve closes one of the person's open actions without running it,
 	// or returns ErrGone.
 	Resolve(ctx context.Context, userID, id, outcome string) error
+
+	// Erase deletes every action of the people, resolved or not, for an
+	// account erasure.
+	Erase(ctx context.Context, userIDs ...string) error
 }
 
 // PendingSchema creates the table PostgresPending uses. It is idempotent and
