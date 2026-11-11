@@ -2,18 +2,6 @@ import type { Row } from '../row';
 
 /** Strings of the public landing page. */
 export const landing = {
-	'landing.title': [
-		'Agenda — Self-hosted calendar for creative studios',
-		'Agenda — Calendrier auto-hébergé pour studios créatifs',
-		'Agenda — Calendario autoalojado para estudios creativos',
-		'Agenda — Selbst gehosteter Kalender für Kreativstudios'
-	],
-	'landing.description': [
-		'A self-hosted calendar for creative studios. CalDAV sync, shared calendars, no cloud.',
-		'Un calendrier auto-hébergé pour studios créatifs. Synchro CalDAV, calendriers partagés, pas de cloud.',
-		'Un calendario autoalojado para estudios creativos. Sincronización CalDAV, calendarios compartidos, sin nube.',
-		'Ein selbst gehosteter Kalender für Kreativstudios. CalDAV-Sync, geteilte Kalender, keine Cloud.'
-	],
 	'landing.heroTitle': [
 		'Your calendar.|Your server.',
 		'Votre agenda.|Votre serveur.',

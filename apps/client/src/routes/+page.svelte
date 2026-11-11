@@ -27,14 +27,9 @@
 	] as const;
 </script>
 
-<svelte:head>
-	<title>{t('landing.title')}</title>
-	<meta name="description" content={t('landing.description')} />
-</svelte:head>
-
 {#if ready}
 	<div class="min-h-screen bg-background text-foreground">
-		<LandingHeader appName="Agenda" icon={icons.calendar} skipHref="#main">
+		<LandingHeader appName="Agenda" icon="solar:calendar-add-bold-duotone" skipHref="#main">
 			{#snippet actions()}
 				<SignInWithFacile href={signInHref} />
 			{/snippet}
@@ -82,7 +77,7 @@
 
 		<LandingFooter
 			appName="Agenda"
-			icon={icons.calendar}
+			icon="solar:calendar-add-bold-duotone"
 			tagline={t('login.tagline')}
 			legal={{ onLocaleChange: rememberLocale }}
 		/>

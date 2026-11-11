@@ -1,7 +1,7 @@
 {
   "name": "Agenda",
   "short_name": "Agenda",
-  "description": "Calendrier auto-hébergé pour studios créatifs et indépendants.",
+  "description": "Appointments, deadlines and team availability in one calendar. Native CalDAV, no Google account needed.",
   "icons": [
     {
       "src": "/icon-192.png",
@@ -12,15 +12,10 @@
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
-    },
-    {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml"
     }
   ],
-  "theme_color": "#0a0a0a",
-  "background_color": "#0a0a0a",
+  "theme_color": "#fafafa",
+  "background_color": "#fafafa",
   "display": "standalone",
   "start_url": "/"
 }
