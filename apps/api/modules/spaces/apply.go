@@ -110,6 +110,9 @@ func (d *Directory) resolveMember(tx *gorm.DB, member directory.Member) (int64, 
 	if err != nil || userID != 0 {
 		return userID, err
 	}
+	if erased, err := d.isErased(tx.Statement.Context, member.Subject); err != nil || erased {
+		return 0, err
+	}
 	if err := tx.Raw(`SELECT id FROM users WHERE lower(email) = ?`, email).Scan(&userID).Error; err != nil {
 		return 0, err
 	}
@@ -122,6 +125,19 @@ func (d *Directory) resolveMember(tx *gorm.DB, member directory.Member) (int64, 
 	}
 	return userID, tx.Exec(`INSERT INTO porte_identities (user_id, provider, subject) VALUES (?, ?, ?)`,
 		userID, d.issuer, member.Subject).Error
+}
+
+// isErased reports whether Agenda already erased the member's identity, and
+// logs the skip. Without WithErased nothing is erased.
+func (d *Directory) isErased(ctx context.Context, subject string) (bool, error) {
+	if d.erased == nil {
+		return false, nil
+	}
+	erased, err := d.erased.Erased(ctx, d.issuer, subject)
+	if erased {
+		d.logger.Warn("directory: member was erased here, skipped", slog.String("subject", subject))
+	}
+	return erased, err
 }
 
 // reportUnlisted logs linked spaces the snapshot did not carry. linked

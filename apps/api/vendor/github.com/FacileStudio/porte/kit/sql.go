@@ -33,16 +33,19 @@ func (c Columns) byEmailSQL() string {
 }
 
 func (c Columns) insertSQL() string {
-	columns := []string{quote(c.Email), quote(c.Name), quote(c.Picture), quote(c.Locale)}
-	if c.Admin != "" {
-		columns = append(columns, quote(c.Admin))
-	}
-	placeholders := make([]string, len(columns))
-	for i := range columns {
-		placeholders[i] = "$" + strconv.Itoa(i+1)
+	names := c.inserted()
+	columns := make([]string, len(names))
+	values := make([]string, len(names))
+	stamps := len(present(c.CreatedAt, c.UpdatedAt))
+	for i, name := range names {
+		columns[i] = quote(name)
+		values[i] = "$" + strconv.Itoa(i+1)
+		if i >= len(names)-stamps {
+			values[i] = "now()"
+		}
 	}
 	return "INSERT INTO " + quote(c.Table) + " (" + strings.Join(columns, ", ") + ") VALUES (" +
-		strings.Join(placeholders, ", ") + ") RETURNING " + quote(c.ID)
+		strings.Join(values, ", ") + ") RETURNING " + quote(c.ID)
 }
 
 func (c Columns) updateSQL(userID int64, p profile) (string, []any) {
@@ -55,10 +58,11 @@ func (c Columns) updateSQL(userID int64, p profile) (string, []any) {
 		args = append(args, field[1])
 		sets = append(sets, quote(field[0])+" = $"+strconv.Itoa(len(args)))
 	}
-	return "UPDATE " + quote(c.Table) + " SET " + strings.Join(sets, ", ") + " WHERE " + quote(c.ID) + " = $1", args
+	return "UPDATE " + quote(c.Table) + " SET " + strings.Join(sets, ", ") + c.touch() +
+		" WHERE " + quote(c.ID) + " = $1", args
 }
 
 func (c Columns) backfillSQL() string {
-	return "UPDATE " + quote(c.Table) + " u SET " + quote(c.Picture) + " = $1 || i.subject FROM porte_identities i" +
+	return "UPDATE " + quote(c.Table) + " u SET " + quote(c.Picture) + " = $1 || i.subject" + c.touch() + " FROM porte_identities i" +
 		" WHERE i.user_id = u." + quote(c.ID) + " AND i.provider IN ($2, $3) AND coalesce(u." + quote(c.Picture) + ", '') = ''"
 }

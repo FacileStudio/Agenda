@@ -5,6 +5,131 @@ session from undoing a deliberate choice.
 
 ## [Unreleased]
 
+## v0.19.0 — 2026-11-12
+
+Root module: **v0.19.0**; `directory` **v0.5.0**; `forfait` and `mcpauth` unchanged. Additive; no
+migration, no route, cookie, CSRF, `/auth/config` or `pg.Schema` change, and every conformance
+vector is unchanged.
+
+### Fixed
+
+- **`directory`: an account re-created after an erasure is erased again, without a restart.**
+  The receiver records every handled subject and skipped any later notice for it. When the
+  account came back for that subject (a Bulle provisioning call, a bearer token minted before
+  the erasure, a JIT or MCP first call), a re-pushed or re-polled notice was skipped as handled,
+  so the account survived (Prisme, 2026-11-11). The new optional `Deletions.Holds` field is
+  asked for every handled subject that arrives again; when it reports an account, the person is
+  erased again (`OnPersonDeleted`, then `Erase`) and recorded again, on push and on poll. Only
+  that subject is touched, and the callbacks were already required to be idempotent. Nil
+  `Holds` keeps the old skip, so existing apps compile and behave as before until they set it.
+  The alternative, re-running the callbacks for every repeat, would re-erase the subjects of
+  every poll's one-minute overlap, and an app whose callback refuses an unknown subject would
+  then fail every poll.
+
+### Added
+
+- `directory`: `(*Deletions).Erased(ctx, provider, subject) (bool, error)`. It reads `State` on
+  every call, never the receiver's in-memory copy, so a replica that does not run the receiver
+  answers the same and a sign-in never waits for a poll. No `StateStore` method is added.
+- `pg`: `(*Store).HoldsIdentity(ctx, provider, subject) (bool, error)`, the `Deletions.Holds`
+  for every porte/pg app, matching the provider exactly as `EraseIdentity` does.
+- `porte.ErasedSubjects` (the `Erased` method above) and `porte.ErrSubjectErased`.
+- `oidc.Deps.Erased`: when set, the login callback, `ProvisionBearer` and `RouteSyncProfile`
+  refuse an erased identity before `UpsertFromOIDC` with a tronc `permission_denied` (403)
+  wrapping `porte.ErrSubjectErased`. `ProvisionBearer` also wraps `ErrProvisionRefused`, so
+  mcpauth answers an invalid token. A ledger read error fails closed as an internal error. This
+  is the guard Prisme wrote in its own `auth.Erased`, moved to the one write path every app
+  shares. The tombstone lasts as long as the receiver keeps the subject (`DeletionRetention`,
+  60 days); Registre never reuses a subject, so the guard only has to outlast the race.
+- The root module requires `directory` v0.5.0, so `directory/v0.5.0` is tagged first.
+
+## v0.18.5 — 2026-11-11
+
+Root module: **v0.18.5**, `mcpauth/v0.2.2`. Dependency patch; no API, route, cookie, CSRF,
+`/auth/config` or `pg.Schema` change, so every conformance vector is unchanged. `directory` and
+`forfait` are untouched and keep `directory/v0.4.1` and `forfait/v0.1.2`.
+
+### Security
+
+- build(deps): `golang.org/x/crypto` v0.55.0 to v0.58.0 (CVE-2026-56855, CVE-2026-78662),
+  `github.com/go-jose/go-jose/v4` v4.1.4 to v4.1.9 (CVE-2026-116585, CVE-2026-116586,
+  CVE-2026-116587) and `github.com/go-chi/chi/v5` v5.3.1 to v5.5.0 (CVE-2026-114437) in the root
+  module; the same go-jose and chi bumps in `mcpauth`.
+
+## v0.18.4 — 2026-11-11
+
+Root module: **v0.18.4**, `directory/v0.4.1`, `forfait/v0.1.2`, `mcpauth/v0.2.1`. Build and
+dependency patch; no API, route, cookie, CSRF, `/auth/config` or `pg.Schema` change, so every
+conformance vector is unchanged.
+
+### Security
+
+- build: Go 1.26.11 in all four modules (`go` directives; `directory` and `forfait` move up from
+  `go 1.22`) and the mise pin. It fixes GO-2026-6848 to GO-2026-6859 in the standard library and
+  toolchain, which douane reported as unscored gaps and which failed the gate.
+- build(deps): `golang.org/x/crypto` v0.54.0 to v0.55.0 (GO-2026-6303) and `golang.org/x/text`
+  v0.40.0 to v0.41.0 (GO-2026-6629) in the root module.
+- `douane.yml` permits GO-2026-5932 on `golang.org/x/crypto` until 2027-02-09: its fix exists
+  only as an unreleased x/crypto commit, and porte links `argon2` and `blake2b`, never `openpgp`.
+
+### Added
+
+- **Conformance vectors.** `conformance/vectors/*.json` pins what the root module answers today:
+  JWT verification, tokens, PKCE, cookies, CSRF, routes, `/auth/config`, scope gates, back-channel
+  logout, the sealer and the spaces ladder, in a JSON envelope (`source`, `subject`, `cases`) a
+  port reads as its specification. `directory/` adds `directory_snapshot.json` for snapshot
+  decoding. `go test ./conformance` and `cd directory && go test -run DirectorySnapshotVector .`
+  build every case from the real packages and fail on any drift; `-update` rewrites the files
+  after a deliberate change. Tokens are signed by a committed test key in `conformance/testdata`,
+  so the files are byte-stable. porte-rs copies them. `conformance/CONTRACT-CHANGES.md` lists the
+  contract changes from v0.11.0 to v0.18.0 a port must match. Test-only: no package changes.
+
+## v0.18.3 — 2026-11-10
+
+Root module: **v0.18.3**; nested modules unchanged. Deprecation; no migration.
+
+### Deprecated
+
+- **A `kit.Store` literal is deprecated: build the store with `kit.NewStore`.** Since v0.18.2
+  only a store built by `NewStore` writes `created_at` and `updated_at` on a table without
+  database defaults. A literal still compiles and still writes NULL there, and that is how a
+  regression reached production. The literal stays legal, because removing it would break every
+  app that has not moved yet. Instead, a store `NewStore` did not build logs one warning per
+  process, the first time it inserts or updates an account (`UpsertFromOIDC` or
+  `BackfillPictures`), naming the literal, the NULL timestamps and `kit.NewStore`. One per
+  process, not per call, so a busy app's logs carry the signal without the flood. The warning
+  goes to `Store.Logger`, or `slog.Default()` when it is nil. It runs no extra query and changes
+  no write. Go's `Deprecated:` marker is not used: it attaches to an identifier, and the only
+  identifier here is the `Store` type that `NewStore` itself returns, so marking it would flag
+  every correct caller. The deprecation is in the doc comments of `Store`, `UpsertFromOIDC` and
+  `BackfillPictures` instead. `EraseAccount` only deletes and does not warn. No route, status
+  code, cookie, CSRF rule, `/auth/config` body or `pg.Schema` changes.
+
+## v0.18.2 — 2026-11-10
+
+Root module: **v0.18.2**; nested modules unchanged. Fix; no migration.
+
+### Fixed
+
+- **`porte/kit` fills the timestamps a GORM table leaves without a default, and names the rest.**
+  `kit.Store` created an account with an insert naming only the columns it knows. About half the
+  suite's apps create `users` with GORM `AutoMigrate`, which declares `created_at` and
+  `updated_at` with no DEFAULT because GORM filled them in Go. Agenda's first kit sign-up wrote
+  `created_at` NULL and was fixed in the app with an `OnCreate` hook; every other GORM app would
+  have hit the same thing silently. `kit.NewStore` now reads the table's columns once, at
+  construction. `Columns` gains `CreatedAt` and `UpdatedAt`: the kit writes `now()` into both on
+  insert and into `UpdatedAt` on every update it makes (sign-in refresh, `BackfillPictures`).
+  Left empty, a timestamp column named `created_at` or `updated_at` with no default, identity or
+  generated expression is adopted; one with a default stays the database's. `Store.Unwritten()`
+  lists the nullable columns with no default the insert leaves out, logged once at warn when no
+  `OnCreate` is set. It is a warning, not an error: some apps leave columns NULL on purpose.
+  `OnCreate` runs after the insert and wins, so Agenda's hook, which also sets `created_at =
+  now()`, writes the same transaction timestamp and nothing conflicts. `NewStore` also fails at
+  boot when the table or a named column is missing, which used to fail at the first sign-in.
+  A `kit.Store` literal behaves exactly as in v0.18.1, so Sonde, Antenne, Capsule, Agenda and
+  Casier see no change until they move to `NewStore`. No route, status code, cookie, CSRF rule,
+  `/auth/config` body or `pg.Schema` changes, and `oidc`, `session` and `pg` are untouched.
+
 ## v0.18.1 — 2026-11-10
 
 Root module: **v0.18.1**; nested modules unchanged. Fix; no migration.

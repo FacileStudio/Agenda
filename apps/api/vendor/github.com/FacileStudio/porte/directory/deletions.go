@@ -87,6 +87,14 @@ type Deletions struct {
 	// Nil skips it, for an app whose storage is not porte/pg.
 	Erase func(ctx context.Context, provider, subject string) error
 
+	// Holds reports whether an account holds the identity again:
+	// pg.Store.HoldsIdentity. A notice for a subject already handled is
+	// skipped, unless Holds says an account came back for it (a race with a
+	// sign-in, a provisioning call or a bearer token minted before the
+	// erasure). Then the person is erased again, at once, on push and on
+	// poll. Nil keeps the plain skip.
+	Holds func(ctx context.Context, provider, subject string) (bool, error)
+
 	State    StateStore
 	Interval time.Duration
 	Logger   *slog.Logger
@@ -117,8 +125,8 @@ func (d *Deletions) Run(ctx context.Context) {
 	}
 }
 
-// handle erases one person unless they were handled already, and records it
-// in memory. The caller saves, once per page for a poll and once per notice
+// handle erases one person unless they were handled already and no account
+// holds them again, and records it in memory. The caller saves, once per page for a poll and once per notice
 // for a push, and holds d.mu.
 func (d *Deletions) handle(ctx context.Context, subject string) error {
 	state, err := d.load(ctx)
@@ -126,7 +134,10 @@ func (d *Deletions) handle(ctx context.Context, subject string) error {
 		return err
 	}
 	if state.done(subject) {
-		return nil
+		again, err := d.heldAgain(ctx, subject)
+		if err != nil || !again {
+			return err
+		}
 	}
 	if err := d.erase(ctx, subject); err != nil {
 		return err

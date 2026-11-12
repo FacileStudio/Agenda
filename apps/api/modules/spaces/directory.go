@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/FacileStudio/porte"
 	"github.com/FacileStudio/porte/directory"
 
 	"gorm.io/gorm"
@@ -32,6 +33,7 @@ type Directory struct {
 	logger *slog.Logger
 	retry  time.Duration
 	extra  func(context.Context, directory.Snapshot) error
+	erased porte.ErasedSubjects
 }
 
 // NewDirectory builds the sync over Agenda's tables. The client's issuer is
@@ -40,6 +42,14 @@ type Directory struct {
 func NewDirectory(orm *gorm.DB, client directory.Client, logger *slog.Logger) *Directory {
 	d := &Directory{orm: orm, issuer: client.Issuer, client: client, logger: logger, retry: firstImportRetry}
 	d.syncer = &directory.Syncer{Client: client, Apply: d.sync, Logger: logger}
+	return d
+}
+
+// WithErased makes the sync skip, rather than provision, a member whose
+// Registre identity Agenda already erased, so a snapshot pulled before the
+// erasure cannot give that person an account again.
+func (d *Directory) WithErased(erased porte.ErasedSubjects) *Directory {
+	d.erased = erased
 	return d
 }
 

@@ -23,12 +23,15 @@ type Deletions struct {
 	receiver   *directory.Deletions
 }
 
-// Erasers are the two halves of erasing a person. Account is the kit store's
-// EraseAccount, which deletes the account and what it owns in one
-// transaction; Identity is porte's own rows eraser, pg.Store.EraseIdentity.
+// Erasers are the two halves of erasing a person, and the check that finds
+// it undone. Account is the kit store's EraseAccount, which deletes the
+// account and what it owns in one transaction; Identity is porte's own rows
+// eraser, pg.Store.EraseIdentity; Holds is pg.Store.HoldsIdentity, which lets
+// a re-pushed or re-polled notice erase an account that came back.
 type Erasers struct {
 	Account  func(ctx context.Context, provider, subject string) error
 	Identity func(ctx context.Context, provider, subject string) error
+	Holds    func(ctx context.Context, provider, subject string) (bool, error)
 }
 
 // NewDeletions builds the receiver over Agenda's tables.
@@ -40,6 +43,7 @@ func NewDeletions(
 		Client:          client,
 		OnPersonDeleted: d.ErasePerson,
 		Erase:           erasers.Identity,
+		Holds:           erasers.Holds,
 		State:           deletionState{orm: orm},
 		Logger:          logger,
 	}
@@ -54,6 +58,14 @@ func (d *Deletions) Run(ctx context.Context) {
 // Handler verifies and applies Registre's signed user.deleted push.
 func (d *Deletions) Handler() http.Handler {
 	return d.receiver.Handler()
+}
+
+// Erased reports whether Agenda already erased the person behind (provider,
+// subject), read from the saved receiver state on every call, so sign-in,
+// bearer provisioning and the space sync can refuse to give that identity an
+// account again: porte.ErasedSubjects.
+func (d *Deletions) Erased(ctx context.Context, provider, subject string) (bool, error) {
+	return d.receiver.Erased(ctx, provider, subject)
 }
 
 // ErasePerson deletes the account behind a Registre identity through the kit

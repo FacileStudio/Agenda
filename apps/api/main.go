@@ -133,7 +133,7 @@ func run() int {
 	}
 
 	outbox := bus.New(appEnv.Antenne != nil)
-	porteAuth, err := buildAuth(context.Background(), sqlDB, appEnv, outbox, appLogger)
+	porteAuth, err := buildAuth(context.Background(), db, sqlDB, appEnv, outbox, appLogger)
 	if err != nil {
 		appLogger.Error("failed to build authentication", slog.Any("error", err))
 		return 1
@@ -152,7 +152,7 @@ func run() int {
 		return 1
 	}
 
-	registreSync, deletions, stopSync := startDirectory(db, porteAuth.users, appEnv, appLogger)
+	registreSync, deletions, stopSync := startDirectory(db, porteAuth.deletions, appEnv, appLogger)
 	defer stopSync()
 
 	ideasService, err := newIdeas(context.Background(), db, appEnv, identities, registreSync, appLogger)
@@ -268,32 +268,49 @@ type mounts struct {
 	invitations *porteKit.InvitationsConfig
 }
 
-// startDirectory follows Registre's spaces and its GDPR deletions when SSO is
-// configured, signing its pulls with the app's own OIDC client. It returns at
-// once: the import, the sync and the deletion poll run in the background, so a
-// Registre that is down or not yet serving the directory never holds up boot.
-// Without SSO there is nothing to follow, nil receivers and a stop that does
-// nothing. All suite apps run one replica, so this is the one deletion poller.
-func startDirectory(
-	db *gorm.DB, users *porteKit.Store, appEnv env.Config, appLogger *slog.Logger,
-) (*spaces.Directory, *spaces.Deletions, context.CancelFunc) {
+// registreClient is the directory client over the app's own OIDC client, or
+// false when SSO is off.
+func registreClient(appEnv env.Config) (directory.Client, bool) {
 	if appEnv.OIDC == nil {
-		return nil, nil, func() {}
+		return directory.Client{}, false
 	}
-	client := directory.Client{
+	return directory.Client{
 		Issuer:       appEnv.OIDC.Issuer,
 		ClientID:     appEnv.OIDC.ClientID,
 		ClientSecret: appEnv.OIDC.ClientSecret,
+	}, true
+}
+
+// newDeletions builds the GDPR deletion receiver, or nil when SSO is off. The
+// kit store erases the account and what it owns; porte's store erases its own
+// rows and tells a re-sent notice whether the identity holds an account again.
+func newDeletions(
+	db *gorm.DB, users *porteKit.Store, store *portepg.Store, appEnv env.Config, appLogger *slog.Logger,
+) *spaces.Deletions {
+	client, ok := registreClient(appEnv)
+	if !ok {
+		return nil
 	}
-	sqlDB, err := db.DB()
-	if err != nil {
-		appLogger.Error("deletion receiver not started", slog.Any("error", err))
+	return spaces.NewDeletions(db, client, spaces.Erasers{
+		Account: users.EraseAccount, Identity: store.EraseIdentity, Holds: store.HoldsIdentity,
+	}, appEnv.StorageDir, appLogger)
+}
+
+// startDirectory follows Registre's spaces and runs the GDPR deletion
+// receiver when SSO is configured, signing its pulls with the app's own OIDC
+// client. It returns at once: the import, the sync and the deletion poll run
+// in the background, so a Registre that is down or not yet serving the
+// directory never holds up boot. The sync skips members the receiver erased.
+// Without SSO there is nothing to follow, nil receivers and a stop that does
+// nothing. All suite apps run one replica, so this is the one deletion poller.
+func startDirectory(
+	db *gorm.DB, deletions *spaces.Deletions, appEnv env.Config, appLogger *slog.Logger,
+) (*spaces.Directory, *spaces.Deletions, context.CancelFunc) {
+	client, ok := registreClient(appEnv)
+	if !ok || deletions == nil {
 		return nil, nil, func() {}
 	}
-	sync := spaces.NewDirectory(db, client, appLogger)
-	deletions := spaces.NewDeletions(db, client, spaces.Erasers{
-		Account: users.EraseAccount, Identity: portepg.New(sqlDB).EraseIdentity,
-	}, appEnv.StorageDir, appLogger)
+	sync := spaces.NewDirectory(db, client, appLogger).WithErased(deletions)
 	ctx, stop := context.WithCancel(context.Background())
 	go sync.Run(ctx)
 	go deletions.Run(ctx)
@@ -301,19 +318,21 @@ func startDirectory(
 }
 
 // porteAuth is porte as Agenda wires it: one session manager, the OIDC kit,
-// the identity store and the kit's user store over Agenda's users table.
+// the identity store, the kit's user store over Agenda's users table and the
+// Registre deletion receiver the kit asks before creating an account.
 type porteAuth struct {
 	sessions   *session.Manager
 	oidc       *oidc.Kit
 	identities porte.IdentityStore
 	users      *porteKit.Store
+	deletions  *spaces.Deletions
 }
 
 // buildAuth constructs porte over the identity tables. Sign-in goes through
 // Registre only; there is no local password kit. Discovery runs here, so an
 // unreachable or half-configured issuer fails at boot rather than on
 // somebody's first login.
-func buildAuth(ctx context.Context, sqlDB *sql.DB, appEnv env.Config, outbox *bus.Outbox, appLogger *slog.Logger) (porteAuth, error) {
+func buildAuth(ctx context.Context, db *gorm.DB, sqlDB *sql.DB, appEnv env.Config, outbox *bus.Outbox, appLogger *slog.Logger) (porteAuth, error) {
 	store, err := newPorteStore(sqlDB)
 	if err != nil {
 		return porteAuth{}, err
@@ -326,17 +345,22 @@ func buildAuth(ctx context.Context, sqlDB *sql.DB, appEnv env.Config, outbox *bu
 	if err != nil {
 		return porteAuth{}, err
 	}
-	kit, err := oidc.New(ctx, cfg, oidc.Deps{
+	deletions := newDeletions(db, users, store, appEnv, appLogger)
+	deps := oidc.Deps{
 		Users:      users,
 		Identities: store.Identities(),
 		Sessions:   sessions,
 		Codes:      store.LoginCodes(),
 		Logger:     appLogger,
-	})
+	}
+	if deletions != nil {
+		deps.Erased = deletions
+	}
+	kit, err := oidc.New(ctx, cfg, deps)
 	if err != nil {
 		return porteAuth{}, err
 	}
-	return porteAuth{sessions: sessions, oidc: kit, identities: store.Identities(), users: users}, nil
+	return porteAuth{sessions: sessions, oidc: kit, identities: store.Identities(), users: users, deletions: deletions}, nil
 }
 
 // mountRoutes claims every URL the app answers. The whole API lives under /api

@@ -61,6 +61,12 @@ type Deps struct {
 	// mandatory: the frontend decides whether to draw a password form on
 	// those two keys, and they answer to the configuration alone.
 	ConfigExtra func() map[string]any
+
+	// Erased, when set, refuses an identity the app already erased before
+	// UpsertFromOIDC runs, on the login callback, ProvisionBearer and the
+	// profile sync: 403 permission_denied wrapping porte.ErrSubjectErased.
+	// Pass the app's *directory.Deletions. Nil skips the check.
+	Erased porte.ErasedSubjects
 }
 
 // Kit serves porte's OIDC routes.
