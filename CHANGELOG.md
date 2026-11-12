@@ -2,6 +2,14 @@
 
 All notable changes to Agenda are documented here.
 
+## [Unreleased]
+
+### Security
+
+- fix(auth): an account re-created for a person Registre erased is erased again on the next deletion push or poll, without a restart (porte v0.19.0, `directory.Deletions.Holds`). Before, a bearer token minted before the erasure, or an MCP first call, could bring the account back and it stayed until the next restart.
+- fix(auth): sign-in, bearer and MCP provisioning, and profile sync refuse an identity Agenda already erased (`oidc.Deps.Erased`), and the Registre space sync no longer provisions an erased member from a stale snapshot.
+- build: porte v0.19.0 and porte/directory v0.5.0, which also raise go-chi/chi to v5.5.0, go-jose to v4.1.9 and x/sync, x/sys and x/text. Re-vendored with the go-webdav caldav patch kept.
+
 ## [0.18.3] - 2026-11-11
 
 ### Fixed

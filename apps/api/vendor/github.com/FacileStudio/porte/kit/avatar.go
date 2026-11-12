@@ -25,12 +25,15 @@ func PictureURL(claim string) string {
 // stored provider is ignored, and a non-https issuer fills nothing.
 //
 // It is a URL, not a download: porte/avatarfs is for apps that keep the bytes.
+//
+// Calling it on a Store literal is deprecated; build the store with NewStore.
 func (s *Store) BackfillPictures(ctx context.Context, issuer string) (int64, error) {
 	base := strings.TrimRight(issuer, "/")
 	prefix := PictureURL(base + "/avatars/")
 	if prefix == "" {
 		return 0, nil
 	}
+	s.warnLiteral()
 	spellings := providerSpellings(base)
 	result, err := s.DB.ExecContext(ctx, s.Columns.resolved().backfillSQL(), prefix, spellings[0], spellings[1])
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	stderrors "errors"
+	"log/slog"
 	"strings"
 
 	"github.com/FacileStudio/porte"
@@ -14,15 +15,29 @@ import (
 // database/sql. It needs no schema change: it reads porte_identities, which
 // the app already has, and writes only the columns Columns names.
 //
+// Build it with NewStore, which reads the table once and adopts the
+// created_at and updated_at columns a GORM-created table leaves without a
+// default. Using a Store literal directly is deprecated: it skips that read,
+// writes only the columns Columns names, and leaves those timestamps NULL. A
+// literal still works, and logs one warning per process the first time it
+// inserts or updates an account. Use NewStore.
+//
 // OnCreate, when set, runs inside the transaction that inserted a new
-// account, so an app can fill a column the kit does not know (a display
-// colour) or refuse the account by returning an error. EraseData is
-// EraseAccount's hook for the rows the erased person owns.
+// account, after the insert, so an app can fill a column the kit does not
+// know (a display colour) or refuse the account by returning an error. What
+// OnCreate writes wins over what the insert wrote, timestamps included.
+// EraseData is EraseAccount's hook for the rows the erased person owns.
+// Logger receives NewStore's warning and the literal warning; nil is
+// slog.Default().
 type Store struct {
 	DB        *sql.DB
 	Columns   Columns
 	OnCreate  func(ctx context.Context, tx *sql.Tx, userID int64) error
 	EraseData func(ctx context.Context, tx *sql.Tx, userID int64) error
+	Logger    *slog.Logger
+
+	unwritten []string
+	built     bool
 }
 
 var (
@@ -40,6 +55,8 @@ var (
 // always, the email only when verified, the name and locale only when sent.
 // A provider matches with or without one trailing slash, the exact spelling
 // first, so an app whose rows mix both spellings needs no data migration.
+//
+// Calling it on a Store literal is deprecated; build the store with NewStore.
 func (s *Store) UpsertFromOIDC(ctx context.Context, claims porte.Claims) (int64, error) {
 	p, err := profileFrom(claims)
 	if err != nil {
@@ -113,6 +130,7 @@ func (s *Store) create(ctx context.Context, tx *sql.Tx, p profile) (int64, error
 		}
 		args = append(args, count == 0)
 	}
+	s.warnLiteral()
 	var userID int64
 	if err := tx.QueryRowContext(ctx, c.insertSQL(), args...).Scan(&userID); err != nil {
 		return 0, errors.Internal("failed to create the account", err)
@@ -126,6 +144,7 @@ func (s *Store) create(ctx context.Context, tx *sql.Tx, p profile) (int64, error
 }
 
 func (s *Store) refresh(ctx context.Context, tx *sql.Tx, userID int64, p profile) error {
+	s.warnLiteral()
 	query, args := s.Columns.resolved().updateSQL(userID, p)
 	if _, err := tx.ExecContext(ctx, query, args...); err != nil {
 		return errors.Internal("failed to update the account", err)

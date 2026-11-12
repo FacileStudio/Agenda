@@ -3,7 +3,7 @@ lockfile = true
 
 [tools]
 lefthook = "latest"
-go = "1.26"
+go = "1.26.11"
 
 [hooks]
 postinstall = "lefthook install"

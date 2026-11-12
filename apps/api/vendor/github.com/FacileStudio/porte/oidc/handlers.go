@@ -291,6 +291,9 @@ func (k *Kit) completeFlow(ctx context.Context, code string, pending flow) (port
 func (k *Kit) persist(ctx context.Context, claims porte.Claims, tokens porte.TokenSet) (porte.Session, error) {
 	claims.AvatarURL = k.syncAvatar(ctx, claims)
 	claims.Tokens = tokens
+	if err := k.refuseErased(ctx, claims); err != nil {
+		return porte.Session{}, err
+	}
 
 	userID, err := k.deps.Users.UpsertFromOIDC(ctx, claims)
 	if err != nil {
@@ -739,6 +742,10 @@ func (k *Kit) handleSyncProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	claims.AvatarURL = k.syncAvatar(r.Context(), claims)
 	claims.Tokens = stored.Tokens
+	if err := k.refuseErased(r.Context(), claims); err != nil {
+		httpjson.WriteError(w, err)
+		return
+	}
 
 	if _, err := k.deps.Users.UpsertFromOIDC(r.Context(), claims); err != nil {
 		httpjson.WriteError(w, err)

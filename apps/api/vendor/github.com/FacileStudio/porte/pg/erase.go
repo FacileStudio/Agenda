@@ -35,6 +35,16 @@ func (s *Store) EraseIdentity(ctx context.Context, provider, subject string) err
 	return fmt.Errorf("porte/pg: identity %s moved between accounts while erasing", subject)
 }
 
+// HoldsIdentity reports whether an account holds the (provider, subject)
+// identity. It has the signature of porte/directory's Deletions.Holds and
+// matches the provider exactly, as EraseIdentity does, so the receiver erases
+// a handled person again when a sign-in or a provisioning call re-created
+// the account after the erasure.
+func (s *Store) HoldsIdentity(ctx context.Context, provider, subject string) (bool, error) {
+	_, found, err := identityOwner(ctx, s.db, provider, subject)
+	return found, err
+}
+
 var errMoved = stderrors.New("identity moved")
 
 func identityOwner(ctx context.Context, q querier, provider, subject string) (int64, bool, error) {
