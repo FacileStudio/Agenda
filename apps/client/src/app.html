@@ -15,6 +15,16 @@
 				} catch (e) {}
 			})();
 		</script>
+		<script>
+			(function () {
+				if (location.hostname !== 'agenda.facile.studio') return;
+				var s = document.createElement('script');
+				s.async = true;
+				s.src = 'https://vision.facile.studio/s.js';
+				s.setAttribute('data-mask', '');
+				document.head.appendChild(s);
+			})();
+		</script>
 
 		<title>Agenda · The shared studio calendar</title>
 		<meta name="description" content="Appointments, deadlines and team availability in one calendar. Native CalDAV, no Google account needed." />
