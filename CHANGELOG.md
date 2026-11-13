@@ -2,6 +2,16 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.18.7] - 2026-11-13
+
+### Changed
+
+- build(client): muse v0.21.0.
+
+### Fixed
+
+- Icon-only controls show a muse tooltip; native `title` tooltips moved to muse `Tooltip`. The space page back button is an `IconButton`.
+
 ## [0.18.6] - 2026-11-13
 
 ### Changed
