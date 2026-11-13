@@ -34,13 +34,16 @@ const (
 		WHERE id = $1`
 )
 
-// NewStore is porte's user store over Agenda's users table. Agenda has no
-// admin flag, so a new account gets no privileges. The picture lives in
-// oidc_picture_url, beside the upload path the kit does not know about. An
-// erasure queues the deletion of the person's calendars and events on outbox,
-// with ids only; a nil outbox publishes nothing.
-func NewStore(db *sql.DB, outbox *bus.Outbox) *kit.Store {
-	return &kit.Store{
+// NewStore is porte's user store over Agenda's users table, built by
+// kit.NewStore so the kit reads the table's columns once and reports what its
+// insert leaves NULL through Unwritten. It fails when the table is missing, so
+// it runs after the migrations. Agenda has no admin flag, so a new account
+// gets no privileges. The picture lives in oidc_picture_url, beside the upload
+// path the kit does not know about. An erasure queues the deletion of the
+// person's calendars and events on outbox, with ids only; a nil outbox
+// publishes nothing.
+func NewStore(ctx context.Context, db *sql.DB, outbox *bus.Outbox) (*kit.Store, error) {
+	return kit.NewStore(ctx, kit.Store{
 		DB:       db,
 		Columns:  kit.Columns{Picture: "oidc_picture_url"},
 		OnCreate: fillNewAccount,
@@ -50,7 +53,7 @@ func NewStore(db *sql.DB, outbox *bus.Outbox) *kit.Store {
 			}
 			return eraseData(ctx, tx, userID)
 		},
-	}
+	})
 }
 
 // publishErasure queues calendar_event.deleted for every event in the

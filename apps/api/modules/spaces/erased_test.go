@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/FacileStudio/Agenda/apps/api/modules/auth"
 	"github.com/FacileStudio/porte"
 	"github.com/FacileStudio/porte/directory"
 	"github.com/FacileStudio/porte/oidc"
@@ -58,7 +57,7 @@ func polledDeletions(t *testing.T, db *gorm.DB) (*Deletions, int64) {
 	store := portepg.New(sqlDB)
 	deletions := NewDeletions(db,
 		directory.Client{Issuer: testIssuer, HTTP: &http.Client{Transport: registreErased()}},
-		Erasers{Account: auth.NewStore(sqlDB, nil).EraseAccount, Identity: store.EraseIdentity, Holds: store.HoldsIdentity},
+		Erasers{Account: accounts(t, sqlDB).EraseAccount, Identity: store.EraseIdentity, Holds: store.HoldsIdentity},
 		t.TempDir(), slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err := deletions.receiver.Poll(context.Background()); err != nil {
 		t.Fatalf("poll: %v", err)
@@ -168,7 +167,7 @@ func TestBearerProvisioningRefusesAnErasedSubject(t *testing.T) {
 	}
 	erased := NewDeletions(db, directory.Client{Issuer: issuer}, Erasers{}, t.TempDir(), logger)
 	kit, err := oidc.New(context.Background(), cfg, oidc.Deps{
-		Users: auth.NewStore(sqlDB, nil), Identities: store.Identities(), Sessions: sessions,
+		Users: accounts(t, sqlDB), Identities: store.Identities(), Sessions: sessions,
 		Codes: store.LoginCodes(), Logger: logger, Erased: erased,
 	})
 	if err != nil {

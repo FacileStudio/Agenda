@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -51,7 +52,11 @@ func testStore(t *testing.T, db *gorm.DB) *kit.Store {
 	if err != nil {
 		t.Fatalf("sql handle: %v", err)
 	}
-	return NewStore(sqlDB, nil)
+	store, err := NewStore(context.Background(), sqlDB, nil)
+	if err != nil {
+		t.Fatalf("user store: %v", err)
+	}
+	return store
 }
 
 func claims(subject, email string, verified bool) porte.Claims {
@@ -126,6 +131,46 @@ func TestARecycledAddressIsNotHandedToANewSubject(t *testing.T) {
 
 	if _, err := store.UpsertFromOIDC(context.Background(), claims("sub-newcomer", "lea@facile.studio", true)); err == nil {
 		t.Fatal("a second subject of the same issuer took over a linked account")
+	}
+}
+
+// kit.NewStore reads the users table once and lists the nullable columns with
+// no default that the kit's insert leaves out. oidc_subject is the only one,
+// and NULL is what old rows hold there too. A store built as a literal lists
+// nothing, so this also fails if NewStore stops going through kit.NewStore.
+func TestTheUserStoreLeavesOnlyTheOIDCSubjectUnwritten(t *testing.T) {
+	db := openTestDatabase(t)
+	if got, want := testStore(t, db).Unwritten(), []string{"oidc_subject"}; !slices.Equal(got, want) {
+		t.Fatalf("Unwritten() = %v, want %v", got, want)
+	}
+}
+
+// Old rows hold a value in every users column but oidc_subject. An account the
+// kit creates must too, so no reader meets a NULL that GORM never wrote.
+func TestASignUpFillsEveryColumnOldRowsHold(t *testing.T) {
+	db := openTestDatabase(t)
+	store := testStore(t, db)
+	id, err := store.UpsertFromOIDC(context.Background(), claims("sub-columns", "columns@facile.studio", true))
+	if err != nil {
+		t.Fatalf("sign-up: %v", err)
+	}
+	var columns []string
+	err = db.Raw(`SELECT column_name FROM information_schema.columns
+		WHERE table_schema = current_schema() AND table_name = 'users' ORDER BY ordinal_position`).Scan(&columns).Error
+	if err != nil || len(columns) == 0 {
+		t.Fatalf("read the users columns: %v", err)
+	}
+	for _, column := range columns {
+		if slices.Contains(store.Unwritten(), column) {
+			continue
+		}
+		var null bool
+		if err := db.Raw(`SELECT "`+column+`" IS NULL FROM users WHERE id = ?`, id).Scan(&null).Error; err != nil {
+			t.Fatalf("read %s: %v", column, err)
+		}
+		if null {
+			t.Errorf("%s is NULL on a new account", column)
+		}
 	}
 }
 

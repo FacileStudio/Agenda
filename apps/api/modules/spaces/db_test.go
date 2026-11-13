@@ -1,10 +1,14 @@
 package spaces
 
 import (
+	"context"
+	"database/sql"
 	"sync"
 	"testing"
 
+	"github.com/FacileStudio/Agenda/apps/api/modules/auth"
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
+	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/testdb"
 
 	"gorm.io/gorm"
@@ -36,6 +40,17 @@ func openTestDatabase(t *testing.T) *gorm.DB {
 		t.Fatalf("reset test database: %v", err)
 	}
 	return testDB
+}
+
+// accounts is Agenda's user store over the test database, built as the app
+// builds it.
+func accounts(t *testing.T, sqlDB *sql.DB) *kit.Store {
+	t.Helper()
+	store, err := auth.NewStore(context.Background(), sqlDB, nil)
+	if err != nil {
+		t.Fatalf("user store: %v", err)
+	}
+	return store
 }
 
 func newUser(t *testing.T, db *gorm.DB, email string) int64 {

@@ -35,7 +35,11 @@ func erasureFixture(t *testing.T) (*gorm.DB, *kit.Store, schemas.Calendar, schem
 	if err := db.Create(&evt).Error; err != nil {
 		t.Fatalf("seed event: %v", err)
 	}
-	return db, NewStore(sqlDB, bus.New(true)), cal, evt
+	store, err := NewStore(context.Background(), sqlDB, bus.New(true))
+	if err != nil {
+		t.Fatalf("user store: %v", err)
+	}
+	return db, store, cal, evt
 }
 
 // TestErasureQueuesDeletionsWithIdsOnly checks an erased person's events and
