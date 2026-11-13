@@ -10,6 +10,7 @@
 		Modal,
 		Select,
 		Textarea,
+		Tooltip,
 		icons
 	} from '@facile/muse';
 	import { resolveFileUrl, type AgendaEvent, type CalendarItem, type CreateEventRequest } from '$lib/backend';
@@ -355,13 +356,15 @@
 						>
 							{conferenceUrl}
 						</a>
-						<Button
-							variant="ghost"
-							size="sm"
-							icon={icons.close}
-							aria-label={t('event.videoRemove')}
-							onclick={toggleConference}
-						/>
+						<Tooltip text={t('event.videoRemove')} describe={false} class="contents">
+							<Button
+								variant="ghost"
+								size="sm"
+								icon={icons.close}
+								aria-label={t('event.videoRemove')}
+								onclick={toggleConference}
+							/>
+						</Tooltip>
 					</div>
 				{:else}
 					<Button

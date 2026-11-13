@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Input, Select } from '@facile/muse';
+	import { Input, Select, Tooltip } from '@facile/muse';
 	import { t } from '$lib/i18n/index.svelte';
 	import { weekdayName } from '$lib/i18n/format';
 	import {
@@ -84,17 +84,18 @@
 				<div class="flex flex-wrap gap-1.5" role="group" aria-label={t('rec.weekdays')}>
 					{#each WEEKDAYS as day, i (day)}
 						{@const active = recurrence.byDay.includes(day)}
-						<button
-							type="button"
-							aria-pressed={active}
-							aria-label={weekdayName(i)}
-							title={weekdayName(i)}
-							onclick={() => toggleDay(day)}
-							class="flex size-9 cursor-pointer items-center justify-center rounded-full text-fc-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fc-ring
-								{active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}"
-						>
-							{weekdayName(i, 'narrow')}
-						</button>
+						<Tooltip text={weekdayName(i)} describe={false} class="contents">
+							<button
+								type="button"
+								aria-pressed={active}
+								aria-label={weekdayName(i)}
+								onclick={() => toggleDay(day)}
+								class="flex size-9 cursor-pointer items-center justify-center rounded-full text-fc-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fc-ring
+									{active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}"
+							>
+								{weekdayName(i, 'narrow')}
+							</button>
+						</Tooltip>
 					{/each}
 				</div>
 			{/if}

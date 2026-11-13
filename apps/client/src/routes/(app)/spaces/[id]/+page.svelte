@@ -2,7 +2,7 @@
 	import { page } from '$app/stores';
 	import { getContext, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { Avatar, Button } from '@facile/muse';
+	import { Avatar, Button, IconButton } from '@facile/muse';
 	import { backend, registreSpaceUrl, resolveFileUrl, type SpaceItem, type SpaceMember } from '$lib/backend';
 	import { setCalendarFilter } from '$lib/calendar-filter.svelte';
 	import type { CalendarItem } from '$lib/backend';
@@ -70,9 +70,9 @@
 	{:else if space}
 		<div class="px-4 py-4 md:px-8 md:py-5">
 			<div class="flex flex-wrap items-center gap-3">
-				<button onclick={() => goto('/spaces')} class="cursor-pointer text-muted-foreground hover:text-foreground" aria-label={t('spaces.back')}>
+				<IconButton variant="ghost" onclick={() => goto('/spaces')} aria-label={t('spaces.back')}>
 					<iconify-icon icon="solar:arrow-left-linear" width="20"></iconify-icon>
-				</button>
+				</IconButton>
 				<div class="min-w-0 flex-1">
 					<h1 class="truncate text-lg font-semibold">{space.name}</h1>
 					{#if space.description}
