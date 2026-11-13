@@ -11,6 +11,7 @@
 		Input,
 		Modal,
 		Select,
+		Tooltip,
 		icons
 	} from '@facile/muse';
 	import { backend, ApiError, resolveFileUrl, type CalendarItem, type CalendarMember } from '$lib/backend';
@@ -240,14 +241,16 @@
 						</div>
 						<Badge tone={roleTone(member.role)}>{roleLabel(member.role)}</Badge>
 						{#if calendar?.role === 'owner' && member.role !== 'owner'}
-							<Button
-								variant="ghost-danger"
-								size="sm"
-								icon={icons.remove}
-								aria-label={t('member.removeAria', { name: member.name || member.email })}
-								disabled={removingId === member.user_id}
-								onclick={() => { memberToRemove = member; confirmRemoveOpen = true; }}
-							/>
+							<Tooltip text={t('member.removeAria', { name: member.name || member.email })} describe={false} class="contents">
+								<Button
+									variant="ghost-danger"
+									size="sm"
+									icon={icons.remove}
+									aria-label={t('member.removeAria', { name: member.name || member.email })}
+									disabled={removingId === member.user_id}
+									onclick={() => { memberToRemove = member; confirmRemoveOpen = true; }}
+								/>
+							</Tooltip>
 						{/if}
 					</div>
 				{/each}

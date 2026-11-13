@@ -5,7 +5,7 @@
 	 * lists. This tab manages the first and points at the second.
 	 */
 	import { getContext } from 'svelte';
-	import { Badge, Button, SettingsRow, SettingsSection, Table, icons, toast } from '@facile/muse';
+	import { Badge, Button, SettingsRow, SettingsSection, Table, Tooltip, icons, toast } from '@facile/muse';
 	import type { CalendarItem, UserProfile } from '$lib/backend';
 	import CreateCalendarModal from '$lib/components/CreateCalendarModal.svelte';
 	import ManageCalendarModal from '$lib/components/ManageCalendarModal.svelte';
@@ -100,25 +100,29 @@
 							</td>
 							<td class="text-right">
 								{#if calendar.space_id}
-									<Button
-										variant="ghost"
-										size="sm"
-										icon={icons.space}
-										href="/spaces/{calendar.space_id}"
-										aria-label={t('members.spaceMembers')}
-									>
-										<span class="hidden sm:inline">{t('common.members')}</span>
-									</Button>
+									<Tooltip text={t('members.spaceMembers')} describe={false} class="contents">
+										<Button
+											variant="ghost"
+											size="sm"
+											icon={icons.space}
+											href="/spaces/{calendar.space_id}"
+											aria-label={t('members.spaceMembers')}
+										>
+											<span class="hidden sm:inline">{t('common.members')}</span>
+										</Button>
+									</Tooltip>
 								{:else if calendar.role === 'owner'}
-									<Button
-										variant="ghost"
-										size="sm"
-										icon={icons.usersGroup}
-										onclick={() => openManage(calendar)}
-										aria-label={t('members.manageAria', { name: calendar.name })}
-									>
-										<span class="hidden sm:inline">{t('members.manage')}</span>
-									</Button>
+									<Tooltip text={t('members.manageAria', { name: calendar.name })} describe={false} class="contents">
+										<Button
+											variant="ghost"
+											size="sm"
+											icon={icons.usersGroup}
+											onclick={() => openManage(calendar)}
+											aria-label={t('members.manageAria', { name: calendar.name })}
+										>
+											<span class="hidden sm:inline">{t('members.manage')}</span>
+										</Button>
+									</Tooltip>
 								{:else}
 									<span class="text-fc-xs text-fc-fg-muted">{t('members.typeShared')}</span>
 								{/if}

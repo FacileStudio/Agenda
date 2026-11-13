@@ -9,7 +9,7 @@
 		startOfWeek,
 		endOfWeek
 	} from '@internationalized/date';
-	import { Button, IconButton, Spinner, UserMenu, icons, type UserMenuOptions } from '@facile/muse';
+	import { Button, IconButton, Spinner, Tooltip, UserMenu, icons, type UserMenuOptions } from '@facile/muse';
 	import { backend, type CalendarItem, type AgendaEvent, type CreateEventRequest } from '$lib/backend';
 	import CalendarMonthView from '$lib/components/CalendarMonthView.svelte';
 	import CalendarWeekView from '$lib/components/CalendarWeekView.svelte';
@@ -208,31 +208,34 @@
 					{#each viewItems as item}
 						{@const active = view === item.id}
 						{@const label = t(item.key)}
-						<button
-							type="button"
-							onclick={() => (view = item.id)}
-							aria-pressed={active}
-							aria-label={label}
-							title={label}
-							class="flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-fc-pill px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring {active
-								? 'bg-primary text-primary-foreground'
-								: 'text-muted-foreground hover:text-foreground'}"
-						>
-							<iconify-icon icon={item.icon} width="16" height="16" class="block size-4 shrink-0"
-							></iconify-icon>
-							<span class="hidden xl:inline">{label}</span>
-						</button>
+						<Tooltip text={label} describe={false} class="contents">
+							<button
+								type="button"
+								onclick={() => (view = item.id)}
+								aria-pressed={active}
+								aria-label={label}
+								class="flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-fc-pill px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring {active
+									? 'bg-primary text-primary-foreground'
+									: 'text-muted-foreground hover:text-foreground'}"
+							>
+								<iconify-icon icon={item.icon} width="16" height="16" class="block size-4 shrink-0"
+								></iconify-icon>
+								<span class="hidden xl:inline">{label}</span>
+							</button>
+						</Tooltip>
 					{/each}
 				</div>
 
-				<Button
-					onclick={() => openCreateModal()}
-					size="lg"
-					icon={icons.plus}
-					aria-label={t('calendar.newEvent')}
-				>
-					<span class="hidden sm:inline">{t('calendar.new')}</span>
-				</Button>
+				<Tooltip text={t('calendar.newEvent')} describe={false} class="contents">
+					<Button
+						onclick={() => openCreateModal()}
+						size="lg"
+						icon={icons.plus}
+						aria-label={t('calendar.newEvent')}
+					>
+						<span class="hidden sm:inline">{t('calendar.new')}</span>
+					</Button>
+				</Tooltip>
 			</div>
 		</div>
 
@@ -252,16 +255,18 @@
 			</h1>
 
 			{#if !showsToday}
-				<Button
-					variant="secondary"
-					size="sm"
-					icon="solar:calendar-minimalistic-linear"
-					class="shrink-0"
-					onclick={goToday}
-					aria-label={t('calendar.backToToday')}
-				>
-					<span class="hidden sm:inline">{t('calendar.backToToday')}</span>
-				</Button>
+				<Tooltip text={t('calendar.backToToday')} describe={false} class="contents">
+					<Button
+						variant="secondary"
+						size="sm"
+						icon="solar:calendar-minimalistic-linear"
+						class="shrink-0"
+						onclick={goToday}
+						aria-label={t('calendar.backToToday')}
+					>
+						<span class="hidden sm:inline">{t('calendar.backToToday')}</span>
+					</Button>
+				</Tooltip>
 			{/if}
 
 			{#if loading}

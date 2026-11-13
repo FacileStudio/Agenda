@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Avatar } from '@facile/muse';
+	import { Avatar, Tooltip } from '@facile/muse';
 	import { resolveFileUrl, type EventCreator } from '$lib/backend';
 	import { t } from '$lib/i18n/index.svelte';
 
@@ -15,11 +15,12 @@
 </script>
 
 {#if creator}
-	<Avatar
-		size="sm"
-		class="size-4 text-[0.55rem]! leading-none {className}"
-		src={creator.avatar_url ? resolveFileUrl(creator.avatar_url) : undefined}
-		{name}
-		title={t('calendar.createdBy', { name })}
-	/>
+	<Tooltip text={t('calendar.createdBy', { name })} class="contents">
+		<Avatar
+			size="sm"
+			class="size-4 text-[0.55rem]! leading-none {className}"
+			src={creator.avatar_url ? resolveFileUrl(creator.avatar_url) : undefined}
+			{name}
+		/>
+	</Tooltip>
 {/if}
