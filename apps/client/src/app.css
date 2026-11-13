@@ -1,5 +1,6 @@
 @import '@facile/muse/styles';
 @source '../node_modules/@facile/muse/src';
+@source '../node_modules/@facile/mise-en-scene/src';
 
 @theme inline {
 	--color-background: var(--color-fc-page);

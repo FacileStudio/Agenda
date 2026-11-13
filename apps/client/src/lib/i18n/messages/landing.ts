@@ -9,43 +9,69 @@ export const landing = {
 		'Dein Kalender.|Dein Server.'
 	],
 	'landing.heroText': [
-		'Agenda is a self-hosted calendar for creative studios. Plan the week, share it with the team, and sync it to every device you already use.',
-		'Agenda est un calendrier auto-hébergé pour studios créatifs. Planifiez la semaine, partagez-la avec l’équipe et synchronisez-la sur tous vos appareils.',
-		'Agenda es un calendario autoalojado para estudios creativos. Planifica la semana, compártela con el equipo y sincronízala con todos tus dispositivos.',
-		'Agenda ist ein selbst gehosteter Kalender für Kreativstudios. Plane die Woche, teile sie mit dem Team und synchronisiere sie mit allen deinen Geräten.'
+		'Plan the studio week together and sync it to every device.',
+		'Planifiez la semaine du studio ensemble et synchronisez-la sur tous vos appareils.',
+		'Planifica la semana del estudio en equipo y sincronízala en todos tus dispositivos.',
+		'Plane die Studiowoche gemeinsam und synchronisiere sie auf jedem Gerät.'
 	],
+	'landing.getCli': ['Get the CLI', 'Installer le CLI', 'Instalar la CLI', 'CLI installieren'],
 	'landing.feature.caldav.title': ['CalDAV sync', 'Synchro CalDAV', 'Sincronización CalDAV', 'CalDAV-Sync'],
 	'landing.feature.caldav.text': [
-		'Apple Calendar, iOS, Thunderbird and DAVx⁵ all talk to it natively. No plugin, no export.',
-		'Calendrier Apple, iOS, Thunderbird et DAVx⁵ le comprennent nativement. Ni plugin, ni export.',
-		'Calendario de Apple, iOS, Thunderbird y DAVx⁵ lo entienden de forma nativa. Sin plugins ni exportaciones.',
-		'Apple Kalender, iOS, Thunderbird und DAVx⁵ sprechen es nativ. Kein Plugin, kein Export.'
+		'Apple Calendar, Thunderbird and DAVx⁵ connect natively, with no plugin.',
+		'Calendrier Apple, Thunderbird et DAVx⁵ se connectent nativement, sans plugin.',
+		'Calendario de Apple, Thunderbird y DAVx⁵ se conectan de forma nativa, sin plugins.',
+		'Apple Kalender, Thunderbird und DAVx⁵ verbinden sich nativ, ohne Plugin.'
 	],
 	'landing.feature.shared.title': [
-		'Shared calendars',
-		'Calendriers partagés',
-		'Calendarios compartidos',
-		'Geteilte Kalender'
+		'One calendar per space',
+		'Un agenda par espace',
+		'Un calendario por espacio',
+		'Ein Kalender pro Space'
 	],
 	'landing.feature.shared.text': [
-		'Invite your studio, set who can read and who can edit, keep personal calendars personal.',
-		'Invitez votre studio, choisissez qui lit et qui modifie, gardez les calendriers personnels privés.',
-		'Invita a tu estudio, decide quién puede leer y quién editar, y mantén privados los calendarios personales.',
-		'Lade dein Studio ein, lege fest, wer lesen und wer bearbeiten darf, und halte persönliche Kalender privat.'
+		'Every member of a Facile space reads and edits the same calendar.',
+		'Chaque membre d’un espace Facile lit et modifie le même agenda.',
+		'Cada miembro de un espacio Facile lee y edita el mismo calendario.',
+		'Jedes Mitglied eines Facile-Space liest und bearbeitet denselben Kalender.'
 	],
 	'landing.feature.hosted.title': ['Self-hosted', 'Auto-hébergé', 'Autoalojado', 'Selbst gehostet'],
 	'landing.feature.hosted.text': [
-		'One binary and a Postgres. Your events stay on your server, with no cloud and no tracking.',
-		'Un binaire et un Postgres. Vos événements restent sur votre serveur, sans cloud ni pistage.',
-		'Un binario y un Postgres. Tus eventos se quedan en tu servidor, sin nube ni rastreo.',
-		'Eine Binärdatei und ein Postgres. Deine Termine bleiben auf deinem Server, ohne Cloud und ohne Tracking.'
+		'One binary and a Postgres. Your events stay on your server.',
+		'Un binaire et un Postgres. Vos événements restent sur votre serveur.',
+		'Un binario y un Postgres. Tus eventos se quedan en tu servidor.',
+		'Eine Binärdatei und ein Postgres. Deine Termine bleiben auf deinem Server.'
 	],
-	'landing.ctaTitle': ['Ready to sign in?', 'Prêt à vous connecter ?', '¿Listo para iniciar sesión?', 'Bereit zur Anmeldung?'],
+	'landing.feature.cli.title': ['From the terminal', 'Depuis le terminal', 'Desde la terminal', 'Im Terminal'],
+	'landing.feature.cli.text': [
+		'Create and edit events with the agenda CLI or the API.',
+		'Créez et modifiez vos événements avec le CLI agenda ou l’API.',
+		'Crea y edita eventos con la CLI agenda o la API.',
+		'Lege Termine mit der agenda-CLI oder der API an und bearbeite sie.'
+	],
+	'landing.download.title': ['Agenda in your terminal', 'Agenda dans votre terminal', 'Agenda en tu terminal', 'Agenda im Terminal'],
+	'landing.download.text': [
+		'Install the CLI, then run agenda login.',
+		'Installez le CLI, puis lancez agenda login.',
+		'Instala la CLI y ejecuta agenda login.',
+		'Installiere die CLI und führe agenda login aus.'
+	],
+	'landing.download.facile': ['Facile installer', 'Installeur Facile', 'Instalador de Facile', 'Facile-Installer'],
+	'landing.download.script': ['Install script', 'Script d’installation', 'Script de instalación', 'Installationsskript'],
+	'landing.demo.label': [
+		'A new event is added to the week view, then syncs over CalDAV.',
+		'Un nouvel événement est ajouté à la vue semaine, puis synchronisé en CalDAV.',
+		'Se añade un evento a la vista semanal y se sincroniza por CalDAV.',
+		'Ein neuer Termin landet in der Wochenansicht und wird per CalDAV synchronisiert.'
+	],
+	'landing.demo.event': ['Studio review', 'Revue du studio', 'Revisión del estudio', 'Studio-Review'],
+	'landing.demo.syncing': ['Syncing', 'Synchronisation', 'Sincronizando', 'Wird synchronisiert'],
+	'landing.demo.synced': ['Synced', 'Synchronisé', 'Sincronizado', 'Synchronisiert'],
+	'landing.ctaTitle': ['Ready to plan the week?', 'Prêt à planifier la semaine ?', '¿Listo para planificar la semana?', 'Bereit, die Woche zu planen?'],
 	'landing.ctaText': [
-		'Use your Facile account to access Agenda.',
-		'Utilisez votre compte Facile pour accéder à Agenda.',
-		'Usa tu cuenta de Facile para acceder a Agenda.',
-		'Nutze dein Facile-Konto, um auf Agenda zuzugreifen.'
+		'Sign in with your Facile account.',
+		'Connectez-vous avec votre compte Facile.',
+		'Inicia sesión con tu cuenta de Facile.',
+		'Melde dich mit deinem Facile-Konto an.'
 	],
 	'landing.pricing': ['Pricing', 'Tarifs', 'Precios', 'Preise']
 } satisfies Record<string, Row>;
