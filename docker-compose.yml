@@ -10,9 +10,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
-      interval: 5s
+      interval: 30s
       timeout: 5s
       retries: 5
+      start_period: 30s
+      start_interval: 1s
 
   agenda:
     build:
@@ -38,10 +40,11 @@ services:
       BULLE_URL: ${BULLE_URL:-}
     healthcheck:
       test: ["CMD", "/agenda", "healthcheck"]
-      interval: 10s
+      interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 60s
+      start_interval: 1s
     depends_on:
       db:
         condition: service_healthy
