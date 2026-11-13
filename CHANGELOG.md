@@ -2,6 +2,12 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.18.5] - 2026-11-13
+
+### Fixed
+
+- fix(auth): the user store is built by `kit.NewStore` instead of a `kit.Store` literal, so porte no longer logs "this Store was built as a literal" on the first sign-in after each boot. `NewStore` reads the `users` table once at boot and fails there if it is missing. A test pins `Unwritten()` to `oidc_subject`, the one column old rows also leave NULL, and another signs an account up through the kit and checks every other `users` column is filled.
+
 ## [0.18.4] - 2026-11-12
 
 ### Security
