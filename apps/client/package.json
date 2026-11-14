@@ -27,7 +27,7 @@
 	},
 	"dependencies": {
 		"@facile/client": "github:FacileStudio/facile-client#v0.1.0",
-		"@facile/muse": "github:FacileStudio/muse#v0.22.0",
+		"@facile/muse": "github:FacileStudio/muse#v0.23.0",
 		"@facile/mise-en-scene": "github:FacileStudio/mise-en-scene#v0.2.1",
 		"@iconify-json/solar": "^1.2.14",
 		"iconify-icon": "^3.0.5"
