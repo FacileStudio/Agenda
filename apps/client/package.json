@@ -2,7 +2,7 @@
 	"name": "agenda-client",
 	"license": "AGPL-3.0-only",
 	"private": true,
-	"version": "0.18.7",
+	"version": "0.19.0",
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",

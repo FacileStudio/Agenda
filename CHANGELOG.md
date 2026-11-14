@@ -2,6 +2,19 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.19.0] - 2026-11-14
+
+### Added
+
+- Landing: a mise-en-scene week view demo in the hero. The cursor adds an event, which then syncs over CalDAV. Phones get a 3-day layout.
+- Landing: a CLI install section (`facile install agenda` and the install script). It shows only the visitor's device option: desktops see the commands, phones see a link to `/downloads`.
+- `/downloads`: a public page with every agenda CLI install option, the releases page and the checksums.
+
+### Changed
+
+- Landing copy is shorter, with four feature blocks in en, fr, es and de.
+- build(client): muse v0.23.0 (Magnetik typeface, left-aligned footer on phones) and mise-en-scene v0.2.1. The unused `@fontsource-variable/inter` pin is gone.
+
 ## [0.18.7] - 2026-11-13
 
 ### Changed
