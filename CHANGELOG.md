@@ -2,6 +2,13 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.21.1] - 2026-11-14
+
+### Changed
+
+- Landing: the developer block links to the Suite self-hosting page, in the visitor's language.
+- muse v0.25.1: the install command in the developer block wraps between words instead of scrolling on phones.
+
 ## [0.21.0] - 2026-11-14
 
 ### Changed
