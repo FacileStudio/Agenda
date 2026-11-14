@@ -3,9 +3,11 @@ package auth
 import (
 	"context"
 	"database/sql"
+	"strconv"
 
 	"github.com/FacileStudio/Agenda/apps/api/internal/bus"
 	"github.com/FacileStudio/porte/kit"
+	mcpkit "github.com/FacileStudio/tronc/mcp"
 )
 
 const (
@@ -20,7 +22,6 @@ const (
 	eraseOwnShares      = `DELETE FROM calendar_members WHERE user_id = $1`
 	eraseOwnAttendance  = `DELETE FROM event_attendees WHERE user_id = $1`
 	eraseMemberships    = `DELETE FROM space_members WHERE user_id = $1`
-	erasePendingActions = `DELETE FROM mcp_actions WHERE user_id = ($1::bigint)::text`
 	anonymiseAuthorship = `UPDATE events SET created_by_id = NULL WHERE created_by_id = $1`
 
 	ownedEventIDs = `SELECT e.id, e.calendar_id FROM events e JOIN calendars c ON c.id = e.calendar_id
@@ -123,11 +124,11 @@ func fillNewAccount(ctx context.Context, tx *sql.Tx, userID int64) error {
 func eraseData(ctx context.Context, tx *sql.Tx, userID int64) error {
 	for _, statement := range []string{
 		eraseOwnedAttendees, eraseOwnedEvents, eraseOwnedShares, eraseOwnedCalendars,
-		eraseOwnShares, eraseOwnAttendance, eraseMemberships, erasePendingActions, anonymiseAuthorship,
+		eraseOwnShares, eraseOwnAttendance, eraseMemberships, anonymiseAuthorship,
 	} {
 		if _, err := tx.ExecContext(ctx, statement, userID); err != nil {
 			return err
 		}
 	}
-	return nil
+	return mcpkit.ErasePending(ctx, tx, strconv.FormatInt(userID, 10))
 }

@@ -16,10 +16,6 @@ var (
 	errReader   = errors.New("the user can only read this calendar, so the event cannot be deleted")
 )
 
-// waitingDelete tells the model that nothing happened yet, and what to do.
-const waitingDelete = "Nothing was deleted: your client cannot ask the user to confirm. Give the user confirm_url " +
-	"and ask them to confirm there. Do not call this tool again for the same event; the request stays open for 7 days."
-
 // deleteEvent is agenda_delete_event.
 func (t *toolset) deleteEvent(ctx context.Context, req *sdk.CallToolRequest, in eventRef) (*sdk.CallToolResult, actionOutput, error) {
 	if mcpkit.Retrying(req) {
@@ -46,7 +42,7 @@ func (t *toolset) deleteEvent(ctx context.Context, req *sdk.CallToolRequest, in 
 	if result != nil {
 		return result, actionOutput{}, nil
 	}
-	return nil, actionOutput{Status: outcome.Status, EventID: in.EventID, ConfirmURL: outcome.ConfirmURL, Message: waitingDelete}, nil
+	return nil, actionOutput{Status: outcome.Status, EventID: in.EventID, ConfirmURL: outcome.ConfirmURL, Message: outcome.Message}, nil
 }
 
 // canWrite refuses a calendar the user can only read.
@@ -68,7 +64,7 @@ func (t *toolset) resumeDelete(ctx context.Context, req *sdk.CallToolRequest) (*
 		return nil, actionOutput{}, mcpkit.Failure(err, "Call agenda_delete_event again to ask the user afresh.")
 	}
 	if outcome.Status == mcpkit.StatusDeclined {
-		return nil, actionOutput{Status: mcpkit.StatusDeclined, Message: "The user declined. Nothing happened, and the event is kept."}, nil
+		return nil, actionOutput{Status: mcpkit.StatusDeclined, Message: outcome.Message}, nil
 	}
 	_, eventID, _ := refOf(outcome.Action)
 	return nil, actionOutput{Status: "deleted", EventID: eventID, Message: "The user confirmed and the event was deleted."}, nil

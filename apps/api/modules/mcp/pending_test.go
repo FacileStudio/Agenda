@@ -8,7 +8,6 @@ import (
 
 	"github.com/FacileStudio/Agenda/apps/api/modules/events"
 	"github.com/FacileStudio/porte"
-	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/mcp/mcptest"
 	"github.com/go-chi/chi/v5"
 )
@@ -30,13 +29,33 @@ func onPage(f *fixture, route, id, actor string) *httptest.ResponseRecorder {
 	if route != "" {
 		req = httptest.NewRequest(http.MethodPost, "/"+id+"/"+route, nil)
 	}
-	ctx := kit.WithIdentity(req.Context(), kit.Identity{UserID: f.userID})
-	ctx = porte.WithIdentity(ctx, porte.Identity{UserID: f.userID, Actor: actor})
+	return asIdentity(f, req, porte.Identity{UserID: f.userID, SessionID: 1, BrowserSession: true, Actor: actor})
+}
+
+// asIdentity serves req on the confirm page as identity.
+func asIdentity(f *fixture, req *http.Request, identity porte.Identity) *httptest.ResponseRecorder {
 	router := chi.NewRouter()
 	f.service.page.Routes(router)
 	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, req.WithContext(ctx))
+	router.ServeHTTP(recorder, req.WithContext(porte.WithIdentity(req.Context(), identity)))
 	return recorder
+}
+
+// TestConfirmPageNeedsBrowserSession checks a CLI session and a bearer token
+// of the same person cannot confirm: only their own browser session can.
+func TestConfirmPageNeedsBrowserSession(t *testing.T) {
+	f := newFixture(t)
+	eventID, id := pendingDelete(t, f)
+	cli := httptest.NewRequest(http.MethodPost, "/"+id+"/confirm", nil)
+	if got := asIdentity(f, cli, porte.Identity{UserID: f.userID, SessionID: 1}); got.Code != http.StatusForbidden || !f.exists(eventID) {
+		t.Fatalf("a CLI session must not confirm, got %d", got.Code)
+	}
+	bearer := httptest.NewRequest(http.MethodPost, "/"+id+"/confirm", nil)
+	bearer.Header.Set("Authorization", "Bearer token")
+	identity := porte.Identity{UserID: f.userID, SessionID: 1, BrowserSession: true}
+	if got := asIdentity(f, bearer, identity); got.Code != http.StatusForbidden || !f.exists(eventID) {
+		t.Fatalf("a bearer token must not confirm, got %d", got.Code)
+	}
 }
 
 // TestConfirmPageDeletesOnce checks the person confirms in Agenda, the event

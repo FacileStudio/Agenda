@@ -22,7 +22,7 @@ write tool, so the client can ask for more.
 | `agenda_read_event` | One event in full: description, attendees, reminders, recurrence | read-only, open world |
 | `agenda_find_free_slots` | Free windows of at least `duration_minutes` inside working hours, around every calendar's events | read-only |
 | `agenda_create_event` | Add an event, to the personal calendar unless `calendar_id` is set | write |
-| `agenda_update_event` | Change only the fields given; a new start keeps the length | write, idempotent |
+| `agenda_update_event` | Change only the fields given; a new start keeps the length. A new schedule on a recurring event drops occurrences edited one by one | destructive, idempotent |
 | `agenda_delete_event` | Delete an event for good; always confirmed by the person | destructive |
 
 Times are RFC 3339 or dates (all-day events and range bounds). Pass the person's IANA
@@ -46,8 +46,12 @@ Opus or one in a calendar the person can only read. Otherwise:
    dismisses it on the Pending actions page. A signed-out person signs in and lands back on it.
 
 Either way the action runs once. An event edited after the question is not deleted and the
-action closes. A delegated (Bulle) token cannot use the confirm page. Every write call and
-every confirmation event is logged (no arguments) with the client id.
+action closes. Only the person's own browser session can use the confirm page
+(`mcpauth.RequireOwnSession`): a bearer token, an API key, a CLI session or a delegated (Bulle)
+token gets 403. A browser session from before porte v0.20.0 has no browser mark, so the person
+signs in once more before confirming. Actions resolved or expired more than 30 days ago are
+pruned hourly (`mcpkit.KeepPruned`). Every write call and every confirmation event is logged
+(no arguments) with the client id.
 
 ## Testing
 
