@@ -2,6 +2,21 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.20.0] - 2026-11-14
+
+### Security
+
+- The MCP confirm page answers only to the person's own browser session (`mcpauth.RequireOwnSession`, mounted through `PendingPage.Mount`). A bearer token, an API key, a CLI session or a delegated token gets 403. People must sign in again once in their browser after this release before they can confirm, because older cookies lack the browser mark. On a 403, `/pending` explains this and offers a "Sign in again" button that returns to the action.
+- `agenda_update_event` is marked destructive and no longer idempotent: a new schedule on a recurring event drops occurrences edited one by one, and every call queues an `event.updated` notification and bumps the CalDAV sync token.
+
+### Changed
+
+- Account erasure deletes pending MCP actions through `mcpkit.ErasePending`, inside the erasure transaction.
+- Pending MCP actions older than 30 days are pruned hourly (`mcpkit.KeepPruned`).
+- The delete tool returns the kit's `outcome.Message` texts; a declined delete adds "Nothing was deleted; the event is kept."
+- `agenda_list_events` pages with `mcpkit.Offset` and `mcpkit.Cursor`. A cursor issued before this release is refused and the model restarts from page one.
+- build(api): tronc v0.23.0, tronc/migrate v0.1.1, tronc/testdb v0.1.2, porte v0.20.0, porte/mcpauth v0.3.0, porte/forfait v0.1.3. The patched go-webdav v0.7.0 is unchanged.
+
 ## [0.19.0] - 2026-11-14
 
 ### Added
