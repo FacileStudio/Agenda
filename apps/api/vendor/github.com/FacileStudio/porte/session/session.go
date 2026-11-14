@@ -200,7 +200,7 @@ func (m *Manager) Issue(ctx context.Context, userID int64, label string) (string
 // session, a Subject), to the identity (Config.Issuer, Subject) the JWT
 // resolved through. A token loop racing a purge cannot outlive either.
 func (m *Manager) IssueFor(ctx context.Context, template porte.Session) (string, porte.Session, error) {
-	return m.issue(ctx, template, porte.NewToken)
+	return m.issue(ctx, template, plainToken(porte.NewToken))
 }
 
 func (m *Manager) issue(ctx context.Context, template porte.Session, mint func() (string, error)) (string, porte.Session, error) {
@@ -407,14 +407,6 @@ func (m *Manager) Authenticate(w http.ResponseWriter, r *http.Request) (porte.Id
 		m.claims.Attach(r.Context(), &identity)
 	}
 	return identity, nil
-}
-
-// browserSession reports whether a credential is a browser login: it came in
-// the session cookie, its row is not a named API token, and IssueCookieFor
-// minted it. A session token a CLI, device or mobile exchange received, sent
-// as a cookie, is not one, and neither is a cookie issued before v0.20.0.
-func browserSession(fromCookie bool, token string, stored porte.Session) bool {
-	return fromCookie && !stored.IsAPIToken() && strings.HasPrefix(token, porte.BrowserTokenPrefix)
 }
 
 // jwtApplies reports whether this manager authenticates a bearer as a JWT:

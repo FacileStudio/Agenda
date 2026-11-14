@@ -243,7 +243,7 @@ A tool checks that the token's account still exists with
 `mcpauth.AccountExists(ctx, req.Extra.TokenInfo, accounts.Identity)`. The confirm page of pending
 actions takes its user from `mcpauth.RequireOwnSession(r)`, which passes only a session cookie
 minted by a browser login (`IssueCookieFor`) and refuses every bearer, API key, delegated token and
-CLI or device session token sent as a cookie. A cookie from before v0.20.0 is refused too, so the
+CLI or device session token sent as a cookie. A cookie from before v0.20.1 is refused too, so the
 person signs in once more before their first confirmation.
 
 ## Why

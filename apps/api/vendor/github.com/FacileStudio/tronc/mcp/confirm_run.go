@@ -39,14 +39,16 @@ func (c *Confirmations) Link(id string) string {
 }
 
 // reuseOrCreate returns the person's open action of the same kind on the
-// same target with the same digest, or stores action as a new one.
+// same target with the same digest, asked by the same OAuth client, or
+// stores action as a new one. Matching the client keeps consent given
+// through one client from being collected by another.
 func (c *Confirmations) reuseOrCreate(ctx context.Context, action Action) (Action, error) {
 	open, err := c.cfg.Store.Open(ctx, action.UserID)
 	if err != nil {
 		return action, err
 	}
 	for _, existing := range open {
-		if existing.Kind == action.Kind && existing.Target == action.Target && existing.Digest == action.Digest {
+		if existing.Kind == action.Kind && existing.Target == action.Target && existing.Digest == action.Digest && existing.ClientID == action.ClientID {
 			return existing, nil
 		}
 	}
