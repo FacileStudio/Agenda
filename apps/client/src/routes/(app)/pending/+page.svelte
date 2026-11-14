@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Alert, Button, EmptyState, Skeleton, icons, toast } from '@facile/muse';
-	import { ApiError, backend, type PendingAction } from '$lib/backend';
+	import { ApiError, backend, notOwnSession as ownSessionRefused, type PendingAction } from '$lib/backend';
 	import PendingCard from '$lib/components/PendingCard.svelte';
 	import { t } from '$lib/i18n/index.svelte';
 
@@ -22,8 +22,13 @@
 
 	/** Answers true, and shows the sign-in-again notice, when the API refused this session. */
 	function refusedSession(err: unknown): boolean {
-		notOwnSession = err instanceof ApiError && err.status === 403;
+		notOwnSession = ownSessionRefused(err);
 		return notOwnSession;
+	}
+
+	/** The server's own words for any other refusal, else the fallback text. */
+	function reason(err: unknown, fallback: string): string {
+		return err instanceof ApiError && err.status === 403 ? err.message : fallback;
 	}
 
 	/** Loads the open actions. */
@@ -32,7 +37,7 @@
 		try {
 			actions = (await backend.listPending()).actions;
 		} catch (err) {
-			if (!refusedSession(err)) toast.danger(t('pending.loadFailed'));
+			if (!refusedSession(err)) toast.danger(reason(err, t('pending.loadFailed')));
 		}
 		loading = false;
 	}
