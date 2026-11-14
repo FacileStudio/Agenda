@@ -1,14 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { EmptyState, Skeleton, icons, toast } from '@facile/muse';
-	import { backend, type PendingAction } from '$lib/backend';
+	import { Alert, Button, EmptyState, Skeleton, icons, toast } from '@facile/muse';
+	import { ApiError, backend, type PendingAction } from '$lib/backend';
 	import PendingCard from '$lib/components/PendingCard.svelte';
 	import { t } from '$lib/i18n/index.svelte';
 
 	let actions = $state<PendingAction[]>([]);
 	let loading = $state(true);
 	let busy = $state('');
+	let notOwnSession = $state(false);
 
 	const focused = $derived(page.url.searchParams.get('action') ?? '');
 	const ordered = $derived([
@@ -18,15 +20,32 @@
 
 	onMount(load);
 
+	/** Answers true, and shows the sign-in-again notice, when the API refused this session. */
+	function refusedSession(err: unknown): boolean {
+		notOwnSession = err instanceof ApiError && err.status === 403;
+		return notOwnSession;
+	}
+
 	/** Loads the open actions. */
 	async function load() {
 		loading = true;
 		try {
 			actions = (await backend.listPending()).actions;
-		} catch {
-			toast.danger(t('pending.loadFailed'));
+		} catch (err) {
+			if (!refusedSession(err)) toast.danger(t('pending.loadFailed'));
 		}
 		loading = false;
+	}
+
+	/** Signs out and back in, so this browser gets its own session, then returns here. */
+	async function signInAgain() {
+		try {
+			sessionStorage.setItem('agenda.return', page.url.pathname + page.url.search);
+		} catch {}
+		try {
+			await backend.logout();
+		} catch {}
+		await goto('/login');
 	}
 
 	/** Runs one action once, then drops it from the list. */
@@ -37,8 +56,10 @@
 			toast.success(t('pending.deleted'));
 			actions = actions.filter((item) => item.id !== action.id);
 		} catch (err) {
-			toast.danger(err instanceof Error ? err.message : t('pending.failed'));
-			await load();
+			if (!refusedSession(err)) {
+				toast.danger(err instanceof Error ? err.message : t('pending.failed'));
+				await load();
+			}
 		}
 		busy = '';
 	}
@@ -51,7 +72,7 @@
 			toast.success(t('pending.dismissed'));
 			actions = actions.filter((item) => item.id !== action.id);
 		} catch (err) {
-			toast.danger(err instanceof Error ? err.message : t('pending.failed'));
+			if (!refusedSession(err)) toast.danger(err instanceof Error ? err.message : t('pending.failed'));
 		}
 		busy = '';
 	}
@@ -68,7 +89,14 @@
 			<p class="text-fc-sm text-fc-fg-muted">{t('pending.intro')}</p>
 		</div>
 
-		{#if loading}
+		{#if notOwnSession}
+			<Alert tone="warning" title={t('pending.signInAgainTitle')}>
+				<div class="flex flex-col items-start gap-3">
+					<p>{t('pending.signInAgainBody')}</p>
+					<Button size="sm" onclick={signInAgain}>{t('pending.signInAgain')}</Button>
+				</div>
+			</Alert>
+		{:else if loading}
 			<Skeleton class="h-48 w-full" />
 		{:else if actions.length === 0}
 			<EmptyState icon={icons.check} title={t('pending.none')} description={t('pending.noneBody')} />

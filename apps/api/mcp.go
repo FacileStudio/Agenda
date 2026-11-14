@@ -19,7 +19,8 @@ import (
 // ENCRYPTION_KEY signs the confirmations, and nothing otherwise. The
 // verifier runs Registre discovery here, so a wrong issuer fails at boot like
 // the OIDC kit does. A person's first MCP call creates their account through
-// the OIDC kit, as a first web login would.
+// the OIDC kit, as a first web login would. Old pending actions are pruned
+// in the background until ctx ends.
 func newMCP(
 	ctx context.Context, sqlDB *sql.DB, appEnv env.Config, calendarService *calendars.Service,
 	eventService *events.Service, identities porte.IdentityStore, kit *oidc.Kit, appLogger *slog.Logger,
@@ -40,7 +41,7 @@ func newMCP(
 		return nil, err
 	}
 	appLogger.Info("mcp server on", slog.String("resource", appEnv.MCP.Resource))
-	return mcp.NewService(calendarService, eventService, mcp.Config{
+	service, err := mcp.NewService(calendarService, eventService, mcp.Config{
 		Resource: appEnv.MCP.Resource,
 		Issuer:   appEnv.OIDC.Issuer,
 		Version:  version,
@@ -50,4 +51,8 @@ func newMCP(
 		Pending:  mcpkit.PostgresPending{DB: sqlDB},
 		Logger:   appLogger,
 	})
+	if err == nil {
+		go mcpkit.KeepPruned(ctx, mcpkit.PostgresPending{DB: sqlDB}, 0, 0, appLogger)
+	}
+	return service, err
 }

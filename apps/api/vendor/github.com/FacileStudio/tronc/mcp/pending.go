@@ -18,6 +18,10 @@ const (
 	OutcomeStale     = "stale"
 )
 
+// OpenLimit is the most waiting actions Confirmations.Open lists for one
+// person.
+const OpenLimit = 100
+
 // ErrGone is the refusal for an action that ran, was dismissed, expired or
 // was never this person's.
 var ErrGone = errors.NotFound("this action was already confirmed, dismissed or expired")
@@ -60,6 +64,7 @@ type Pending interface {
 	Create(ctx context.Context, action Action) error
 
 	// Open lists the person's unresolved, unexpired actions, newest first.
+	// It may stop after OpenLimit+1 of them.
 	Open(ctx context.Context, userID string) ([]Action, error)
 
 	// Claim marks one of the person's open actions as running and returns
@@ -120,10 +125,11 @@ func (p PostgresPending) Create(ctx context.Context, a Action) error {
 	return nil
 }
 
-// Open lists userID's open actions, newest first.
+// Open lists userID's open actions, newest first, at most OpenLimit+1.
 func (p PostgresPending) Open(ctx context.Context, userID string) ([]Action, error) {
 	rows, err := p.DB.QueryContext(ctx, `SELECT `+actionColumns+` FROM mcp_actions
-		WHERE user_id = $1 AND resolved_at IS NULL AND expires_at > now() ORDER BY created_at DESC, id`, userID)
+		WHERE user_id = $1 AND resolved_at IS NULL AND expires_at > now() ORDER BY created_at DESC, id LIMIT $2`,
+		userID, OpenLimit+1)
 	if err != nil {
 		return nil, errors.Internal("failed to list pending actions", err)
 	}

@@ -20,12 +20,6 @@ const (
 	listTruncated    = "Descriptions are shortened. Read one event in full with agenda_read_event."
 )
 
-// listPosition is the cursor of agenda_list_events: how many events earlier
-// pages returned.
-type listPosition struct {
-	Offset int `json:"o"`
-}
-
 // listEvents is agenda_list_events.
 func (t *toolset) listEvents(ctx context.Context, req *sdk.CallToolRequest, in listInput) (*sdk.CallToolResult, listOutput, error) {
 	userID, err := userOf(req)
@@ -44,19 +38,19 @@ func (t *toolset) listEvents(ctx context.Context, req *sdk.CallToolRequest, in l
 	if err != nil {
 		return nil, listOutput{}, err
 	}
-	var position listPosition
-	if err := mcpkit.DecodeCursor(in.Cursor, &position); err != nil || position.Offset < 0 {
-		return nil, listOutput{}, mcpkit.ErrCursor
+	offset, err := mcpkit.Offset(in.Cursor)
+	if err != nil {
+		return nil, listOutput{}, err
 	}
 	found, err := t.eventsIn(ctx, userID, in.CalendarIDs, from, to, loc)
 	if err != nil {
 		return nil, listOutput{}, err
 	}
 	found = matching(found, in.Query)
-	if position.Offset > len(found) {
+	if offset > len(found) {
 		return nil, listOutput{}, mcpkit.ErrCursor
 	}
-	return nil, page(found, position.Offset, limitOf(in.Limit), loc, full), nil
+	return nil, page(found, offset, limitOf(in.Limit), loc, full), nil
 }
 
 // eventsIn loads the events of the calendars overlapping [from, to), with
@@ -117,9 +111,7 @@ func page(found []events.EventResponse, offset, limit int, loc *time.Location, f
 		return mcpkit.EncodedSize(listOutput{Events: summaries[:n], Total: len(found), NextCursor: "next-cursor-placeholder"})
 	})
 	out := listOutput{Events: summaries[:keep], Total: len(found)}
-	if offset+keep < len(found) {
-		out.NextCursor = mcpkit.EncodeCursor(listPosition{Offset: offset + keep})
-	}
+	out.NextCursor = mcpkit.Cursor(offset+keep, len(found))
 	if full {
 		out.Note = listTruncated
 	}

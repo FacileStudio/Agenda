@@ -5,6 +5,72 @@ session from undoing a deliberate choice.
 
 ## [Unreleased]
 
+## v0.20.0 — 2026-11-14
+
+Tags: root module **v0.20.0**; `mcpauth` **v0.3.0** (its `go.mod` requires porte v0.20.0
+for `Identity.BrowserSession`, so both tags go on the same commit); `forfait` **v0.1.3**;
+`directory` unchanged. No migration, no route, CSRF or `pg.Schema` change. A browser login's
+session token now starts with `b-` (see `NewBrowserToken`); existing sessions keep working.
+
+**Upgrade note.** An app that adopts `RequireOwnSession` needs each person to sign in once in the
+browser after deploying v0.20.0 before they can confirm a pending action: a cookie minted before
+the upgrade has no `b-` mark and is refused (403) by the helper only. It still authenticates for
+everything else, so nobody is signed out.
+
+### Added
+
+- **`mcpauth.RequireOwnSession(r)`: only the person's own browser session confirms a pending MCP
+  action.** The confirm pages decided this five different ways: Courrier, Agenda and Opus refused
+  only delegated tokens, so an agent holding the person's CLI or API token could confirm its own
+  `courrier_send`; Nuage, Sablier and Plume also required a session row, which an opaque bearer
+  or a named API token has; Capsule refused any `Authorization` header; Mycelium accepted only a
+  browser session. The helper takes the strictest rule: the session cookie carrying a token a
+  browser login minted, and nothing else. It refuses every bearer (opaque session, named API
+  token, JWT, delegated or not, machine token), a named API token sent as a cookie, a CLI,
+  device or mobile session token sent as a cookie, a request carrying an `Authorization` header
+  next to the cookie, and a `porte/keys` API key. What it guarantees: the token in the cookie
+  came out of `IssueCookieFor` (OIDC web callback, local login, register, password change,
+  magic link). What it does not: local login and magic link also return that token in their
+  JSON body, so a CLI that signs in with the person's password or mailbox holds a browser token. A request with no porte
+  identity is the 401 the apps answered; every other refusal is one 403, `ErrNotOwnSession`,
+  with the text of tronc's `mcp.ErrDelegated`.
+- `porte.Identity.BrowserSession`, set by `session.Manager.Authenticate` when the credential came
+  from the session cookie, the row is not a named API token, and the token starts with
+  `porte.BrowserTokenPrefix` (`b-`). The bearer JWT path clears it. Nothing else sets it.
+- `porte.NewBrowserToken()`: `b-` + `NewToken()`. `session.Manager.IssueCookieFor` (and so
+  `IssueCookie`) mints it; `Issue` and `IssueFor` (CLI code exchange, device exchange, mobile)
+  keep plain tokens. Why a mark on the token and not an `origin` column: about fourteen apps keep
+  their own copy of porte's DDL in goose migrations, so a column means a migration in each and a
+  broken login until it lands (the v0.10.0 `porte_login_codes` precedent). The stored hash
+  covers the prefix, so adding `b-` to a CLI token makes it fail its lookup (401). A session
+  minted before v0.20.0 has no mark and fails closed for `RequireOwnSession` only.
+- `mcpauth.AccountExists(ctx, info, lookup)`: the "account still exists" check six apps copy into
+  their tool `userOf`. It resolves the Verifier token's user and reads it with the app's own
+  lookup; a token from elsewhere or a failed lookup is `ErrNoAccount`, wrapping the lookup's error.
+- forfait: `(*LimitError).PlanLimit() (key, upgradeURL string)`, the method tronc v0.23.0's
+  `mcp.Failure` looks for, so a plan refusal reaches an MCP client as the plan-limit failure with
+  no app code.
+- Conformance vectors a port reads: `exchange_errors.json` (the token endpoint's answer to an
+  RFC 8693 exchange, mapped to token, reconnect, refused or unavailable), `mcpauth_tokens.json`
+  (audience, issuer, expiry, scope and provisioning outcomes), `provision_bearer.json` (the email,
+  roles, store and erased-subject refusals of `ProvisionBearer`) and `directory_erased.json`
+  (`Deletions.Erased` and the `Holds` re-erasure). Every vector's `source` names the release tag.
+
+### Fixed
+
+- oidc: back-channel logout answers 503 `unavailable` ("could not fetch the provider keys") when
+  the provider's JWKS cannot be fetched, as porte-rs does, instead of 401. The failure is the
+  app's, not the token's, so 503 is the correct status, and it lets a provider retry. Registre
+  delivers a logout once today and treats every status alike, so a deactivation during a JWKS
+  outage still leaves the person's sessions alive until they expire; a bounded retry on 5xx in
+  Registre would close that. Every other verification failure stays 401. go-oidc formats the fetch error
+  with `%v`, so the kit matches the `failed to verify signature: fetching keys` prefix; the
+  vector cases "the provider keys are unreachable" and "the provider keys answer an error" fail
+  if a go-oidc upgrade changes it.
+- build(mcpauth): its `go.mod` requires `directory` v0.5.0, as the root module now does; the
+  `replace ../` made CI's nested-module step ask for `go mod tidy` on the v0.19.0 commit. No
+  mcpauth code change in that fix alone; it ships in `mcpauth/v0.3.0`.
+
 ## v0.19.0 — 2026-11-12
 
 Root module: **v0.19.0**; `directory` **v0.5.0**; `forfait` and `mcpauth` unchanged. Additive; no
@@ -206,6 +272,26 @@ callback, a picture backfill and the two mount calls. The kit is that code once.
 
 Proven on Sonde (branch `conv/kit-proof`, not merged): 467 lines removed, 85 added.
 See [docs/kit.md](docs/kit.md).
+
+## v0.16.1 — 2026-11-10
+
+Root module: **v0.16.1**; nested modules unchanged. Tests only; no migration, no API change.
+(This entry was written with the release and lost in a later merge; restored in v0.20.0.)
+
+**Conformance vectors for ports of porte.** `porte-rs` must behave like a Go app on this tag to
+browsers, CLIs and Registre, so the behaviour is pinned in JSON a Rust test can read, generated
+from the real packages rather than written by hand:
+
+- `conformance/vectors/*.json`, one file per subject: `token`, `schema`, `cookie`, `csrf`, `routes`,
+  `config_answer`, `pkce`, `scope_gate`, `jwt`, `backchannel_logout`, `spaces_ladder`, `sealer`, and
+  `directory_snapshot` (written by a test in the `directory` module, which the root module does not
+  require). Each file is `{source, subject, fixtures, cases[{name, input, want}]}`.
+- `go test ./conformance` fails when porte's behaviour drifts from the files; `-update` rewrites
+  them. `cd directory && go test -run DirectorySnapshotVector -update` does the same for its file.
+- Signed tokens use a fixed test key in `conformance/testdata`, served by an in-memory issuer at
+  `https://sso.test`, so every token and every file is byte-stable. The key signs nothing else.
+- `conformance/CONTRACT-CHANGES.md` lists the contract changes from v0.11.0 to v0.16.0, one line
+  each, for the port.
 
 ## v0.16.0 — 2026-11-10
 

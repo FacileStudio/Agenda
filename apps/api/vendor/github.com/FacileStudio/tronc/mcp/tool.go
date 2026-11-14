@@ -34,16 +34,23 @@ var errNoToken = errors.New("this request carries no valid access token. Reconne
 // Annotations are a tool's hints for the client's permission UI. Every tool
 // declares all four: clients treat a missing destructive or open-world hint
 // as true. They are UX, never the gate: the scopes and Confirmations are.
+// Clients auto-approve on them, so the suite rule is strict: a tool that
+// overwrites or removes the user's data, or silences an alert, is
+// Destructive, and only a tool whose repeat call has no further effect is
+// Idempotent.
 type Annotations struct {
 	// ReadOnly tools change nothing. Every other tool needs the write scope.
 	ReadOnly bool
 
-	// Destructive tools may delete or overwrite. A read-only tool is never
-	// destructive.
+	// Destructive tools delete, overwrite or replace the user's data, such
+	// as updating fields, replacing a draft or an artifact of the same name,
+	// or turn off an alert. A tool that only adds is not. A read-only tool
+	// is never destructive.
 	Destructive bool
 
 	// Idempotent tools have no further effect when called again with the
-	// same arguments.
+	// same arguments. A tool that asks for a confirmation, sends, or
+	// creates on each call is not.
 	Idempotent bool
 
 	// OpenWorld tools read or reach content from outside the app, such as

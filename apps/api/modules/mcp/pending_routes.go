@@ -5,23 +5,20 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/FacileStudio/porte"
-	"github.com/FacileStudio/porte/kit"
+	"github.com/FacileStudio/porte/mcpauth"
 	mcpkit "github.com/FacileStudio/tronc/mcp"
 )
 
 // webActor marks, in the audit, a confirmation made on the confirm page.
 const webActor = "agenda-web"
 
-// pendingUser is the signed-in person of a confirm page request. A delegated
-// token is refused: an agent must never confirm its own request.
+// pendingUser is the person of a confirm page request, accepted only from
+// their own browser session: a bearer token, an API key, a CLI session or a
+// delegated token is refused, so an agent never confirms its own request.
 func pendingUser(r *http.Request) (string, error) {
-	if identity, ok := porte.From(r.Context()); ok && identity.Actor != "" {
-		return "", mcpkit.ErrDelegated
-	}
-	identity, ok := kit.FromContext(r.Context())
-	if !ok {
-		return "", nil
+	identity, err := mcpauth.RequireOwnSession(r)
+	if err != nil {
+		return "", err
 	}
 	return strconv.FormatInt(identity.UserID, 10), nil
 }

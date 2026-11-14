@@ -63,6 +63,10 @@ type AppSpec struct {
 
 	// Tools are the curated tools.
 	Tools []Tool
+
+	// Scopes are as in Options. Zero means Name.read and Name.write; a
+	// server whose tools are all read-only may set Read alone.
+	Scopes Scopes
 }
 
 // App is one app's validated MCP server and the confirmations behind its
@@ -106,7 +110,7 @@ func NewApp(cfg AppConfig, spec AppSpec) (*App, error) {
 		Name: spec.Name, Title: spec.Title, Version: cfg.Version, Instructions: spec.Instructions,
 		Resource: cfg.Resource, Issuer: cfg.Issuer, Verifier: cfg.Verifier, Origins: cfg.Origins, Audit: cfg.Logger,
 		RateLimit: middleware.RatelimitConfig{Limit: float64(cfg.PerMinute) / 60, Burst: cfg.PerMinute},
-		Tools:     spec.Tools,
+		Tools:     spec.Tools, Scopes: spec.Scopes,
 	})
 	if err != nil {
 		return nil, err

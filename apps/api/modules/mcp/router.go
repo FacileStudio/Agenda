@@ -15,10 +15,7 @@ func RegisterRoutes(router chi.Router, service *Service) {
 // RegisterPendingRoutes mounts the confirm page's API under /mcp/pending on
 // the /api router, for the signed-in person.
 func RegisterPendingRoutes(router chi.Router, service *Service, authService kit.Authenticator) {
-	router.Route("/mcp/pending", func(r chi.Router) {
-		r.Use(authService.RequireAuth)
-		service.pending().Routes(r)
-	})
+	service.pending().Mount(router, authService.RequireAuth)
 }
 
 // pending is the confirm page, or nil on a nil service.

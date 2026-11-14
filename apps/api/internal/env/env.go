@@ -1,7 +1,6 @@
 package env
 
 import (
-	"crypto/sha256"
 	stderrors "errors"
 	"fmt"
 	"net/url"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/FacileStudio/Agenda/apps/api/internal/crypto"
 	troncenv "github.com/FacileStudio/tronc/env"
+	mcpkit "github.com/FacileStudio/tronc/mcp"
 
 	"github.com/FacileStudio/porte"
 
@@ -109,7 +109,7 @@ func Load() (Config, error) {
 
 	if key := troncenv.String("ENCRYPTION_KEY", ""); key != "" {
 		cfg.EncryptionKey = crypto.DeriveKey(key)
-		cfg.MCP = MCP{Resource: troncenv.String("MCP_RESOURCE", ""), StateKey: deriveStateKey(key)}
+		cfg.MCP = MCP{Resource: troncenv.String("MCP_RESOURCE", ""), StateKey: mcpkit.StateKey("agenda", key)}
 	}
 
 	return cfg, nil
@@ -230,11 +230,4 @@ func (c Config) IssuerForMigration() string {
 		return ""
 	}
 	return c.OIDC.Issuer
-}
-
-// deriveStateKey derives the MCP confirmation key from the app's encryption
-// passphrase, namespaced so it collides with no other key.
-func deriveStateKey(encryptionKey string) []byte {
-	sum := sha256.Sum256([]byte("agenda-mcp-state:" + encryptionKey))
-	return sum[:]
 }

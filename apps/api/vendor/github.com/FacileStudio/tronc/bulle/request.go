@@ -19,12 +19,14 @@ const maxBody = 1 << 20
 var ErrBadSegment = stderrors.New("bulle: invalid path segment")
 
 // Request is one call to Bulle's API. Segments follow /api/ and are escaped
-// one by one, so an id holding a slash or a query stays one segment.
+// one by one, so an id holding a slash or a query stays one segment. Header
+// adds request headers; it never replaces Authorization.
 type Request struct {
 	Method   string
 	Segments []string
 	Query    url.Values
 	Body     any
+	Header   http.Header
 }
 
 func (c *Client) target(req Request) (string, error) {
@@ -55,16 +57,16 @@ func (c *Client) Call(ctx context.Context, req Request, out any) error {
 			return fmt.Errorf("bulle: encoding the request: %w", err)
 		}
 	}
-	err = c.send(ctx, req.Method, target, payload, out)
+	err = c.send(ctx, req, target, payload, out)
 	var refused *StatusError
 	if c.cfg.Forget != nil && stderrors.As(err, &refused) && refused.Status == http.StatusUnauthorized {
 		c.cfg.Forget(ctx)
-		err = c.send(ctx, req.Method, target, payload, out)
+		err = c.send(ctx, req, target, payload, out)
 	}
 	return err
 }
 
-func (c *Client) send(ctx context.Context, method, target string, payload []byte, out any) error {
+func (c *Client) send(ctx context.Context, req Request, target string, payload []byte, out any) error {
 	token, err := c.cfg.TokenSource(ctx)
 	if err != nil {
 		return err
@@ -73,9 +75,12 @@ func (c *Client) send(ctx context.Context, method, target string, payload []byte
 	if payload != nil {
 		body = bytes.NewReader(payload)
 	}
-	request, err := http.NewRequestWithContext(ctx, method, target, body)
+	request, err := http.NewRequestWithContext(ctx, req.Method, target, body)
 	if err != nil {
 		return fmt.Errorf("bulle: building the request: %w", err)
+	}
+	for name, values := range req.Header {
+		request.Header[http.CanonicalHeaderKey(name)] = values
 	}
 	request.Header.Set("Authorization", "Bearer "+token)
 	request.Header.Set("Accept", "application/json")

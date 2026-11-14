@@ -100,11 +100,7 @@ func newProvider(cfg Config) (*goose.Provider, error) {
 	provider, err := goose.NewProvider(goose.DialectPostgres, cfg.DB, cfg.FS,
 		goose.WithSessionLocker(locker),
 		goose.WithSlog(cfg.logger()),
-		// goose logs nothing unless it is verbose, and a migration that takes
-		// minutes should say so while it runs rather than only at the end.
 		goose.WithVerbose(true),
-		// Nothing in this suite registers Go migrations through init(), and a
-		// package that started to would otherwise be picked up silently.
 		goose.WithDisableGlobalRegistry(true),
 	)
 	if err != nil {
@@ -129,6 +125,9 @@ func Run(ctx context.Context, cfg Config) error {
 // Command runs the migrate subcommand and reports whether it recognised one, so
 // a caller can fall through to a normal start. It returns errors rather than
 // exiting, which is what makes it testable.
+//
+// Arguments are validated before the database is touched, so a typo fails fast
+// rather than halfway through a run.
 func Command(ctx context.Context, args []string, cfg Config) (bool, error) {
 	if len(args) < 2 || args[1] != "migrate" {
 		return false, nil
@@ -139,7 +138,6 @@ func Command(ctx context.Context, args []string, cfg Config) (bool, error) {
 		subcommand = args[2]
 	}
 
-	// Validate arguments before touching the database, so a typo fails fast.
 	var baselineVersion int64
 	if subcommand == "baseline" {
 		if len(args) < 4 {
@@ -171,12 +169,13 @@ func Command(ctx context.Context, args []string, cfg Config) (bool, error) {
 	}
 }
 
+// up applies every pending migration. A goose.PartialError is unwrapped rather
+// than returned as-is: it names the migration that broke and how far the run
+// got, which the driver's own error does not, leaving the operator to read the
+// ledger to find out what actually landed.
 func up(ctx context.Context, provider *goose.Provider, log *slog.Logger) error {
 	results, err := provider.Up(ctx)
 	if err != nil {
-		// A partial failure names the migration that broke and how far the run
-		// got. Without this the operator sees only the driver's error and has
-		// to read the ledger to find out what actually landed.
 		var partial *goose.PartialError
 		if errors.As(err, &partial) {
 			return fmt.Errorf("migrate: version %d failed after %d applied: %w",
@@ -229,10 +228,12 @@ func version(ctx context.Context, provider *goose.Provider) error {
 //
 // goose has no stamp command of its own (pressly/goose#431, #938, PR #954 is
 // unmerged), and the raw-SQL workaround cannot reach a distroless container.
+//
+// The run opens with HasPending, which creates the ledger table and the
+// version 0 sentinel row that goose refuses to operate without, and is
+// documented to skip the lock. Hand-writing that DDL instead would drift on any
+// goose release.
 func baseline(ctx context.Context, provider *goose.Provider, db *sql.DB, target int64, log *slog.Logger) error {
-	// HasPending creates the ledger table and the version 0 sentinel row that
-	// goose refuses to operate without, and is documented to skip the lock.
-	// Hand-writing that DDL instead would drift on any goose release.
 	if _, err := provider.HasPending(ctx); err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}

@@ -34,7 +34,15 @@ type PendingItem struct {
 // newest first.
 type PendingList[T any] struct {
 	Actions []T `json:"actions"`
+
+	// Truncated is true when the person has more than OpenLimit waiting
+	// actions; the oldest are left out.
+	Truncated bool `json:"truncated,omitempty"`
 }
+
+// PendingAPIPath is where Mount serves the confirm page's API, on the
+// app's /api router.
+const PendingAPIPath = "/mcp/pending"
 
 // PendingResult is the body answered when an action is confirmed or
 // dismissed. URL is set when the action made something to open, such as a
@@ -80,13 +88,24 @@ func (p *PendingPage[T]) Routes(r chi.Router) {
 	r.Post("/{id}/dismiss", p.dismiss)
 }
 
-// List renders userID's open actions with their targets as they are now.
+// Mount mounts Routes at PendingAPIPath on router, behind auth, the app's
+// authentication middleware. A nil page still mounts them, for route
+// documentation tests.
+func (p *PendingPage[T]) Mount(router chi.Router, auth ...func(http.Handler) http.Handler) {
+	router.Route(PendingAPIPath, func(r chi.Router) {
+		r.Use(auth...)
+		p.Routes(r)
+	})
+}
+
+// List renders userID's open actions with their targets as they are now,
+// at most OpenLimit of them.
 func (p *PendingPage[T]) List(ctx context.Context, userID string) (PendingList[T], error) {
-	actions, err := p.Confirmations.Open(ctx, userID)
+	actions, truncated, err := p.Confirmations.List(ctx, userID)
 	if err != nil {
 		return PendingList[T]{}, err
 	}
-	list := PendingList[T]{Actions: make([]T, 0, len(actions))}
+	list := PendingList[T]{Actions: make([]T, 0, len(actions)), Truncated: truncated}
 	for _, a := range actions {
 		item := PendingItem{
 			ID: a.ID, Kind: a.Kind, ClientID: a.ClientID, Summary: a.Summary,

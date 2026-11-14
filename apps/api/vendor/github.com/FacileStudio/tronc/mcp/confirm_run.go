@@ -38,6 +38,21 @@ func (c *Confirmations) Link(id string) string {
 	return link.String()
 }
 
+// reuseOrCreate returns the person's open action of the same kind on the
+// same target with the same digest, or stores action as a new one.
+func (c *Confirmations) reuseOrCreate(ctx context.Context, action Action) (Action, error) {
+	open, err := c.cfg.Store.Open(ctx, action.UserID)
+	if err != nil {
+		return action, err
+	}
+	for _, existing := range open {
+		if existing.Kind == action.Kind && existing.Target == action.Target && existing.Digest == action.Digest {
+			return existing, nil
+		}
+	}
+	return c.create(ctx, action)
+}
+
 // create stores action under a fresh random id.
 func (c *Confirmations) create(ctx context.Context, action Action) (Action, error) {
 	token := make([]byte, 18)

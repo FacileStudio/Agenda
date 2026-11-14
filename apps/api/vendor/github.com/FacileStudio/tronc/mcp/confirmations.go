@@ -94,6 +94,11 @@ type Outcome struct {
 	// ConfirmURL is the link to give the person when Status is
 	// StatusPending.
 	ConfirmURL string
+
+	// Message is the standard text for the model when Status is
+	// StatusPending with a link, or StatusDeclined. A tool puts it in its
+	// output's message.
+	Message string
 }
 
 // Confirmations asks a person before a sensitive action runs: through MRTR
@@ -132,10 +137,16 @@ func NewConfirmations(cfg ConfirmConfig) (*Confirmations, error) {
 }
 
 // Request opens a pending action of kind on target and asks the person
-// question. When the client can elicit, it returns the input_required
-// result for the tool to return as is. Otherwise the result is nil and the
-// Outcome holds StatusPending and the confirm link. Either way nothing has
-// run yet.
+// question. When the person already has an open action of that kind on
+// that target, with the same digest, it asks about that one instead of
+// opening another, so an agent that loops on a tool opens one action. The
+// reuse is best effort: two concurrent identical requests can still open two.
+// A reused action keeps its first client, which the audit of its run names,
+// and its first expiry, which the Waiting text counts down from. When the
+// client can elicit, it returns the input_required result for the tool
+// to return as is. Otherwise the result is nil and the Outcome holds
+// StatusPending, the confirm link and the Waiting text. Either way nothing has run
+// yet.
 func (c *Confirmations) Request(ctx context.Context, req *sdk.CallToolRequest, kind, target, question string) (*sdk.CallToolResult, Outcome, error) {
 	who, err := CallerOf(req)
 	if err != nil {
@@ -149,18 +160,19 @@ func (c *Confirmations) Request(ctx context.Context, req *sdk.CallToolRequest, k
 	if action.Digest, err = runner.Fingerprint(ctx, action); err != nil {
 		return nil, Outcome{}, err
 	}
-	if action, err = c.create(ctx, action); err != nil {
+	if action, err = c.reuseOrCreate(ctx, action); err != nil {
 		return nil, Outcome{}, err
 	}
 	c.audit(ctx, runner.Tool, "requested", who, target)
 	if CanElicit(req) {
 		return c.signer.ask(who.UserID, action.ID, question), Outcome{Status: StatusPending, Action: action}, nil
 	}
-	return nil, Outcome{Status: StatusPending, Action: action, ConfirmURL: c.Link(action.ID)}, nil
+	return nil, Outcome{Status: StatusPending, Action: action, ConfirmURL: c.Link(action.ID), Message: waiting(time.Until(action.ExpiresAt).Round(time.Hour))}, nil
 }
 
 // Resume handles the retry that carries the person's answer to a question
-// about kind: a decline closes the action, an accept runs it once.
+// about kind: a decline closes the action, with MessageDeclined in the
+// Outcome, and an accept runs it once.
 func (c *Confirmations) Resume(ctx context.Context, req *sdk.CallToolRequest, kind string) (Outcome, error) {
 	who, err := CallerOf(req)
 	if err != nil {
@@ -175,7 +187,7 @@ func (c *Confirmations) Resume(ctx context.Context, req *sdk.CallToolRequest, ki
 			return Outcome{}, err
 		}
 		c.audit(ctx, c.cfg.Kinds[kind].Tool, OutcomeDeclined, who, "")
-		return Outcome{Status: StatusDeclined, Action: Action{ID: id, Kind: kind}}, nil
+		return Outcome{Status: StatusDeclined, Action: Action{ID: id, Kind: kind}, Message: MessageDeclined}, nil
 	}
 	action, err := c.run(ctx, who, id, kind)
 	if err != nil {
@@ -203,7 +215,19 @@ func (c *Confirmations) Dismiss(ctx context.Context, who Caller, id string) erro
 	return nil
 }
 
-// Open lists the person's waiting actions, newest first.
+// Open lists the person's waiting actions, newest first, at most
+// OpenLimit of them.
 func (c *Confirmations) Open(ctx context.Context, userID string) ([]Action, error) {
-	return c.cfg.Store.Open(ctx, userID)
+	actions, _, err := c.List(ctx, userID)
+	return actions, err
+}
+
+// List is Open that also reports whether the person has more than
+// OpenLimit waiting actions, which it leaves out.
+func (c *Confirmations) List(ctx context.Context, userID string) ([]Action, bool, error) {
+	actions, err := c.cfg.Store.Open(ctx, userID)
+	if err != nil || len(actions) <= OpenLimit {
+		return actions, false, err
+	}
+	return actions[:OpenLimit], true, nil
 }
