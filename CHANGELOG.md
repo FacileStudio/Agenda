@@ -2,6 +2,16 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.21.2] - 2026-11-14
+
+### Fixed
+
+- Landing: every pricing button opens the Facile sign-up page in the visitor's language instead of the spaces page, which asked a signed-out visitor to sign in.
+
+### Changed
+
+- muse v0.26.0.
+
 ## [0.21.1] - 2026-11-14
 
 ### Changed
