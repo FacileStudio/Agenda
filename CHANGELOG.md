@@ -2,6 +2,12 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.20.3] - 2026-11-14
+
+### Fixed
+
+- Confirm page: the sign-in-again notice shows only for porte's own-session refusal. Any other 403, such as a calendar the person can no longer edit, now shows the server's message.
+
 ## [0.20.2] - 2026-11-14
 
 ### Security
