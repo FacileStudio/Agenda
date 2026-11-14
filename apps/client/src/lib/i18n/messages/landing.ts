@@ -138,6 +138,12 @@ export const landing = {
 		'Un asistente lee y crea eventos en https://agenda.facile.studio/mcp',
 		'Ein Assistent liest und erstellt Termine über https://agenda.facile.studio/mcp'
 	],
+	'landing.dev.selfHost': [
+		'https://suite.facile.studio/en/auto-hebergement',
+		'https://suite.facile.studio/auto-hebergement',
+		'https://suite.facile.studio/es/auto-hebergement',
+		'https://suite.facile.studio/de/auto-hebergement'
+	],
 	'landing.dev.source': [
 		'The code on GitHub, AGPL-3.0.',
 		'Le code sur GitHub, sous AGPL-3.0.',

@@ -12,5 +12,5 @@
 </script>
 
 <div id="developers" class="mx-auto w-full max-w-5xl scroll-mt-20 px-4 py-16 sm:px-6">
-	<ForDevelopers {rows} description={t('landing.dev.line')} />
+	<ForDevelopers {rows} description={t('landing.dev.line')} selfHostHref={t('landing.dev.selfHost')} />
 </div>
