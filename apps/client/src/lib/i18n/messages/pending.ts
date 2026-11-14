@@ -45,6 +45,19 @@ export const pending = {
 		'Descartado. Se conserva el evento.',
 		'Verworfen. Der Termin bleibt erhalten.'
 	],
+	'pending.signInAgainTitle': [
+		'Sign in again to confirm',
+		'Reconnectez-vous pour confirmer',
+		'Vuelve a iniciar sesión para confirmar',
+		'Melde dich erneut an, um zu bestätigen'
+	],
+	'pending.signInAgainBody': [
+		'Only a browser sign-in can confirm what an AI client asked. Sign in again in your browser. The mobile and desktop apps cannot confirm actions.',
+		'Seule une connexion depuis le navigateur peut confirmer ce qu’un client IA a demandé. Reconnectez-vous dans votre navigateur. Les applications mobile et de bureau ne peuvent pas confirmer d’actions.',
+		'Solo un inicio de sesión en el navegador puede confirmar lo que pidió un cliente de IA. Vuelve a iniciar sesión en tu navegador. Las aplicaciones móvil y de escritorio no pueden confirmar acciones.',
+		'Nur eine Anmeldung im Browser kann bestätigen, worum ein KI-Client gebeten hat. Melde dich in deinem Browser erneut an. Die Mobil- und Desktop-Apps können keine Aktionen bestätigen.'
+	],
+	'pending.signInAgain': ['Sign in again', 'Se reconnecter', 'Iniciar sesión de nuevo', 'Erneut anmelden'],
 	'pending.failed': ['That did not work', 'Cela n’a pas marché', 'No ha funcionado', 'Das hat nicht geklappt'],
 	'pending.loadFailed': [
 		'Could not load pending actions',
