@@ -2,6 +2,12 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.20.1] - 2026-11-14
+
+### Added
+
+- feat(client): `app.html` loads Vision's `s.js` on `agenda.facile.studio` only, with `data-mask` so ids in the path are recorded as `:id`. The API adds `https://vision.facile.studio` to the CSP `script-src`; the loader itself is allowed by the inline script hashes of the built client.
+
 ## [0.20.0] - 2026-11-14
 
 ### Security
