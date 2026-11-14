@@ -634,7 +634,7 @@ func (k *Kit) handleBackchannelLogout(w http.ResponseWriter, r *http.Request) {
 func (k *Kit) verifyLogoutToken(ctx context.Context, rawToken string) (string, error) {
 	idToken, err := k.verifier.Verify(ctx, rawToken)
 	if err != nil {
-		return "", errors.Unauthorized("invalid logout token")
+		return "", k.logoutRefusal(err)
 	}
 	if idToken.Nonce != "" {
 		return "", errors.Unauthorized("a logout token must not carry a nonce")

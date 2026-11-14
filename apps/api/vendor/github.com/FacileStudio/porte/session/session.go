@@ -200,7 +200,11 @@ func (m *Manager) Issue(ctx context.Context, userID int64, label string) (string
 // session, a Subject), to the identity (Config.Issuer, Subject) the JWT
 // resolved through. A token loop racing a purge cannot outlive either.
 func (m *Manager) IssueFor(ctx context.Context, template porte.Session) (string, porte.Session, error) {
-	token, err := porte.NewToken()
+	return m.issue(ctx, template, porte.NewToken)
+}
+
+func (m *Manager) issue(ctx context.Context, template porte.Session, mint func() (string, error)) (string, porte.Session, error) {
+	token, err := mint()
 	if err != nil {
 		return "", porte.Session{}, errors.Internal("failed to issue a session", err)
 	}
@@ -234,9 +238,11 @@ func (m *Manager) IssueCookie(ctx context.Context, w http.ResponseWriter, r *htt
 }
 
 // IssueCookieFor is IssueFor plus the Set-Cookie, as IssueCookie is Issue
-// plus the Set-Cookie. No cookie is set when the bound identity is gone.
+// plus the Set-Cookie. No cookie is set when the bound identity is gone. The
+// token is a porte.NewBrowserToken, the only kind Authenticate marks as a
+// BrowserSession; IssueFor and Issue mint plain tokens for CLIs and devices.
 func (m *Manager) IssueCookieFor(ctx context.Context, w http.ResponseWriter, r *http.Request, template porte.Session) (string, porte.Session, error) {
-	token, session, err := m.IssueFor(ctx, template)
+	token, session, err := m.issue(ctx, template, porte.NewBrowserToken)
 	if err != nil {
 		return "", porte.Session{}, err
 	}
@@ -396,11 +402,19 @@ func (m *Manager) Authenticate(w http.ResponseWriter, r *http.Request) (porte.Id
 		}
 	}
 
-	identity := porte.Identity{UserID: stored.UserID, SessionID: stored.ID}
+	identity := porte.Identity{UserID: stored.UserID, SessionID: stored.ID, BrowserSession: browserSession(fromCookie, token, stored)}
 	if m.claims != nil {
 		m.claims.Attach(r.Context(), &identity)
 	}
 	return identity, nil
+}
+
+// browserSession reports whether a credential is a browser login: it came in
+// the session cookie, its row is not a named API token, and IssueCookieFor
+// minted it. A session token a CLI, device or mobile exchange received, sent
+// as a cookie, is not one, and neither is a cookie issued before v0.20.0.
+func browserSession(fromCookie bool, token string, stored porte.Session) bool {
+	return fromCookie && !stored.IsAPIToken() && strings.HasPrefix(token, porte.BrowserTokenPrefix)
 }
 
 // jwtApplies reports whether this manager authenticates a bearer as a JWT:
@@ -423,6 +437,7 @@ func (m *Manager) verifyBearerJWT(r *http.Request, token string) (porte.Identity
 	if !m.scopeAllows(r, identity.Scopes) {
 		return porte.Identity{}, errors.Forbidden("insufficient scope")
 	}
+	identity.BrowserSession = false
 	return identity, nil
 }
 

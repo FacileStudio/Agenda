@@ -120,6 +120,10 @@ func SchemaName(prefix string) string {
 }
 
 // Open creates this binary's schema, connects scoped to it, and migrates.
+//
+// The search_path travels in the connection string rather than in a SET: GORM
+// hands out pooled connections, so a SET would bind one of them and every other
+// query in the package would quietly run against public.
 func Open(url string, cfg Config) (*gorm.DB, error) {
 	if cfg.Prefix == "" {
 		return nil, fmt.Errorf("testdb: Prefix is required")
@@ -144,9 +148,6 @@ func Open(url string, cfg Config) (*gorm.DB, error) {
 		_ = handle.Close()
 	}
 
-	// The search_path has to travel in the connection string, not in a SET.
-	// GORM hands out pooled connections, so a SET would bind one of them and
-	// every other query in the package would quietly run against public.
 	scoped, err := open(withSearchPath(withTimeout(url), schema))
 	if err != nil {
 		return nil, fmt.Errorf("testdb: open %s scoped to %s: %w", EnvVar, schema, err)
@@ -164,6 +165,10 @@ func Open(url string, cfg Config) (*gorm.DB, error) {
 // Truncate-and-reseed is used rather than a transaction per test because
 // service layers open transactions of their own on the shared handle, and their
 // fire-and-forget goroutines use that same connection concurrently.
+//
+// goose's ledger is always kept: emptying it would be worse than useless, since
+// TRUNCATE does not drop the tables and the next migration run would replay
+// from version 0 and fail on "relation already exists".
 func Truncate(db *gorm.DB, cfg Config) error {
 	skip := map[string]bool{LedgerTable: true}
 	for _, name := range cfg.Keep {
@@ -177,9 +182,6 @@ func Truncate(db *gorm.DB, cfg Config) error {
 
 	quoted := make([]string, 0, len(tables))
 	for _, table := range tables {
-		// Emptying goose's ledger would be worse than useless: TRUNCATE does not
-		// drop the tables, so the next migration run would replay from version 0
-		// and fail on "relation already exists".
 		if skip[table] {
 			continue
 		}

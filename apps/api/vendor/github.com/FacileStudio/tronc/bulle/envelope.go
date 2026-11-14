@@ -11,6 +11,7 @@ type errorFields struct {
 	Message    string `json:"message"`
 	UpgradeURL string `json:"upgrade_url"`
 	Key        string `json:"key"`
+	Limit      int64  `json:"limit"`
 }
 
 // envelope reads an error body in tronc's {"error":{...}} envelope or bare,
@@ -35,7 +36,7 @@ func envelope(raw []byte) errorFields {
 
 func planRequired(raw []byte) *PlanRequired {
 	fields := envelope(raw)
-	plan := &PlanRequired{Message: fields.Message, Key: fields.Key}
+	plan := &PlanRequired{Message: fields.Message, Key: fields.Key, Limit: fields.Limit}
 	if errors.SafeUpgradeURL(fields.UpgradeURL) {
 		plan.UpgradeURL = fields.UpgradeURL
 	}

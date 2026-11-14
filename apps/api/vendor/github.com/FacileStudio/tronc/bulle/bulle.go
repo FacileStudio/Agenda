@@ -1,13 +1,13 @@
-// Package bulle is the client a suite app uses to reach Bulle as the
-// signed-in user: today the per-app Ideas API, later any AI call. The token
-// comes from a TokenSource, which is porte/exchange's Source in practice
-// (audience bulle, scopes bulle.read and bulle.write); this package does not
-// import porte.
+// Package bulle is the client a suite app uses to reach Bulle: the per-app
+// Ideas API and Complete as the signed-in user, and DecideAI as the app's
+// service. The token comes from a TokenSource: porte/exchange's Source for
+// the user (audience bulle, scopes bulle.read and bulle.write), or the
+// app's service key for DecideAI. This package does not import porte.
 //
 // Failures come back typed: a 402 is a [*PlanRequired], any other 4xx a
 // [*StatusError] that keeps its status (429 is the daily cap, 409 a batch
-// already running), and a 5xx, a timeout or a network error wraps
-// [ErrUnreachable]. Paths are built here from escaped segments; nothing a
+// already running), and a 3xx, a 5xx, a timeout or a network error wraps
+// [ErrUnreachable]: the client never follows a redirect. Paths are built here from escaped segments; nothing a
 // browser sends becomes a path as it is.
 package bulle
 
@@ -29,12 +29,13 @@ var ErrUnreachable = stderrors.New("bulle: unreachable")
 
 // PlanRequired is Bulle's 402: the user's plan has no AI access. Message and
 // UpgradeURL are for the user; UpgradeURL is empty unless it is a same-origin
-// path or an https URL. Key is the entitlement the answer names, when it
-// names one.
+// path or an https URL. Key is the entitlement the answer names, and Limit
+// the ceiling the plan allows, when the answer names them.
 type PlanRequired struct {
 	Message    string
 	UpgradeURL string
 	Key        string
+	Limit      int64
 }
 
 func (e *PlanRequired) Error() string { return "bulle: plan required: " + e.Message }
@@ -61,7 +62,9 @@ type Config struct {
 	// Forget, when set, is called after a 401 before the one retry, so the
 	// token source mints a new token instead of returning the cached one.
 	Forget func(ctx context.Context)
-	// HTTPClient calls Bulle. The default has a 20 s timeout.
+	// HTTPClient calls Bulle. The default has a 20 s timeout; Complete
+	// usually needs more, such as 90 s. The Client works on a copy that
+	// never follows a redirect.
 	HTTPClient *http.Client
 }
 
@@ -81,11 +84,19 @@ func New(cfg Config) (*Client, error) {
 	if cfg.TokenSource == nil {
 		return nil, stderrors.New("bulle: a TokenSource is required")
 	}
-	client := cfg.HTTPClient
-	if client == nil {
-		client = &http.Client{Timeout: defaultTimeout}
+	client := &http.Client{Timeout: defaultTimeout}
+	if cfg.HTTPClient != nil {
+		copied := *cfg.HTTPClient
+		client = &copied
 	}
+	client.CheckRedirect = refuseRedirect
 	return &Client{base: base, cfg: cfg, client: client}, nil
+}
+
+// refuseRedirect keeps a 3xx as the answer, so the token never follows a
+// redirect and the call fails as unreachable.
+func refuseRedirect(*http.Request, []*http.Request) error {
+	return http.ErrUseLastResponse
 }
 
 // ContinueURL is where the user continues a run's conversation in Bulle.

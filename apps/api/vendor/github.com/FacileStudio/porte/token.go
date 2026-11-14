@@ -23,6 +23,23 @@ func NewToken() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(buffer), nil
 }
 
+// BrowserTokenPrefix starts every session token minted for a browser login.
+// It is inside the base64url alphabet, so the token stays a valid cookie
+// value, and the stored hash covers it, so it cannot be added to a token
+// minted for a CLI without that token failing its lookup.
+const BrowserTokenPrefix = "b-"
+
+// NewBrowserToken returns NewToken behind BrowserTokenPrefix. Only a browser
+// login (session.Manager.IssueCookieFor) mints one; a session token handed to
+// a CLI, a device or a mobile app is a plain NewToken.
+func NewBrowserToken() (string, error) {
+	token, err := NewToken()
+	if err != nil {
+		return "", err
+	}
+	return BrowserTokenPrefix + token, nil
+}
+
 // HashToken returns the stored form of a token. SHA-256 is right here and
 // argon2 is not: the input is 256 bits of entropy porte generated itself, so
 // there is no dictionary to slow down, and this runs on every authenticated

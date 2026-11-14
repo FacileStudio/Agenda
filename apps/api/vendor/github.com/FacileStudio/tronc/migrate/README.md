@@ -98,7 +98,7 @@ including it.
 Generate the baseline from **production**, not from the structs — `AutoMigrate` never drops, so
 production carries columns the models have forgotten. The recipe, the verification step and the
 per-app rollout order are in
-[`Wiki/MIGRATIONS.md`](https://github.com/FacileStudio/Suite) in the Facile wiki.
+`~/.mycelium/memory/standards/migrations.md`, synced to every machine by mycelium.
 
 ## Configuration
 

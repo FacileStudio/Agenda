@@ -239,6 +239,13 @@ they are resource-bound. A tool that writes checks `mcpauth.HasScope(req.Extra.T
 app's `forfait.Store` declaring `mcpauth.AIAccessFeature()`. `mcpauth.Identity(info)` gives back
 the `porte.Identity` for handlers written against `porte.From`.
 
+A tool checks that the token's account still exists with
+`mcpauth.AccountExists(ctx, req.Extra.TokenInfo, accounts.Identity)`. The confirm page of pending
+actions takes its user from `mcpauth.RequireOwnSession(r)`, which passes only a session cookie
+minted by a browser login (`IssueCookieFor`) and refuses every bearer, API key, delegated token and
+CLI or device session token sent as a cookie. A cookie from before v0.20.0 is refused too, so the
+person signs in once more before their first confirmation.
+
 ## Why
 
 Six Go apps — Nuage, Courrier, Plume, Agenda, Vision, Sablier — ship roughly 900 lines of

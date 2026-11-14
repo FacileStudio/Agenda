@@ -88,6 +88,12 @@ func (e *LimitError) Error() string {
 	return fmt.Sprintf("%v: %s allows %d", ErrLimit, e.Key, e.Limit)
 }
 
+// PlanLimit names the feature that refused and where to upgrade, so tronc's
+// mcp.Failure maps the refusal without app code.
+func (e *LimitError) PlanLimit() (string, string) {
+	return e.Key, e.UpgradeURL
+}
+
 // Is makes errors.Is(err, ErrLimit) true for every LimitError.
 func (e *LimitError) Is(target error) bool {
 	return target == ErrLimit
