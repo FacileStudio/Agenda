@@ -2,6 +2,13 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.20.2] - 2026-11-14
+
+### Security
+
+- Browser session mark fix: porte v0.20.1 marks browser session tokens with `b~` instead of `b-`. A plain token is base64url, so 1 in 4096 CLI or API tokens started with `b-` and could pass the MCP confirm page as a browser cookie. People sign in once more in their browser before they can confirm an MCP action.
+- build(api): porte v0.20.1, porte/mcpauth v0.3.1, tronc v0.23.1. The patched go-webdav v0.7.0 is unchanged.
+
 ## [0.20.1] - 2026-11-14
 
 ### Added
