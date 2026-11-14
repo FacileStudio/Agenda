@@ -59,10 +59,10 @@ export const shell = {
 	],
 	'login.title': ['Sign in — Agenda', 'Connexion — Agenda', 'Iniciar sesión — Agenda', 'Anmelden — Agenda'],
 	'login.tagline': [
-		'Your calendar. Your server.',
-		'Votre agenda. Votre serveur.',
-		'Tu calendario. Tu servidor.',
-		'Dein Kalender. Dein Server.'
+		'One shared calendar for the whole team, on every device.',
+		'L’agenda partagé de toute l’équipe, sur tous vos appareils.',
+		'La agenda compartida de todo el equipo, en todos tus dispositivos.',
+		'Der gemeinsame Kalender des Teams, auf jedem Gerät.'
 	],
 	'login.failed': [
 		'Sign-in failed. Try again.',

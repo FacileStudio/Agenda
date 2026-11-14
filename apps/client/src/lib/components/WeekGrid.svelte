@@ -4,29 +4,31 @@
 
 <script lang="ts">
 	import { scale } from 'svelte/transition';
+	import { Icon } from '@facile/muse';
 	import { Bar } from '@facile/mise-en-scene';
 	import { formatTime } from '$lib/i18n/format';
+	import { LANDING_ICONS } from '$lib/landing-icons';
 
 	let {
 		days,
+		lit,
 		added,
 		title,
-		complete,
-		compact,
-		slot = $bindable()
+		deadline,
+		row
 	}: {
 		days: WeekDay[];
+		lit: boolean;
 		added: boolean;
 		title: string;
-		complete: boolean;
-		compact: boolean;
-		slot?: HTMLElement;
+		deadline: string;
+		row: number;
 	} = $props();
 
 	const FIRST_HOUR = 9;
 	const HOURS = Array.from({ length: 8 }, (_, i) => FIRST_HOUR + i);
-	const ROW = 44;
-	const TARGET_DAY = 2;
+	const TARGET_DAY = 3;
+	const DEADLINE_DAY = 4;
 	const TARGET_HOUR = 14;
 
 	const BUSY = [
@@ -36,22 +38,32 @@
 		{ day: 2, hour: 9, length: 1, tone: 1, w: '48%' },
 		{ day: 2, hour: 11, length: 1, tone: 4, w: '66%' },
 		{ day: 3, hour: 12, length: 1, tone: 2, w: '58%' },
-		{ day: 3, hour: 15, length: 1.5, tone: 3, w: '44%' },
+		{ day: 3, hour: 16, length: 1, tone: 3, w: '44%' },
 		{ day: 4, hour: 10, length: 2, tone: 4, w: '60%' }
 	];
 
 	const hourLabel = (hour: number) => formatTime(new Date(2000, 0, 1, hour));
-	const top = (hour: number) => (hour - FIRST_HOUR) * ROW;
+	const top = (hour: number) => (hour - FIRST_HOUR) * row;
 </script>
 
-<div class="wg" class:wg-compact={compact} style:--wg-cols={days.length}>
+<div class="wg" style:--wg-cols={days.length}>
 	<div class="wg-days">
 		<span></span>
 		{#each days as day (day.index)}
 			<span class="wg-day" class:wg-today={day.index === TARGET_DAY}>{day.name}<b>{day.number}</b></span>
 		{/each}
 	</div>
-	<div class="wg-grid" style:height="{HOURS.length * ROW}px">
+	<div class="wg-days wg-allday">
+		<span></span>
+		{#each days as day (day.index)}
+			<span class="wg-cell">
+				{#if day.index === DEADLINE_DAY}
+					<span class="wg-deadline"><Icon icon={LANDING_ICONS.opus} size={13} /><span class="wg-clip">{deadline}</span></span>
+				{/if}
+			</span>
+		{/each}
+	</div>
+	<div class="wg-grid" style:height="{HOURS.length * row}px">
 		<div class="wg-hours">
 			{#each HOURS as hour (hour)}
 				<span style:top="{top(hour)}px">{hourLabel(hour)}</span>
@@ -60,13 +72,13 @@
 		{#each days as day (day.index)}
 			<div class="wg-col">
 				{#each HOURS as hour (hour)}
-					<span class="wg-slot" class:wg-odd={hour % 2 === 1} style:top="{top(hour)}px" style:height="{ROW}px"></span>
+					<span class="wg-slot" class:wg-odd={hour % 2 === 1} style:top="{top(hour)}px" style:height="{row}px"></span>
 				{/each}
 				{#each BUSY.filter((busy) => busy.day === day.index) as busy (busy.hour)}
 					<span
 						class="wg-event"
 						style:top="{top(busy.hour) + 2}px"
-						style:height="{busy.length * ROW - 4}px"
+						style:height="{busy.length * row - 4}px"
 						style:--wg-tone="var(--color-fc-chart-{busy.tone})"
 					>
 						<Bar w={busy.w} h={7} />
@@ -74,16 +86,16 @@
 					</span>
 				{/each}
 				{#if day.index === TARGET_DAY}
-					<span bind:this={slot} class="wg-slot" style:top="{top(TARGET_HOUR)}px" style:height="{ROW}px"></span>
+					<span class="wg-lit" class:wg-on={lit && !added} style:top="{top(TARGET_HOUR) + 2}px" style:height="{row - 4}px"></span>
 					{#if added}
 						<span
 							class="wg-added"
 							style:top="{top(TARGET_HOUR) + 2}px"
-							style:height="{ROW - 4}px"
+							style:height="{row - 4}px"
 							transition:scale={{ start: 0.85, duration: 260 }}
 						>
-							<span class="wg-title">{title}<span class="wg-caret" class:wg-hide={complete}></span></span>
-							<span class="wg-time">{hourLabel(TARGET_HOUR)}</span>
+							<span class="wg-title" class:wg-wrap={row < 40}>{title}</span>
+							{#if row >= 40}<span class="wg-time">{hourLabel(TARGET_HOUR)}</span>{/if}
 						</span>
 					{/if}
 				{/if}
@@ -136,14 +148,13 @@
 		font-size: 11px;
 		color: var(--color-fc-fg-muted);
 	}
+	.wg-hours span:not(:first-child) {
+		transform: translateY(-50%);
+	}
 	.wg-hours span {
 		position: absolute;
 		right: 6px;
-		transform: translateY(-50%);
 		white-space: nowrap;
-	}
-	.wg-hours span:first-child {
-		transform: none;
 	}
 	.wg-col {
 		position: relative;
@@ -177,7 +188,7 @@
 	}
 	.wg-added {
 		gap: 2px;
-		padding: 5px 8px;
+		padding: 4px 7px;
 		background: var(--color-fc-accent);
 		color: var(--color-fc-accent-fg);
 		font-size: 12px;
@@ -193,22 +204,47 @@
 	.wg-time {
 		opacity: 0.85;
 	}
-	.wg-compact .wg-title {
+	.wg-wrap {
+		font-size: 11px;
+		line-height: 1.1;
 		white-space: normal;
-		overflow-wrap: anywhere;
 	}
-	.wg-compact .wg-time {
-		display: none;
+	.wg-clip {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
-	.wg-caret {
-		display: inline-block;
-		width: 1.5px;
-		height: 12px;
-		margin-left: 1px;
-		vertical-align: -2px;
-		background: currentColor;
+	.wg-allday {
+		height: 26px;
 	}
-	.wg-hide {
-		visibility: hidden;
+	.wg-cell {
+		display: flex;
+		min-width: 0;
+		padding: 0 5px;
+	}
+	.wg-deadline {
+		display: flex;
+		flex: 1;
+		align-items: center;
+		gap: 5px;
+		min-width: 0;
+		padding: 0 8px;
+		border-radius: 7px;
+		background: color-mix(in oklch, var(--color-fc-chart-2) 30%, var(--color-fc-component));
+		font-size: 11px;
+		font-weight: 700;
+		white-space: nowrap;
+	}
+	.wg-lit {
+		position: absolute;
+		left: 3px;
+		right: 3px;
+		border-radius: 7px;
+		background: color-mix(in oklch, var(--color-fc-accent) 22%, transparent);
+		opacity: 0;
+		transition: opacity 300ms ease;
+	}
+	.wg-on {
+		opacity: 1;
 	}
 </style>

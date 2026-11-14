@@ -2,25 +2,26 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { backend } from '$lib/backend';
-	import {
-		Button,
-		DownloadSection,
-		LandingFooter,
-		LandingHeader,
-		SignInWithFacile,
-		icons
-	} from '@facile/muse';
+	import { LandingCta, LandingFooter, LandingHeader, SignInWithFacile, WorksWith, type WorksWithApp } from '@facile/muse';
+	import LandingCards from '$lib/components/LandingCards.svelte';
+	import LandingDevelopers from '$lib/components/LandingDevelopers.svelte';
 	import LandingOffers from '$lib/components/LandingOffers.svelte';
 	import WeekDemo from '$lib/components/WeekDemo.svelte';
-	import { CHECKSUMS_HREF, RELEASES_HREF, cliCommands } from '$lib/downloads';
 	import { rememberLocale, t } from '$lib/i18n/index.svelte';
+	import { LANDING_ICONS } from '$lib/landing-icons';
 
 	let ready = $state(false);
 
 	const signInHref = $derived(`${backend.apiBaseUrl}/auth/oidc`);
-	const heroLines = $derived(t('landing.heroTitle').split('|'));
 
-	const commands = $derived(cliCommands());
+	const apps: WorksWithApp[] = $derived([
+		{ name: 'Opus', icon: LANDING_ICONS.opus, line: t('landing.with.opus'), href: 'https://opus.facile.studio' },
+		{ name: 'Bulle', icon: LANDING_ICONS.bulle, line: t('landing.with.bulle'), href: 'https://bulle.facile.studio' }
+	]);
+
+	$effect(() => {
+		document.querySelector('meta[name="description"]')?.setAttribute('content', t('landing.description'));
+	});
 
 	onMount(async () => {
 		try {
@@ -30,18 +31,15 @@
 		} catch {}
 		ready = true;
 	});
-
-	const features = [
-		{ icon: icons.refresh, id: 'caldav' },
-		{ icon: icons.usersGroup, id: 'shared' },
-		{ icon: icons.shield, id: 'hosted' },
-		{ icon: 'solar:command-linear', id: 'cli' }
-	] as const;
 </script>
+
+<svelte:head>
+	<title>{t('landing.title')}</title>
+</svelte:head>
 
 {#if ready}
 	<div class="min-h-dvh overflow-x-clip bg-fc-page text-fc-fg">
-		<LandingHeader appName="Agenda" icon="solar:calendar-add-bold-duotone" skipHref="#main">
+		<LandingHeader appName="Agenda" icon={LANDING_ICONS.agenda} skipHref="#main">
 			{#snippet actions()}
 				<SignInWithFacile href={signInHref} />
 			{/snippet}
@@ -49,69 +47,35 @@
 
 		<main id="main">
 			<section class="mx-auto max-w-5xl px-4 pt-20 pb-12 text-center sm:px-6 sm:pt-24">
-				<h1 class="font-fc-title text-fc-3xl font-bold leading-[1.1] tracking-tight">
-					{heroLines[0]}<br />{heroLines[1]}
+				<h1 class="mx-auto max-w-3xl font-fc-title text-fc-3xl font-bold leading-[1.1] tracking-tight text-balance">
+					{t('landing.heroTitle')}
 				</h1>
 				<p class="mx-auto mt-6 max-w-xl text-fc-md text-fc-fg-muted">{t('landing.heroText')}</p>
-				<div class="mt-10 flex flex-wrap items-center justify-center gap-3">
-					<SignInWithFacile href={signInHref} size="lg" />
-					<Button href="#download" variant="secondary" size="lg" icon={icons.download}>
-						{t('landing.getCli')}
-					</Button>
-				</div>
+				<LandingCta class="mt-10" {signInHref} align="center" />
 			</section>
 
-			<section class="mx-auto max-w-5xl px-4 pb-16 sm:px-6">
+			<section class="mx-auto max-w-5xl px-4 pb-8 sm:px-6">
 				<WeekDemo />
 			</section>
 
-			<section class="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-				<div class="grid gap-4 sm:grid-cols-2 sm:gap-6">
-					{#each features as feature (feature.id)}
-						<div class="rounded-fc-lg bg-fc-surface p-6">
-							<div class="mb-3 flex size-10 items-center justify-center rounded-fc-md bg-fc-component">
-								<iconify-icon icon={feature.icon} width="20" height="20" class="block shrink-0"
-								></iconify-icon>
-							</div>
-							<h2 class="text-fc-lg font-bold">{t(`landing.feature.${feature.id}.title`)}</h2>
-							<p class="mt-1.5 text-fc-sm text-fc-fg-muted">
-								{t(`landing.feature.${feature.id}.text`)}
-							</p>
-						</div>
-					{/each}
-				</div>
-			</section>
+			<LandingCards />
 
-			<section id="download" class="mx-auto max-w-5xl scroll-mt-20 px-4 py-16 sm:px-6">
-				<h2 class="text-center font-fc-title text-fc-2xl font-bold tracking-tight">
-					{t('landing.download.title')}
-				</h2>
-				<p class="mt-3 text-center text-fc-sm text-fc-fg-muted">{t('landing.download.text')}</p>
-				<DownloadSection
-					class="mt-8"
-					{commands}
-					headingLevel={3}
-					mode="device"
-					allHref="/downloads"
-					releasesHref={RELEASES_HREF}
-					checksumsHref={CHECKSUMS_HREF}
-				/>
-			</section>
+			<WorksWith class="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6" {apps} description={t('landing.with.line')} />
 
 			<LandingOffers />
+
+			<LandingDevelopers />
 
 			<section class="mx-auto max-w-5xl px-4 py-20 text-center sm:px-6">
 				<h2 class="font-fc-title text-fc-2xl font-bold tracking-tight">{t('landing.ctaTitle')}</h2>
 				<p class="mt-4 text-fc-sm text-fc-fg-muted">{t('landing.ctaText')}</p>
-				<div class="mt-8 flex justify-center">
-					<SignInWithFacile href={signInHref} size="lg" />
-				</div>
+				<LandingCta class="mt-8" {signInHref} align="center" />
 			</section>
 		</main>
 
 		<LandingFooter
 			appName="Agenda"
-			icon="solar:calendar-add-bold-duotone"
+			icon={LANDING_ICONS.agenda}
 			tagline={t('login.tagline')}
 			legal={{ onLocaleChange: rememberLocale }}
 		/>

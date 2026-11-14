@@ -1,13 +1,14 @@
 <script lang="ts">
-	import { tick } from 'svelte';
 	import { scale } from 'svelte/transition';
-	import { Cursor, Roll, Stage, Window, cursorAt, type Act } from '@facile/mise-en-scene';
+	import { Roll, Stage, Window, type Act } from '@facile/mise-en-scene';
+	import { Icon, icons } from '@facile/muse';
+	import BulleAsk from './BulleAsk.svelte';
 	import WeekGrid from './WeekGrid.svelte';
-	import { icons } from '@facile/muse';
 	import { t } from '$lib/i18n/index.svelte';
 	import { capitalize, formatDate, weekdayName } from '$lib/i18n/format';
+	import { LANDING_ICONS } from '$lib/landing-icons';
 
-	const VIEWS = ['solar:calendar-minimalistic-linear', icons.calendar, 'solar:calendar-date-linear', 'solar:list-linear'];
+	const VIEWS = [LANDING_ICONS.day, icons.calendar, LANDING_ICONS.week, LANDING_ICONS.list];
 
 	const monday = (() => {
 		const now = new Date();
@@ -23,51 +24,52 @@
 		})
 	);
 	const month = $derived(capitalize(formatDate(monday, { month: 'long', year: 'numeric' })));
+	const prompt = $derived(t('landing.demo.prompt'));
+	const replyWords = $derived(t('landing.demo.reply').split(' ').length);
 
+	let draft = $state('');
+	let sent = $state(false);
+	let lit = $state(false);
 	let added = $state(false);
-	let title = $state('');
-	let synced = $state(false);
-	let cursor = $state(cursorAt());
-	let slot = $state<HTMLElement>();
-
-	const eventTitle = $derived(t('landing.demo.event'));
+	let words = $state(0);
 
 	function reset() {
+		draft = '';
+		sent = false;
+		lit = false;
 		added = false;
-		title = '';
-		synced = false;
-		cursor.visible = false;
+		words = 0;
 	}
 
 	function poster() {
+		sent = true;
 		added = true;
-		title = eventTitle;
-		synced = true;
+		words = replyWords;
 	}
 
 	async function script(act: Act) {
-		await act.wait(1200);
-		cursor.visible = true;
-		await act.move(cursor, act.point(slot, 0.55, 0.5));
-		await act.click(cursor, () => (added = true));
-		await tick();
-		await act.wait(250);
-		await act.type(eventTitle, (value) => (title = value), 85);
 		await act.wait(900);
-		cursor.visible = false;
-		await act.wait(1400);
-		synced = true;
-		await act.wait(2800);
+		await act.type(prompt, (value) => (draft = value), 55);
+		await act.wait(400);
+		draft = '';
+		sent = true;
+		await act.wait(700);
+		lit = true;
+		await act.wait(900);
+		await act.count(replyWords, (value) => (words = value), 90);
+		await act.wait(300);
+		added = true;
+		await act.wait(3000);
 		reset();
-		await act.wait(600);
+		await act.wait(700);
 	}
 </script>
 
 {#snippet status()}
 	{#if added}
-		<span class="wd-status" class:wd-done={synced} transition:scale={{ start: 0.9, duration: 220 }}>
-			<iconify-icon icon={synced ? 'solar:check-circle-bold' : 'solar:refresh-linear'} width="14" height="14" class="block size-3.5"></iconify-icon>
-			<Roll value={synced ? t('landing.demo.synced') : t('landing.demo.syncing')} />
+		<span class="wd-status" transition:scale={{ start: 0.9, duration: 220 }}>
+			<Icon icon={LANDING_ICONS.synced} size={14} />
+			<Roll value={t('landing.demo.synced')} />
 		</span>
 	{/if}
 {/snippet}
@@ -77,13 +79,11 @@
 		<span class="wd-month">{month}</span>
 		<span class="wd-views">
 			{#each compact ? VIEWS.slice(0, 2) : VIEWS as view, i (view)}
-				<span class="wd-view" class:wd-active={i === 1}>
-					<iconify-icon icon={view} width="16" height="16" class="block size-4"></iconify-icon>
-				</span>
+				<span class="wd-view" class:wd-active={i === 1}><Icon icon={view} size={16} /></span>
 			{/each}
 		</span>
 		<span class="wd-new">
-			<iconify-icon icon={icons.plus} width="16" height="16" class="block size-4"></iconify-icon>
+			<Icon icon={icons.plus} size={16} />
 			{#if !compact}{t('calendar.new')}{/if}
 		</span>
 	</div>
@@ -91,8 +91,8 @@
 
 <Stage
 	width={960}
-	height={532}
-	compact={{ below: 640, width: 358, height: 524 }}
+	height={600}
+	compact={{ below: 640, width: 358, height: 660 }}
 	{script}
 	{reset}
 	{poster}
@@ -100,21 +100,22 @@
 >
 	{#snippet children({ compact })}
 		{#if compact}
-			<Window style="top:12px;left:12px;width:334px;height:500px" trailing={status}>
+			<Window style="top:12px;left:12px;width:334px;height:460px" trailing={status}>
 				<div class="wd-body">
 					{@render header(true)}
-					<WeekGrid days={days.slice(1, 4)} {added} {title} complete={title === eventTitle} compact bind:slot />
+					<WeekGrid days={days.slice(2, 5)} {lit} {added} title={t('landing.demo.event')} deadline={t('landing.demo.deadline')} row={34} />
 				</div>
 			</Window>
+			<BulleAsk {draft} {sent} {words} style="top:430px;left:24px;width:310px;height:196px" />
 		{:else}
-			<Window style="top:16px;left:40px;width:880px;height:500px" trailing={status}>
+			<Window style="top:16px;left:160px;width:780px;height:540px" trailing={status}>
 				<div class="wd-body">
 					{@render header(false)}
-					<WeekGrid {days} {added} {title} complete={title === eventTitle} compact={false} bind:slot />
+					<WeekGrid {days} {lit} {added} title={t('landing.demo.event')} deadline={t('landing.demo.deadline')} row={44} />
 				</div>
 			</Window>
+			<BulleAsk {draft} {sent} {words} style="top:300px;left:20px;width:300px;height:204px" />
 		{/if}
-		<Cursor {cursor} />
 	{/snippet}
 </Stage>
 
@@ -184,12 +185,9 @@
 		padding: 0 10px;
 		border-radius: 999px;
 		background: var(--color-fc-surface);
-		color: var(--color-fc-fg-muted);
+		color: var(--color-fc-success);
 		font-size: 11px;
 		font-weight: 700;
 		white-space: nowrap;
-	}
-	.wd-done {
-		color: var(--color-fc-success);
 	}
 </style>

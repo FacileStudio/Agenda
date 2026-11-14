@@ -1,7 +1,7 @@
 {
   "name": "Agenda",
   "short_name": "Agenda",
-  "description": "Appointments, deadlines and team availability in one calendar. Native CalDAV, no Google account needed.",
+  "description": "Meetings, deadlines and team availability, synced to your phone and your computer. Free to start.",
   "icons": [
     {
       "src": "/icon-192.png",

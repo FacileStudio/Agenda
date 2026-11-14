@@ -4,6 +4,7 @@
 	import { theme } from '$lib/theme.svelte';
 	import { Toaster, provideLocale } from '@facile/muse';
 	import { bindLocale, localeSource } from '$lib/i18n/index.svelte';
+	import '$lib/landing-icons';
 
 	if (browser) {
 		theme.restore();
