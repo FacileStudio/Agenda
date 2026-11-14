@@ -24,10 +24,12 @@ func NewToken() (string, error) {
 }
 
 // BrowserTokenPrefix starts every session token minted for a browser login.
-// It is inside the base64url alphabet, so the token stays a valid cookie
-// value, and the stored hash covers it, so it cannot be added to a token
-// minted for a CLI without that token failing its lookup.
-const BrowserTokenPrefix = "b-"
+// "~" is outside the base64url alphabet, so no NewToken can start with it by
+// chance, and it is an RFC 6265 cookie-octet, so the token stays a valid
+// cookie value. The stored hash covers the prefix, so it cannot be added to a
+// token minted for a CLI without that token failing its lookup. v0.20.0 used
+// "b-", which one plain token in 4096 starts with; such a token is plain now.
+const BrowserTokenPrefix = "b~"
 
 // NewBrowserToken returns NewToken behind BrowserTokenPrefix. Only a browser
 // login (session.Manager.IssueCookieFor) mints one; a session token handed to

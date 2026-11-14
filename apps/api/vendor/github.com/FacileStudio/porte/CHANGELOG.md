@@ -5,6 +5,29 @@ session from undoing a deliberate choice.
 
 ## [Unreleased]
 
+## v0.20.1 — 2026-11-14
+
+Tags: root module **v0.20.1**; `mcpauth` **v0.3.1** (its `go.mod` requires porte v0.20.1, so
+apps that take the fix through `mcpauth` get it; both tags on the same commit). `forfait` and
+`directory` unchanged. No migration, no route, CSRF or `pg.Schema` change.
+
+**Upgrade note.** Browser logins minted by v0.20.0 (`b-`) lose their mark: they still
+authenticate, but `RequireOwnSession` refuses them (403) until the person signs in once more.
+
+### Security
+
+- **A plain session token could pass as a browser login.** v0.20.0 marked browser logins with
+  `b-`, but a plain token is base64url of 32 random bytes, so about one in 4096 of them (CLI code
+  exchange, device exchange, mobile, and every session minted before v0.20.0) also starts with
+  `b-`. Sent as the session cookie with `X-Facile-CSRF`, such a token passed
+  `mcpauth.RequireOwnSession`, so an agent holding it could confirm its own pending MCP action.
+  `porte.BrowserTokenPrefix` is now `b~`: `~` is not in the base64url alphabet, so no plain token
+  can carry it, and it is an RFC 6265 cookie-octet, so `http.SetCookie` writes it unquoted and
+  `r.Cookie` reads it back. `Authenticate` sets `Identity.BrowserSession` only for a `b~` cookie
+  token on an unlabelled row; a `b-` token is plain. `Issue` and `IssueFor` also redraw any token
+  that starts with the browser prefix, so a later prefix change cannot reopen this. Found in the
+  porte-rs v0.8.0 review.
+
 ## v0.20.0 — 2026-11-14
 
 Tags: root module **v0.20.0**; `mcpauth` **v0.3.0** (its `go.mod` requires porte v0.20.0

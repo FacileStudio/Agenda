@@ -9,10 +9,14 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 )
 
 const maxBody = 1 << 20
+
+const maxRetryAfter = 24 * time.Hour
 
 // ErrBadSegment is returned before any call when a path segment is empty, a
 // dot segment, or longer than 200 bytes.
@@ -96,18 +100,26 @@ func (c *Client) send(ctx context.Context, req Request, target string, payload [
 	if err != nil {
 		return fmt.Errorf("%w: reading the answer: %w", ErrUnreachable, err)
 	}
-	return answer(response.StatusCode, raw, out)
+	return answer(response.StatusCode, response.Header, raw, out)
 }
 
-func answer(status int, raw []byte, out any) error {
+func answer(status int, header http.Header, raw []byte, out any) error {
+	wait := retryAfter(header.Get("Retry-After"), time.Now())
 	switch {
+	case status == http.StatusServiceUnavailable && wait > 0:
+		fields := envelope(raw)
+		return &StatusError{Status: status, Code: fields.Code, Message: fields.Message, RetryAfter: wait}
 	case status >= 500:
 		return fmt.Errorf("%w: answered %d", ErrUnreachable, status)
 	case status == http.StatusPaymentRequired:
 		return planRequired(raw)
 	case status >= 400:
 		fields := envelope(raw)
-		return &StatusError{Status: status, Code: fields.Code, Message: fields.Message}
+		refused := &StatusError{Status: status, Code: fields.Code, Message: fields.Message}
+		if status == http.StatusTooManyRequests {
+			refused.RetryAfter = wait
+		}
+		return refused
 	case status < 200 || status >= 300:
 		return fmt.Errorf("%w: answered %d", ErrUnreachable, status)
 	case out == nil || len(bytes.TrimSpace(raw)) == 0:
@@ -117,4 +129,19 @@ func answer(status int, raw []byte, out any) error {
 		return fmt.Errorf("%w: unreadable answer: %w", ErrUnreachable, err)
 	}
 	return nil
+}
+
+// retryAfter reads a Retry-After value, delay seconds or an HTTP date, as
+// the wait from now, at most maxRetryAfter. A missing, unreadable or past
+// value is zero.
+func retryAfter(value string, now time.Time) time.Duration {
+	value = strings.TrimSpace(value)
+	if seconds, err := strconv.ParseInt(value, 10, 64); err == nil {
+		return time.Duration(min(max(seconds, 0), int64(maxRetryAfter/time.Second))) * time.Second
+	}
+	when, err := http.ParseTime(value)
+	if err != nil || !when.After(now) {
+		return 0
+	}
+	return min(when.Sub(now).Round(time.Second), maxRetryAfter)
 }

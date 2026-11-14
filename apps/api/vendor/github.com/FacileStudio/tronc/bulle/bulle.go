@@ -6,9 +6,11 @@
 //
 // Failures come back typed: a 402 is a [*PlanRequired], any other 4xx a
 // [*StatusError] that keeps its status (429 is the daily cap, 409 a batch
-// already running), and a 3xx, a 5xx, a timeout or a network error wraps
-// [ErrUnreachable]: the client never follows a redirect. Paths are built here from escaped segments; nothing a
-// browser sends becomes a path as it is.
+// already running) and the Retry-After wait, and a 3xx, a 5xx, a timeout or
+// a network error wraps [ErrUnreachable]: the client never follows a
+// redirect. A 503 that names a Retry-After is a [*StatusError] that also
+// wraps [ErrUnreachable]. Paths are built here from escaped segments;
+// nothing a browser sends becomes a path as it is.
 package bulle
 
 import (
@@ -40,15 +42,28 @@ type PlanRequired struct {
 
 func (e *PlanRequired) Error() string { return "bulle: plan required: " + e.Message }
 
-// StatusError is any other 4xx answer, with Bulle's error code and message.
+// StatusError is any other 4xx answer, with Bulle's error code and message,
+// or a 503 that names a Retry-After. RetryAfter is the wait the answer's
+// Retry-After header asks for on a 429 or a 503, zero when it names none;
+// capped at a day. A 503 StatusError also wraps ErrUnreachable.
 type StatusError struct {
-	Status  int
-	Code    string
-	Message string
+	Status     int
+	Code       string
+	Message    string
+	RetryAfter time.Duration
 }
 
 func (e *StatusError) Error() string {
 	return fmt.Sprintf("bulle: answered %d %s: %s", e.Status, e.Code, e.Message)
+}
+
+// Unwrap makes a 5xx StatusError match ErrUnreachable, as every other 5xx
+// does.
+func (e *StatusError) Unwrap() error {
+	if e.Status >= 500 {
+		return ErrUnreachable
+	}
+	return nil
 }
 
 // TokenSource returns the bearer token for the user the context belongs to.

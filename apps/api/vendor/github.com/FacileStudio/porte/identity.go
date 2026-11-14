@@ -62,7 +62,7 @@ type Identity struct {
 	// cookie on a token a browser login minted (BrowserTokenPrefix, from
 	// session.Manager.IssueCookieFor): not an Authorization header, not a
 	// named API token, and not a CLI, device or mobile session token sent as
-	// a cookie. A cookie issued before v0.20.0 has no prefix, so it is false
+	// a cookie. A cookie issued before v0.20.1 has no "b~" prefix, so it is false
 	// until the person signs in again. session.Manager sets it; nothing else
 	// does, so an identity rebuilt from a bearer or an MCP token never
 	// carries it.
