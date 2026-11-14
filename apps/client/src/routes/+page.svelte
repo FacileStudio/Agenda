@@ -8,27 +8,19 @@
 		LandingFooter,
 		LandingHeader,
 		SignInWithFacile,
-		icons,
-		type CliCommand
+		icons
 	} from '@facile/muse';
 	import LandingOffers from '$lib/components/LandingOffers.svelte';
 	import WeekDemo from '$lib/components/WeekDemo.svelte';
+	import { CHECKSUMS_HREF, RELEASES_HREF, cliCommands } from '$lib/downloads';
 	import { rememberLocale, t } from '$lib/i18n/index.svelte';
-
-	const CLI_REPO = 'https://github.com/FacileStudio/agenda-cli';
 
 	let ready = $state(false);
 
 	const signInHref = $derived(`${backend.apiBaseUrl}/auth/oidc`);
 	const heroLines = $derived(t('landing.heroTitle').split('|'));
 
-	const commands: CliCommand[] = $derived([
-		{ label: t('landing.download.facile'), command: 'facile install agenda' },
-		{
-			label: t('landing.download.script'),
-			command: 'curl -fsSL https://raw.githubusercontent.com/FacileStudio/agenda-cli/main/install.sh | bash'
-		}
-	]);
+	const commands = $derived(cliCommands());
 
 	onMount(async () => {
 		try {
@@ -99,8 +91,8 @@
 					class="mt-8"
 					{commands}
 					headingLevel={3}
-					releasesHref="{CLI_REPO}/releases"
-					checksumsHref="{CLI_REPO}/releases/latest/download/checksums.txt"
+					releasesHref={RELEASES_HREF}
+					checksumsHref={CHECKSUMS_HREF}
 				/>
 			</section>
 
