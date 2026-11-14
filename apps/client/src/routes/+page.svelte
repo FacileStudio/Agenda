@@ -91,6 +91,8 @@
 					class="mt-8"
 					{commands}
 					headingLevel={3}
+					mode="device"
+					allHref="/downloads"
 					releasesHref={RELEASES_HREF}
 					checksumsHref={CHECKSUMS_HREF}
 				/>
