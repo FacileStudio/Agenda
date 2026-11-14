@@ -6,8 +6,8 @@
       "name": "agenda-client",
       "dependencies": {
         "@facile/client": "github:FacileStudio/facile-client#v0.1.0",
-        "@facile/mise-en-scene": "github:FacileStudio/mise-en-scene#v0.2.1",
-        "@facile/muse": "github:FacileStudio/muse#v0.23.0",
+        "@facile/mise-en-scene": "github:FacileStudio/mise-en-scene#v0.2.2",
+        "@facile/muse": "github:FacileStudio/muse#v0.24.0",
         "@iconify-json/solar": "^1.2.14",
         "iconify-icon": "^3.0.5",
       },
@@ -84,9 +84,9 @@
 
     "@facile/client": ["@facile/client@github:FacileStudio/facile-client#e5ae7a4", { "peerDependencies": { "@sveltejs/kit": "^2.0.0", "svelte": "^5.0.0" } }, "FacileStudio-facile-client-e5ae7a4", "sha512-NiHZ3gCQ9Tmj30euLfwQ3KIXnlk684t6a+Eq/S2P2BBmMiAOybmMSxtZeEFgAm6O/qPTaG0LMPNnfiS7O6KemQ=="],
 
-    "@facile/mise-en-scene": ["@facile/mise-en-scene@github:FacileStudio/mise-en-scene#29d936d", { "peerDependencies": { "svelte": "^5.29.0" } }, "FacileStudio-mise-en-scene-29d936d", "sha512-ZWvqtesVLNlH4i+oEBHh/obcLTDhdK+JFtnQYnwxrfEERCG2F111AxzEJ9syJkp2NFztic+oz/o4Y6pSh/KCtA=="],
+    "@facile/mise-en-scene": ["@facile/mise-en-scene@github:FacileStudio/mise-en-scene#7050c6c", { "peerDependencies": { "svelte": "^5.29.0" } }, "FacileStudio-mise-en-scene-7050c6c", "sha512-qXj5cCxgAwYeck9aLtPqx38D3H2csCHA1xUySzpabHH18QGZyDLSLMj8HuXwMieASr3axBLF7V59lS6GvVtEpQ=="],
 
-    "@facile/muse": ["@facile/muse@github:FacileStudio/muse#709a22d", { "dependencies": { "gsap": "^3.13.0", "tailwind-merge": "^3.5.0" }, "peerDependencies": { "svelte": "^5.0.0", "tailwindcss": "^4.0.0" } }, "FacileStudio-muse-709a22d", "sha512-YXi7YAF8R1qfUBmx3nWKfeKXo+utYj4dXmqA3IHdrX9Fvp49avnKZ5vTdfl51i1IbnBiy/SydMxzgUH2vo0drQ=="],
+    "@facile/muse": ["@facile/muse@github:FacileStudio/muse#63b7403", { "dependencies": { "gsap": "^3.13.0", "tailwind-merge": "^3.5.0" }, "peerDependencies": { "svelte": "^5.0.0", "tailwindcss": "^4.0.0" } }, "FacileStudio-muse-63b7403", "sha512-txHtXcKj1s7UeHANu8NIwzE07r8Xl4Ivf4vEi8yJu+9zCJeZNIXCGdLTdYi1gwz2PL5uw1ttduY/QU/ZbamOsw=="],
 
     "@iconify-json/solar": ["@iconify-json/solar@1.2.14", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-/qHbRF7i8NwZH+RIIc3cyzk8RiQT8TA4FcdpDLJVCWr0LCDxXSgpnnayb5aifAvoqNy9NKHENvgZipLELz4m0w=="],
 
