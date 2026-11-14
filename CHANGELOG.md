@@ -2,6 +2,16 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.21.0] - 2026-11-14
+
+### Changed
+
+- Landing: Agenda is sold as the team's shared calendar, hosted by Facile. New headline "La semaine de l'équipe, au même endroit." in fr, en, es and de, with the title, description, link preview and footer line to match.
+- Landing: "Créer un compte gratuit" is the main button, sign-in second (muse `LandingCta`). The "Installer le CLI" hero button and the terminal download section are gone.
+- Landing: the hero demo shows Bulle finding an hour with Léa on Thursday, next to an Opus deadline on Friday. Three demo cards: Opus deadlines, one calendar per team, the calendar on your phone.
+- Landing: a "Fonctionne avec" row (Opus, Bulle), a per-app plan note that says one subscription covers every app, and CalDAV, CLI, API, MCP and source moved into one developer block near the bottom.
+- build(client): muse v0.24.0 and mise-en-scene v0.2.2. The landing icons are bundled, so none waits on the network.
+
 ## [0.20.3] - 2026-11-14
 
 ### Fixed
