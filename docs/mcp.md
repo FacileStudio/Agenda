@@ -22,7 +22,7 @@ write tool, so the client can ask for more.
 | `agenda_read_event` | One event in full: description, attendees, reminders, recurrence | read-only, open world |
 | `agenda_find_free_slots` | Free windows of at least `duration_minutes` inside working hours, around every calendar's events | read-only |
 | `agenda_create_event` | Add an event, to the personal calendar unless `calendar_id` is set | write |
-| `agenda_update_event` | Change only the fields given; a new start keeps the length. A new schedule on a recurring event drops occurrences edited one by one | destructive, idempotent |
+| `agenda_update_event` | Change only the fields given; a new start keeps the length. A new schedule on a recurring event drops occurrences edited one by one | destructive |
 | `agenda_delete_event` | Delete an event for good; always confirmed by the person | destructive |
 
 Times are RFC 3339 or dates (all-day events and range bounds). Pass the person's IANA

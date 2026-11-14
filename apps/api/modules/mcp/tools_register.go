@@ -57,7 +57,7 @@ func (t *toolset) writes() []mcpkit.Tool {
 			Description: "Change an event: only the fields you set change. A new start without end keeps its length. " +
 				"On a recurring event the change applies to every occurrence, and changing its schedule drops " +
 				"occurrences edited one by one.",
-			Annotations: &mcpkit.Annotations{Destructive: true, Idempotent: true},
+			Annotations: &mcpkit.Annotations{Destructive: true},
 		}, t.updateEvent),
 		mcpkit.NewTool(mcpkit.ToolSpec{
 			Name: toolDeleteEvent, Title: "Delete an event",
