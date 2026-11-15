@@ -128,26 +128,52 @@ func validateEventFields(title string, startAt, endAt time.Time) error {
 }
 
 func (s *Service) CreateEvent(ctx context.Context, userID int64, calendarID int64, req *CreateEventRequest) (*EventResponse, error) {
-	if err := validateEventFields(req.Title, req.StartAt, req.EndAt); err != nil {
+	if err := prepareCreate(req); err != nil {
 		return nil, err
 	}
-	x, err := validateEnums(req.Status, req.Timezone, req.Attendees, req.Reminders, req.Color)
-	if err != nil {
-		return nil, err
-	}
-	req.Attendees, req.Reminders = x.attendees, x.reminders
-	rule, err := normalizeRecurrenceRule(req.RecurrenceRule)
-	if err != nil {
-		return nil, err
-	}
-	req.RecurrenceRule = rule
 	if err := s.checkCalendarWriteAccess(ctx, userID, calendarID); err != nil {
 		return nil, err
 	}
 	return s.insertEvent(ctx, calendarID, &userID, req, "", "")
 }
 
+// prepareCreate validates a create request and normalizes its attendees,
+// reminders and recurrence rule in place.
+func prepareCreate(req *CreateEventRequest) error {
+	if err := validateEventFields(req.Title, req.StartAt, req.EndAt); err != nil {
+		return err
+	}
+	x, err := validateEnums(req.Status, req.Timezone, req.Attendees, req.Reminders, req.Color)
+	if err != nil {
+		return err
+	}
+	req.Attendees, req.Reminders = x.attendees, x.reminders
+	rule, err := normalizeRecurrenceRule(req.RecurrenceRule)
+	if err != nil {
+		return err
+	}
+	req.RecurrenceRule = rule
+	return nil
+}
+
 func (s *Service) insertEvent(ctx context.Context, calendarID int64, creatorID *int64, req *CreateEventRequest, source, externalID string) (*EventResponse, error) {
+	evt, err := s.newEvent(ctx, calendarID, creatorID, req, source, externalID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.write(ctx, envelope.ActionCreated, evt, actorOf(creatorID), func(tx *gorm.DB) error {
+		return tx.Create(evt).Error
+	}); err != nil {
+		return nil, errors.Internal("failed to create event", err)
+	}
+	s.bumpSyncToken(ctx, calendarID)
+	s.orm.WithContext(ctx).Preload("CreatedBy").First(evt, evt.ID)
+
+	return s.toResponse(ctx, evt)
+}
+
+// newEvent builds the row for a validated create request without saving it.
+func (s *Service) newEvent(ctx context.Context, calendarID int64, creatorID *int64, req *CreateEventRequest, source, externalID string) (*schemas.Event, error) {
 	var cal schemas.Calendar
 	if err := s.orm.WithContext(ctx).Select("space_id").First(&cal, calendarID).Error; err != nil {
 		return nil, errors.Internal("failed to load calendar", err)
@@ -176,16 +202,7 @@ func (s *Service) insertEvent(ctx context.Context, calendarID int64, creatorID *
 	if err := renderNew(evt, req); err != nil {
 		return nil, err
 	}
-
-	if err := s.write(ctx, envelope.ActionCreated, evt, actorOf(creatorID), func(tx *gorm.DB) error {
-		return tx.Create(evt).Error
-	}); err != nil {
-		return nil, errors.Internal("failed to create event", err)
-	}
-	s.bumpSyncToken(ctx, calendarID)
-	s.orm.WithContext(ctx).Preload("CreatedBy").First(evt, evt.ID)
-
-	return s.toResponse(ctx, evt)
+	return evt, nil
 }
 
 func (s *Service) GetEvent(ctx context.Context, userID int64, eventID int64) (*EventResponse, error) {
