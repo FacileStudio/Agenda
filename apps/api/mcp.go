@@ -9,6 +9,7 @@ import (
 	"github.com/FacileStudio/Agenda/apps/api/modules/calendars"
 	"github.com/FacileStudio/Agenda/apps/api/modules/events"
 	"github.com/FacileStudio/Agenda/apps/api/modules/mcp"
+	"github.com/FacileStudio/Agenda/apps/api/modules/plans"
 	"github.com/FacileStudio/porte"
 	"github.com/FacileStudio/porte/mcpauth"
 	"github.com/FacileStudio/porte/oidc"
@@ -23,7 +24,7 @@ import (
 // in the background until ctx ends.
 func newMCP(
 	ctx context.Context, sqlDB *sql.DB, appEnv env.Config, calendarService *calendars.Service,
-	eventService *events.Service, identities porte.IdentityStore, kit *oidc.Kit, appLogger *slog.Logger,
+	eventService *events.Service, planService *plans.Service, identities porte.IdentityStore, kit *oidc.Kit, appLogger *slog.Logger,
 ) (*mcp.Service, error) {
 	if appEnv.OIDC == nil || appEnv.MCP.Resource == "" || len(appEnv.MCP.StateKey) == 0 {
 		return nil, nil
@@ -41,7 +42,7 @@ func newMCP(
 		return nil, err
 	}
 	appLogger.Info("mcp server on", slog.String("resource", appEnv.MCP.Resource))
-	service, err := mcp.NewService(calendarService, eventService, mcp.Config{
+	service, err := mcp.NewService(calendarService, eventService, planService, mcp.Config{
 		Resource: appEnv.MCP.Resource,
 		Issuer:   appEnv.OIDC.Issuer,
 		Version:  version,

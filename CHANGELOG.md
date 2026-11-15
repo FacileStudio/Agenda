@@ -2,6 +2,12 @@
 
 All notable changes to Agenda are documented here.
 
+## [Unreleased]
+
+### Added
+
+- Plan drafts: `agenda_propose_plan` and `agenda_list_plans` MCP tools, and `/api/plans` routes to list, read, apply (all blocks or a subset, in one transaction) and dismiss. Proposing never changes a calendar.
+
 ## [0.25.2] - 2026-11-16
 
 ### Fixed

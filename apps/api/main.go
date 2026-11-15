@@ -30,6 +30,7 @@ import (
 	"github.com/FacileStudio/Agenda/apps/api/modules/ideas"
 	liveroutes "github.com/FacileStudio/Agenda/apps/api/modules/live"
 	"github.com/FacileStudio/Agenda/apps/api/modules/mcp"
+	"github.com/FacileStudio/Agenda/apps/api/modules/plans"
 	"github.com/FacileStudio/Agenda/apps/api/modules/settings"
 	"github.com/FacileStudio/Agenda/apps/api/modules/spaces"
 	"github.com/FacileStudio/Agenda/apps/api/modules/users"
@@ -146,12 +147,13 @@ func run() int {
 	authService := auth.NewService(sessions, porteAuth.users)
 	calendarService := calendars.NewService(db).WithOutbox(outbox)
 	eventService := events.NewService(db).WithOutbox(outbox)
+	planService := plans.NewService(db, eventService)
 	spaceService := spaces.NewService(db)
 	userService := users.NewService(db, authService)
 	settingsService := settings.NewService(db)
 	lifetime, endLifetime := context.WithCancel(context.Background())
 	defer endLifetime()
-	mcpService, err := newMCP(lifetime, sqlDB, appEnv, calendarService, eventService, identities, kit, appLogger)
+	mcpService, err := newMCP(lifetime, sqlDB, appEnv, calendarService, eventService, planService, identities, kit, appLogger)
 	if err != nil {
 		appLogger.Error("failed to build the MCP server", slog.Any("error", err))
 		return 1
@@ -198,6 +200,7 @@ func run() int {
 		auth:        authService,
 		calendars:   calendarService,
 		events:      eventService,
+		plans:       planService,
 		spaces:      spaceService,
 		users:       userService,
 		settings:    settingsService,
@@ -267,6 +270,7 @@ type mounts struct {
 	auth      *auth.Service
 	calendars *calendars.Service
 	events    *events.Service
+	plans     *plans.Service
 	spaces    *spaces.Service
 	users     *users.Service
 	settings  *settings.Service
@@ -402,6 +406,7 @@ func mountRoutes(router chi.Router, m mounts) error {
 		mountErr = auth.RegisterRoutes(r, m.sessions, m.kit)
 		calendars.RegisterRoutes(r, m.calendars, m.auth)
 		events.RegisterRoutes(r, m.events, m.auth)
+		plans.RegisterRoutes(r, m.plans, m.auth)
 		spaces.RegisterRoutes(r, m.spaces, m.auth)
 		if m.directory != nil && m.deletions != nil {
 			spaces.RegisterSync(r, m.directory)
@@ -430,6 +435,7 @@ func referenceConfig() apiref.Config {
 			auth.Documentation,
 			calendars.Documentation,
 			events.Documentation,
+			plans.Documentation,
 			spaces.Documentation,
 			users.Documentation,
 			settings.Documentation,

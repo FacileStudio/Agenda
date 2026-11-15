@@ -1,3 +1,4 @@
+
 CREATE FUNCTION public.agenda_notify_activity() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
@@ -255,6 +256,53 @@ CREATE TABLE public.mcp_actions (
     outcome text DEFAULT ''::text NOT NULL
 );
 
+CREATE TABLE public.plan_blocks (
+    id bigint NOT NULL,
+    plan_id bigint NOT NULL,
+    "position" integer NOT NULL,
+    task_ref text DEFAULT ''::text NOT NULL,
+    task_url text DEFAULT ''::text NOT NULL,
+    title text NOT NULL,
+    start_at timestamp with time zone NOT NULL,
+    end_at timestamp with time zone NOT NULL,
+    calendar_id bigint NOT NULL,
+    reason text DEFAULT ''::text NOT NULL,
+    event_id bigint,
+    CONSTRAINT plan_blocks_check CHECK ((end_at > start_at))
+);
+
+CREATE SEQUENCE public.plan_blocks_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.plan_blocks_id_seq OWNED BY public.plan_blocks.id;
+
+CREATE TABLE public.plans (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    space_id bigint,
+    title text NOT NULL,
+    timezone text DEFAULT 'UTC'::text NOT NULL,
+    warnings jsonb DEFAULT '[]'::jsonb NOT NULL,
+    state text DEFAULT 'proposed'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    CONSTRAINT plans_state_check CHECK ((state = ANY (ARRAY['proposed'::text, 'applied'::text, 'dismissed'::text])))
+);
+
+CREATE SEQUENCE public.plans_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.plans_id_seq OWNED BY public.plans.id;
+
 CREATE TABLE public.porte_identities (
     user_id bigint NOT NULL,
     provider text NOT NULL,
@@ -373,6 +421,10 @@ ALTER TABLE ONLY public.event_attendees ALTER COLUMN id SET DEFAULT nextval('pub
 
 ALTER TABLE ONLY public.events ALTER COLUMN id SET DEFAULT nextval('public.events_id_seq'::regclass);
 
+ALTER TABLE ONLY public.plan_blocks ALTER COLUMN id SET DEFAULT nextval('public.plan_blocks_id_seq'::regclass);
+
+ALTER TABLE ONLY public.plans ALTER COLUMN id SET DEFAULT nextval('public.plans_id_seq'::regclass);
+
 ALTER TABLE ONLY public.porte_sessions ALTER COLUMN id SET DEFAULT nextval('public.porte_sessions_id_seq'::regclass);
 
 ALTER TABLE ONLY public.space_members ALTER COLUMN id SET DEFAULT nextval('public.space_members_id_seq'::regclass);
@@ -419,6 +471,12 @@ ALTER TABLE ONLY public.forfait_state
 
 ALTER TABLE ONLY public.mcp_actions
     ADD CONSTRAINT mcp_actions_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.plan_blocks
+    ADD CONSTRAINT plan_blocks_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.plans
+    ADD CONSTRAINT plans_pkey PRIMARY KEY (id);
 
 ALTER TABLE ONLY public.porte_identities
     ADD CONSTRAINT porte_identities_pkey PRIMARY KEY (provider, subject);
@@ -491,6 +549,12 @@ CREATE UNIQUE INDEX idx_users_o_id_c_subject ON public.users USING btree (oidc_s
 
 CREATE INDEX mcp_actions_open_idx ON public.mcp_actions USING btree (user_id, created_at DESC) WHERE (resolved_at IS NULL);
 
+CREATE INDEX plan_blocks_plan ON public.plan_blocks USING btree (plan_id, "position");
+
+CREATE INDEX plans_expires ON public.plans USING btree (expires_at);
+
+CREATE INDEX plans_user_created ON public.plans USING btree (user_id, created_at DESC);
+
 CREATE INDEX porte_identities_user_idx ON public.porte_identities USING btree (user_id);
 
 CREATE INDEX porte_sessions_expiry_idx ON public.porte_sessions USING btree (expires_at) WHERE (expires_at IS NOT NULL);
@@ -518,6 +582,21 @@ ALTER TABLE ONLY public.space_members
 
 ALTER TABLE ONLY public.space_members
     ADD CONSTRAINT fk_spaces_members FOREIGN KEY (space_id) REFERENCES public.spaces(id);
+
+ALTER TABLE ONLY public.plan_blocks
+    ADD CONSTRAINT plan_blocks_calendar_id_fkey FOREIGN KEY (calendar_id) REFERENCES public.calendars(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.plan_blocks
+    ADD CONSTRAINT plan_blocks_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id) ON DELETE SET NULL;
+
+ALTER TABLE ONLY public.plan_blocks
+    ADD CONSTRAINT plan_blocks_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.plans(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.plans
+    ADD CONSTRAINT plans_space_id_fkey FOREIGN KEY (space_id) REFERENCES public.spaces(id) ON DELETE SET NULL;
+
+ALTER TABLE ONLY public.plans
+    ADD CONSTRAINT plans_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.porte_identities
     ADD CONSTRAINT porte_identities_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;

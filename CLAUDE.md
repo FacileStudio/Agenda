@@ -29,6 +29,7 @@ apps/
       calendars/          Calendar CRUD + sharing + member management
       spaces/             Read-only spaces + the Registre directory sync (import, Apply, nudge)
       events/             Event CRUD, attendees, reminders, occurrence exceptions
+      plans/              Draft schedules a model proposed; the person applies them (events in one transaction)
       caldav/             CalDAV server (go-webdav backend + Basic Auth middleware)
     internal/             Shared infra (database, middleware, logger, env, errors, etc.)
     schemas/              GORM models (the query layer) and the boot data steps

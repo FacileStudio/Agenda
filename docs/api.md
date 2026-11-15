@@ -137,6 +137,22 @@ unique.
 | DELETE | `/api/events/{eventID}/occurrences/{when}` | — | `Event` |
 | POST | `/api/events/{eventID}/occurrences/{when}/restore` | — | `Event` |
 
+### Plans
+
+Draft schedules a model proposed through the MCP tool `agenda_propose_plan`. Proposing changes no
+calendar; the person applies or dismisses the draft. Mutations by cookie need `X-Facile-CSRF`.
+
+| Method | Path | Body | Response |
+|---|---|---|---|
+| GET | `/api/plans?state=&limit=` | — | `[Plan]` (unexpired, newest first) |
+| GET | `/api/plans/{planID}` | — | `Plan` |
+| POST | `/api/plans/{planID}/apply` | `{block_ids?, force?}` or empty | `{plan, events}` |
+| POST | `/api/plans/{planID}/dismiss` | — | `Plan` |
+
+Apply creates one event per chosen block in one transaction (all blocks when `block_ids` is
+empty). A block that now overlaps an event is refused with 409 unless `force` is true; an applied,
+dismissed or expired plan is refused with 412.
+
 The list route takes `from` and `to` query parameters, both RFC 3339 timestamps. An
 unparseable value is ignored rather than rejected.
 
