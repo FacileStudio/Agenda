@@ -23,6 +23,8 @@
 		onDayClick,
 		onMoreClick,
 		onEventChange,
+		onSlotMenu,
+		onEventMenu,
 		onEventClick
 	}: {
 		events: AgendaEvent[];
@@ -31,6 +33,8 @@
 		onDayClick: (date: CalendarDate) => void;
 		onMoreClick: (date: CalendarDate) => void;
 		onEventChange: (event: AgendaEvent, start: Date, end: Date) => void;
+		onSlotMenu: (e: MouseEvent, start: Date) => void;
+		onEventMenu: (e: MouseEvent, event: AgendaEvent) => void;
 		onEventClick: (event: AgendaEvent) => void;
 	} = $props();
 
@@ -240,6 +244,7 @@
 							}
 						}
 						onclick={() => onDayClick(cell)}
+						oncontextmenu={(e) => onSlotMenu(e, new Date(cell.year, cell.month - 1, cell.day, 9))}
 						onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') onDayClick(cell); }}
 					>
 						<span
@@ -263,6 +268,7 @@
 								<button
 									type="button"
 									onpointerdown={(e) => drag.start(e, event)}
+									oncontextmenu={(e) => onEventMenu(e, event)}
 									class="flex w-full {canEdit(event) ? 'cursor-grab' : 'cursor-pointer'} {drag.isDragging(event) ? 'opacity-40' : ''} items-center gap-1 rounded-md px-1 py-0.5 sm:px-1.5 text-left text-xs font-medium transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
 									style="background-color: {fill}; color: {inkOn(fill)};"
 									onclick={(e) => {
@@ -301,6 +307,7 @@
 						<button
 							type="button"
 							onpointerdown={(e) => drag.start(e, seg.event)}
+							oncontextmenu={(e) => onEventMenu(e, seg.event)}
 							class="absolute z-10 flex {canEdit(seg.event) ? 'cursor-grab' : 'cursor-pointer'} {drag.isDragging(seg.event) ? 'opacity-40' : ''} items-center truncate px-1.5 text-xs font-medium shadow-sm transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring
 								{seg.continuesLeft ? '' : 'rounded-l-md'}
 								{seg.continuesRight ? '' : 'rounded-r-md'}"

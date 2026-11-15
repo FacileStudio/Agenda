@@ -10,11 +10,15 @@
 	let {
 		events,
 		calendars,
+		onSlotMenu,
+		onEventMenu,
 		onEventClick
 	}: {
 		events: AgendaEvent[];
 		calendars: CalendarItem[];
 		onEventClick: (event: AgendaEvent) => void;
+		onSlotMenu: (e: MouseEvent, start: Date) => void;
+		onEventMenu: (e: MouseEvent, event: AgendaEvent) => void;
 	} = $props();
 
 	function getCalendarColor(calendarId: number): string {
@@ -47,7 +51,14 @@
 	});
 </script>
 
-<div class="flex h-full flex-col overflow-y-auto">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
+	class="flex h-full flex-col overflow-y-auto"
+	oncontextmenu={(e) => {
+		const now = new Date();
+		onSlotMenu(e, new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() + 1));
+	}}
+>
 	{#if grouped().length === 0}
 		<div class="flex h-full items-center justify-center p-4">
 			<EmptyState
@@ -71,6 +82,7 @@
 							type="button"
 							class="flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
 							onclick={() => onEventClick(event)}
+							oncontextmenu={(e) => onEventMenu(e, event)}
 						>
 							<span
 								class="mt-1 size-2.5 shrink-0 rounded-full"

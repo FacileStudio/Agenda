@@ -31,6 +31,29 @@ export const calendar = {
 		'Crear un evento a las {time}',
 		'Termin um {time} erstellen'
 	],
+	'calendar.menu.goToDay': ['Go to this day', 'Aller à ce jour', 'Ir a este día', 'Zu diesem Tag'],
+	'calendar.menu.edit': ['Edit', 'Modifier', 'Editar', 'Bearbeiten'],
+	'calendar.menu.duplicate': ['Duplicate', 'Dupliquer', 'Duplicar', 'Duplizieren'],
+	'calendar.undo': ['Undo', 'Annuler', 'Deshacer', 'Rückgängig'],
+	'calendar.redo': ['Redo', 'Rétablir', 'Rehacer', 'Wiederholen'],
+	'calendar.undone': [
+		'Change undone',
+		'Modification annulée',
+		'Cambio deshecho',
+		'Änderung rückgängig gemacht'
+	],
+	'calendar.redone': [
+		'Change redone',
+		'Modification rétablie',
+		'Cambio rehecho',
+		'Änderung wiederholt'
+	],
+	'calendar.saveFailed': [
+		'The change could not be saved.',
+		'La modification n’a pas pu être enregistrée.',
+		'No se pudo guardar el cambio.',
+		'Die Änderung konnte nicht gespeichert werden.'
+	],
 	'calendar.recurring': ['Recurring', 'Récurrent', 'Recurrente', 'Wiederkehrend'],
 	'calendar.empty': [
 		'No events to show',

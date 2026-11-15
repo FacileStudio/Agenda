@@ -2,6 +2,18 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.24.0] - 2026-11-15
+
+### Added
+
+- Ctrl+Z undoes and Ctrl+Shift+Z (or Ctrl+Y) redoes the last drag changes to an event's time. Cmd works on macOS.
+- Right-click menu in every view. On an empty slot: new event, go to this day, undo, redo. On an event: edit, duplicate, go to this day, and delete in red with a trash icon. Delete asks for confirmation.
+
+### Changed
+
+- Undo covers time changes made by dragging. Deleting, duplicating and editing in the form are not undoable.
+- A failed drag now shows an error toast.
+
 ## [0.23.0] - 2026-11-15
 
 ### Added

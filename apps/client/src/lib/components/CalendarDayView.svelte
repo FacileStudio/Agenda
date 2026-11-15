@@ -17,6 +17,8 @@
 		onSlotClick,
 		onRangeCreate,
 		onEventChange,
+		onSlotMenu,
+		onEventMenu,
 		onEventClick
 	}: {
 		events: AgendaEvent[];
@@ -25,6 +27,8 @@
 		onSlotClick: (hour: number) => void;
 		onRangeCreate: (start: Date, end: Date) => void;
 		onEventChange: (event: AgendaEvent, start: Date, end: Date) => void;
+		onSlotMenu: (e: MouseEvent, start: Date) => void;
+		onEventMenu: (e: MouseEvent, event: AgendaEvent) => void;
 		onEventClick: (event: AgendaEvent) => void;
 	} = $props();
 
@@ -113,6 +117,7 @@
 						class="flex max-w-full cursor-pointer items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 						style="background-color: {fill}; color: {inkOn(fill)};"
 						onclick={() => onEventClick(event)}
+						oncontextmenu={(e) => onEventMenu(e, event)}
 					>
 						<EventAvatar creator={event.created_by} class="size-3.5" />
 						<span class="min-w-0 truncate">{event.title}</span>
@@ -142,6 +147,8 @@
 			class="relative"
 			style="height: {24 * SLOT_HEIGHT_PX}px;"
 			onpointerdown={(e) => drag.startCreate(e, 0)}
+			oncontextmenu={(e) =>
+				onSlotMenu(e, atMinutes(currentDate.toDate(tz), Math.floor(drag.minuteAt(e.clientY, 0) / 15) * 15))}
 		>
 			<!-- Hour rows -->
 			{#each HOURS as hour}
@@ -168,6 +175,7 @@
 				<button
 					type="button"
 					onpointerdown={(e) => drag.startEvent(e, event, 'move', 0)}
+					oncontextmenu={(e) => onEventMenu(e, event)}
 					class="absolute right-2 left-14 flex {editable ? 'cursor-grab' : 'cursor-pointer'} {drag.isDragging(event) ? 'opacity-40' : ''} flex-col items-start overflow-hidden rounded-md px-1.5 py-1 text-left text-xs leading-tight font-medium shadow-sm transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
 					style="{getEventStyle(event)} background-color: {fill}; color: {inkOn(fill)};"
 					onclick={() => onEventClick(event)}

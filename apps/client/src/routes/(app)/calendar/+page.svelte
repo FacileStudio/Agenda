@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import {
-		type CalendarDate,
+		CalendarDate,
 		today,
 		getLocalTimeZone,
 		startOfMonth,
@@ -9,13 +9,27 @@
 		startOfWeek,
 		endOfWeek
 	} from '@internationalized/date';
-	import { Button, IconButton, Spinner, Tooltip, UserMenu, icons, type UserMenuOptions } from '@facile/muse';
+	import {
+		Button,
+		ConfirmModal,
+		IconButton,
+		Spinner,
+		Tooltip,
+		UserMenu,
+		icons,
+		toast,
+		type MenuEntry,
+		type UserMenuOptions
+	} from '@facile/muse';
 	import { backend, type CalendarItem, type AgendaEvent, type CreateEventRequest } from '$lib/backend';
 	import CalendarMonthView from '$lib/components/CalendarMonthView.svelte';
 	import CalendarWeekView from '$lib/components/CalendarWeekView.svelte';
 	import CalendarDayView from '$lib/components/CalendarDayView.svelte';
 	import CalendarAgendaView from '$lib/components/CalendarAgendaView.svelte';
 	import EventModal from '$lib/components/EventModal.svelte';
+	import ContextMenu from '$lib/components/ContextMenu.svelte';
+	import { contextMenu } from '$lib/context-menu.svelte';
+	import { menuIcons } from '$lib/menu-icons';
 	import CalendarFilter from '$lib/components/CalendarFilter.svelte';
 	import IdeasButton from '$lib/components/IdeasButton.svelte';
 	import { calendarFilter, visibleCalendars } from '$lib/calendar-filter.svelte';
@@ -189,27 +203,185 @@
 		openCreateRange(start, end);
 	}
 
+	type TimeRange = { start: string; end: string };
+	type TimeChange = { id: number; calendarId: number; before: TimeRange; after: TimeRange };
+
+	let undoStack = $state<TimeChange[]>([]);
+	let redoStack = $state<TimeChange[]>([]);
+	let historyBusy = false;
+
+	function saveTimes(event: AgendaEvent, range: TimeRange) {
+		return backend.updateEvent(event.id, event.calendar_id, {
+			title: event.title,
+			description: event.description,
+			location: event.location,
+			start_at: range.start,
+			end_at: range.end,
+			is_all_day: event.is_all_day,
+			status: event.status,
+			conference_url: event.conference_url,
+			conference_provider: event.conference_provider
+		});
+	}
+
 	async function handleEventChange(event: AgendaEvent, start: Date, end: Date) {
 		const previous = events;
-		events = events.map((e) =>
-			e === event ? { ...e, start_at: start.toISOString(), end_at: end.toISOString() } : e
-		);
+		const after = { start: start.toISOString(), end: end.toISOString() };
+		const change: TimeChange = {
+			id: event.id,
+			calendarId: event.calendar_id,
+			before: { start: new Date(event.start_at).toISOString(), end: new Date(event.end_at).toISOString() },
+			after
+		};
+		events = events.map((e) => (e === event ? { ...e, start_at: after.start, end_at: after.end } : e));
 		try {
-			await backend.updateEvent(event.id, event.calendar_id, {
-				title: event.title,
-				description: event.description,
-				location: event.location,
-				start_at: start.toISOString(),
-				end_at: end.toISOString(),
-				is_all_day: event.is_all_day,
-				status: event.status,
-				conference_url: event.conference_url,
-				conference_provider: event.conference_provider
-			});
+			await saveTimes(event, after);
+			undoStack = [...undoStack, change];
+			redoStack = [];
 			await loadEvents();
 		} catch {
 			events = previous;
+			toast.danger(t('calendar.saveFailed'));
 		}
+	}
+
+	async function stepHistory(direction: 'undo' | 'redo') {
+		const stack = direction === 'undo' ? undoStack : redoStack;
+		const change = stack.at(-1);
+		if (!change || historyBusy) return;
+		historyBusy = true;
+		const dropped = stack.slice(0, -1);
+		try {
+			const event = await backend.getEvent(change.id);
+			await saveTimes(event, direction === 'undo' ? change.before : change.after);
+			if (direction === 'undo') {
+				undoStack = dropped;
+				redoStack = [...redoStack, change];
+			} else {
+				redoStack = dropped;
+				undoStack = [...undoStack, change];
+			}
+			toast.neutral(t(direction === 'undo' ? 'calendar.undone' : 'calendar.redone'));
+			await loadEvents();
+		} catch {
+			if (direction === 'undo') undoStack = dropped;
+			else redoStack = dropped;
+			toast.danger(t('calendar.saveFailed'));
+		} finally {
+			historyBusy = false;
+		}
+	}
+
+	const undo = () => stepHistory('undo');
+	const redo = () => stepHistory('redo');
+
+	function onKeydown(e: KeyboardEvent) {
+		if (!(e.ctrlKey || e.metaKey) || e.altKey || modalOpen || deleteOpen) return;
+		const target = e.target as HTMLElement | null;
+		if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+		const key = e.key.toLowerCase();
+		if (key === 'z' && !e.shiftKey) {
+			e.preventDefault();
+			undo();
+		} else if ((key === 'z' && e.shiftKey) || key === 'y') {
+			e.preventDefault();
+			redo();
+		}
+	}
+
+	let deleteOpen = $state(false);
+	let deleteTarget = $state<AgendaEvent | null>(null);
+
+	function isWritable(event: AgendaEvent): boolean {
+		return app.calendars.find((c) => c.id === event.calendar_id)?.role !== 'reader';
+	}
+
+	function goToDay(date: Date) {
+		currentDate = new CalendarDate(date.getFullYear(), date.getMonth() + 1, date.getDate());
+		setView('day');
+	}
+
+	async function duplicateEvent(event: AgendaEvent) {
+		try {
+			await backend.createEvent(event.calendar_id, {
+				title: event.title,
+				description: event.description,
+				location: event.location,
+				start_at: event.start_at,
+				end_at: event.end_at,
+				is_all_day: event.is_all_day,
+				recurrence_rule: event.recurrence_rule || undefined,
+				status: event.status
+			});
+			await loadEvents();
+		} catch {
+			toast.danger(t('calendar.saveFailed'));
+		}
+	}
+
+	function askDelete(event: AgendaEvent) {
+		deleteTarget = event;
+		deleteOpen = true;
+	}
+
+	async function confirmDelete() {
+		const event = deleteTarget;
+		if (!event) return;
+		try {
+			await backend.deleteEvent(event.id);
+			undoStack = undoStack.filter((c) => c.id !== event.id);
+			redoStack = redoStack.filter((c) => c.id !== event.id);
+			await loadEvents();
+		} catch {
+			toast.danger(t('calendar.saveFailed'));
+		}
+	}
+
+	function showSlotMenu(e: MouseEvent, start: Date) {
+		const end = new Date(start.getFullYear(), start.getMonth(), start.getDate(), start.getHours() + 1, start.getMinutes());
+		const items: MenuEntry[] = [
+			{ label: t('calendar.newEvent'), icon: menuIcons.add, onselect: () => openCreateRange(start, end) }
+		];
+		if (view !== 'day') {
+			items.push({ label: t('calendar.menu.goToDay'), icon: menuIcons.day, onselect: () => goToDay(start) });
+		}
+		items.push(
+			{ separator: true },
+			{ label: t('calendar.undo'), icon: menuIcons.undo, disabled: undoStack.length === 0, onselect: undo },
+			{ label: t('calendar.redo'), icon: menuIcons.redo, disabled: redoStack.length === 0, onselect: redo }
+		);
+		contextMenu.show(e, items);
+	}
+
+	function showEventMenu(e: MouseEvent, event: AgendaEvent) {
+		const writable = isWritable(event);
+		const items: MenuEntry[] = [
+			{ label: t('calendar.menu.edit'), icon: menuIcons.edit, onselect: () => openEditModal(event) },
+			{
+				label: t('calendar.menu.duplicate'),
+				icon: menuIcons.duplicate,
+				disabled: !writable,
+				onselect: () => duplicateEvent(event)
+			}
+		];
+		if (view !== 'day') {
+			items.push({
+				label: t('calendar.menu.goToDay'),
+				icon: menuIcons.day,
+				onselect: () => goToDay(new Date(event.start_at))
+			});
+		}
+		items.push(
+			{ separator: true },
+			{
+				label: t('common.delete'),
+				icon: menuIcons.trash,
+				tone: 'danger',
+				disabled: !writable,
+				onselect: () => askDelete(event)
+			}
+		);
+		contextMenu.show(e, items);
 	}
 
 	function openCreateModal(date?: CalendarDate) {
@@ -356,6 +528,8 @@
 					setView('day');
 				}}
 				onEventClick={openEditModal}
+				onSlotMenu={showSlotMenu}
+				onEventMenu={showEventMenu}
 			/>
 		{:else if view === 'week'}
 			<CalendarWeekView
@@ -366,6 +540,8 @@
 				onRangeCreate={openCreateRange}
 				onEventChange={handleEventChange}
 				onEventClick={openEditModal}
+				onSlotMenu={showSlotMenu}
+				onEventMenu={showEventMenu}
 			/>
 		{:else if view === 'day'}
 			<CalendarDayView
@@ -376,16 +552,33 @@
 				onRangeCreate={openCreateRange}
 				onEventChange={handleEventChange}
 				onEventClick={openEditModal}
+				onSlotMenu={showSlotMenu}
+				onEventMenu={showEventMenu}
 			/>
 		{:else if view === 'agenda'}
 			<CalendarAgendaView
 				{events}
 				calendars={app.calendars}
 				onEventClick={openEditModal}
+				onSlotMenu={showSlotMenu}
+				onEventMenu={showEventMenu}
 			/>
 		{/if}
 	</div>
 </div>
+
+<svelte:window onkeydown={onKeydown} />
+
+<ContextMenu />
+
+<ConfirmModal
+	bind:open={deleteOpen}
+	tone="danger"
+	title={t('event.deleteTitle')}
+	description={t('event.deleteText', { title: deleteTarget?.title || t('event.thisEvent') })}
+	confirmLabel={t('common.delete')}
+	onConfirm={confirmDelete}
+/>
 
 <!-- Event modal -->
 <EventModal

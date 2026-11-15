@@ -21,6 +21,8 @@
 		onSlotClick,
 		onRangeCreate,
 		onEventChange,
+		onSlotMenu,
+		onEventMenu,
 		onEventClick
 	}: {
 		events: AgendaEvent[];
@@ -29,6 +31,8 @@
 		onSlotClick: (date: CalendarDate, hour: number) => void;
 		onRangeCreate: (start: Date, end: Date) => void;
 		onEventChange: (event: AgendaEvent, start: Date, end: Date) => void;
+		onSlotMenu: (e: MouseEvent, start: Date) => void;
+		onEventMenu: (e: MouseEvent, event: AgendaEvent) => void;
 		onEventClick: (event: AgendaEvent) => void;
 	} = $props();
 
@@ -265,6 +269,8 @@
 					bind:this={columns[di]}
 					class="relative mx-0.5 flex-1 overflow-hidden rounded-fc-md bg-fc-surface"
 					onpointerdown={(e) => drag.startCreate(e, di)}
+					oncontextmenu={(e) =>
+						onSlotMenu(e, atMinutes(day.toDate(tz), Math.floor(drag.minuteAt(e.clientY, di) / 15) * 15))}
 				>
 					{#each HOURS as hour}
 						<button
@@ -282,6 +288,7 @@
 						<button
 							type="button"
 							onpointerdown={(e) => drag.startEvent(e, event, 'move', di)}
+							oncontextmenu={(e) => onEventMenu(e, event)}
 							class="absolute right-0.5 left-0.5 flex {editable ? 'cursor-grab' : 'cursor-pointer'} {drag.isDragging(event) ? 'opacity-40' : ''} flex-col items-start overflow-hidden rounded-md px-1.5 py-1 text-left text-xs leading-tight font-medium shadow-sm transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
 							style="{getEventStyle(event)} background-color: {fill}; color: {inkOn(fill)};"
 							onclick={() => onEventClick(event)}

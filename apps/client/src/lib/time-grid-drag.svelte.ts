@@ -113,7 +113,7 @@ export class TimeGridDrag {
 		setTimeout(() => window.removeEventListener('click', stop, { capture: true }), 0);
 	}
 
-	private minuteAt(clientY: number, column: number): number {
+	minuteAt(clientY: number, column: number): number {
 		const el = this.options.columns()[column];
 		if (!el) return 0;
 		const top = el.getBoundingClientRect().top;
