@@ -2,6 +2,8 @@ github.com/FacileStudio/Journal/sdk/journal v0.0.0-20260708221941-db985ad2b1ba h
 github.com/FacileStudio/Journal/sdk/journal v0.0.0-20260708221941-db985ad2b1ba/go.mod h1:mb3rZqpSwA4CMrP9LQe2eWdM/4np3xzkRy6l/WWSaUg=
 github.com/FacileStudio/antenne-client/go v1.1.0 h1:DVfiUneBwgeobaUWmNUNr7jCEOuHc1g2lUfKGM3Zpzs=
 github.com/FacileStudio/antenne-client/go v1.1.0/go.mod h1:L36VhKkpNZ0zLo0AfV8w3NwaKv6poZpDnff4xlq+Zso=
+github.com/FacileStudio/antenne-client/go v1.2.0 h1:DhlLzltJKgsDJUbXvsHgOHhiPjId5eZXMeeYfKclp2k=
+github.com/FacileStudio/antenne-client/go v1.2.0/go.mod h1:TPcvgbs0d8c7Na/yHzGEHNSvch4dQ4NjzIMuT7AC25U=
 github.com/FacileStudio/porte v0.20.1 h1:T+SH3pD0Q0b3dczEQN4Rf8BZbAjSE718LZiO1+K2TtU=
 github.com/FacileStudio/porte v0.20.1/go.mod h1:CaIkb31GGNpTuhgOrFg2/BsX7eErBlS7WSXKIa4YkcA=
 github.com/FacileStudio/porte/directory v0.5.0 h1:XdnYlML8tuTmRyETr4C0ZjnjNOZV/MQC6Ooh5pcCC38=

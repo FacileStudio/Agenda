@@ -1,3 +1,97 @@
+CREATE FUNCTION public.agenda_notify_activity() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF TG_OP <> 'INSERT' THEN
+        PERFORM pg_notify('agenda_changes', 'u:' || OLD.user_id);
+    END IF;
+    IF TG_OP <> 'DELETE' THEN
+        PERFORM pg_notify('agenda_changes', 'u:' || NEW.user_id);
+    END IF;
+    RETURN NULL;
+END;
+$$;
+
+CREATE FUNCTION public.agenda_notify_calendar() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF TG_OP = 'UPDATE' AND (to_jsonb(NEW) - 'sync_token' - 'updated_at') = (to_jsonb(OLD) - 'sync_token' - 'updated_at') THEN
+        RETURN NULL;
+    END IF;
+    IF TG_OP = 'DELETE' THEN
+        PERFORM pg_notify('agenda_changes', 'c:' || OLD.id);
+    ELSE
+        PERFORM pg_notify('agenda_changes', 'c:' || NEW.id);
+    END IF;
+    RETURN NULL;
+END;
+$$;
+
+CREATE FUNCTION public.agenda_notify_calendar_member() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF TG_OP <> 'INSERT' THEN
+        PERFORM pg_notify('agenda_changes', 'c:' || OLD.calendar_id);
+    END IF;
+    IF TG_OP <> 'DELETE' THEN
+        PERFORM pg_notify('agenda_changes', 'c:' || NEW.calendar_id);
+    END IF;
+    RETURN NULL;
+END;
+$$;
+
+CREATE FUNCTION public.agenda_notify_event() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF TG_OP <> 'INSERT' THEN
+        PERFORM pg_notify('agenda_changes', 'e:' || OLD.calendar_id);
+    END IF;
+    IF TG_OP <> 'DELETE' AND (TG_OP = 'INSERT' OR NEW.calendar_id IS DISTINCT FROM OLD.calendar_id) THEN
+        PERFORM pg_notify('agenda_changes', 'e:' || NEW.calendar_id);
+    END IF;
+    RETURN NULL;
+END;
+$$;
+
+CREATE FUNCTION public.agenda_notify_space_member() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF TG_OP <> 'INSERT' THEN
+        PERFORM pg_notify('agenda_changes', 'c:' || c.id) FROM calendars c WHERE c.space_id = OLD.space_id;
+    END IF;
+    IF TG_OP <> 'DELETE' THEN
+        PERFORM pg_notify('agenda_changes', 'c:' || c.id) FROM calendars c WHERE c.space_id = NEW.space_id;
+    END IF;
+    RETURN NULL;
+END;
+$$;
+
+CREATE TABLE public.activities (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    source text NOT NULL,
+    external_id text NOT NULL,
+    title text DEFAULT ''::text NOT NULL,
+    start_at timestamp with time zone NOT NULL,
+    end_at timestamp with time zone,
+    url text DEFAULT ''::text NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT activities_source_check CHECK ((source = ANY (ARRAY['sablier'::text, 'echo'::text])))
+);
+
+CREATE SEQUENCE public.activities_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.activities_id_seq OWNED BY public.activities.id;
+
 CREATE TABLE public.antenne_outbox (
     id bigint NOT NULL,
     channel text NOT NULL,
@@ -121,7 +215,8 @@ CREATE TABLE public.events (
     source text DEFAULT ''::text NOT NULL,
     external_id text DEFAULT ''::text NOT NULL,
     color text DEFAULT ''::text NOT NULL,
-    timezone text DEFAULT ''::text NOT NULL
+    timezone text DEFAULT ''::text NOT NULL,
+    external_url text DEFAULT ''::text NOT NULL
 );
 
 CREATE SEQUENCE public.events_id_seq
@@ -264,6 +359,8 @@ CREATE SEQUENCE public.users_id_seq
 
 ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
 
+ALTER TABLE ONLY public.activities ALTER COLUMN id SET DEFAULT nextval('public.activities_id_seq'::regclass);
+
 ALTER TABLE ONLY public.antenne_outbox ALTER COLUMN id SET DEFAULT nextval('public.antenne_outbox_id_seq'::regclass);
 
 ALTER TABLE ONLY public.app_settings ALTER COLUMN id SET DEFAULT nextval('public.app_settings_id_seq'::regclass);
@@ -283,6 +380,12 @@ ALTER TABLE ONLY public.space_members ALTER COLUMN id SET DEFAULT nextval('publi
 ALTER TABLE ONLY public.spaces ALTER COLUMN id SET DEFAULT nextval('public.spaces_id_seq'::regclass);
 
 ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
+
+ALTER TABLE ONLY public.activities
+    ADD CONSTRAINT activities_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.activities
+    ADD CONSTRAINT activities_source_external_user UNIQUE (source, external_id, user_id);
 
 ALTER TABLE ONLY public.antenne_outbox
     ADD CONSTRAINT antenne_outbox_idempotency_key_key UNIQUE (idempotency_key);
@@ -338,6 +441,8 @@ ALTER TABLE ONLY public.spaces
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (id);
 
+CREATE INDEX activities_user_start ON public.activities USING btree (user_id, start_at);
+
 CREATE INDEX antenne_outbox_sent ON public.antenne_outbox USING btree (sent_at) WHERE (sent_at IS NOT NULL);
 
 CREATE INDEX antenne_outbox_unsent ON public.antenne_outbox USING btree (id) WHERE (sent_at IS NULL);
@@ -391,6 +496,19 @@ CREATE INDEX porte_identities_user_idx ON public.porte_identities USING btree (u
 CREATE INDEX porte_sessions_expiry_idx ON public.porte_sessions USING btree (expires_at) WHERE (expires_at IS NOT NULL);
 
 CREATE INDEX porte_sessions_user_idx ON public.porte_sessions USING btree (user_id);
+
+CREATE TRIGGER activities_notify AFTER INSERT OR DELETE OR UPDATE ON public.activities FOR EACH ROW EXECUTE FUNCTION public.agenda_notify_activity();
+
+CREATE TRIGGER calendar_members_notify AFTER INSERT OR DELETE OR UPDATE ON public.calendar_members FOR EACH ROW EXECUTE FUNCTION public.agenda_notify_calendar_member();
+
+CREATE TRIGGER calendars_notify AFTER INSERT OR DELETE OR UPDATE ON public.calendars FOR EACH ROW EXECUTE FUNCTION public.agenda_notify_calendar();
+
+CREATE TRIGGER events_notify AFTER INSERT OR DELETE OR UPDATE ON public.events FOR EACH ROW EXECUTE FUNCTION public.agenda_notify_event();
+
+CREATE TRIGGER space_members_notify AFTER INSERT OR DELETE OR UPDATE ON public.space_members FOR EACH ROW EXECUTE FUNCTION public.agenda_notify_space_member();
+
+ALTER TABLE ONLY public.activities
+    ADD CONSTRAINT activities_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.events
     ADD CONSTRAINT fk_events_created_by FOREIGN KEY (created_by_id) REFERENCES public.users(id);

@@ -2,7 +2,6 @@ package calendars
 
 import (
 	"context"
-	stderrors "errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -67,24 +66,6 @@ func (s *Service) EnsurePersonalCalendar(ctx context.Context, userID int64) erro
 		SyncToken:  syncToken(),
 	}
 	return s.create(ctx, cal, userID)
-}
-
-// EnsureCalendar returns the id of the user's calendar with the given slug,
-// creating it with the given name and color on first use.
-func (s *Service) EnsureCalendar(ctx context.Context, userID int64, slug, name, color string) (int64, error) {
-	var cal schemas.Calendar
-	err := s.orm.WithContext(ctx).Where("owner_id = ? AND slug = ?", userID, slug).First(&cal).Error
-	if err == nil {
-		return cal.ID, nil
-	}
-	if !stderrors.Is(err, gorm.ErrRecordNotFound) {
-		return 0, errors.Internal("failed to look up calendar", err)
-	}
-	cal = schemas.Calendar{OwnerID: userID, Slug: slug, Name: name, Color: color, SyncToken: syncToken()}
-	if err := s.create(ctx, &cal, userID); err != nil {
-		return 0, errors.Internal("failed to create calendar", err)
-	}
-	return cal.ID, nil
 }
 
 // ListCalendars returns the calendars the user can open: all of them when

@@ -148,10 +148,19 @@ legacy `/auth/oidc/callback` keeps working: that root path is registered as a 30
 | `DUE_DATE_TIMEZONE` | no | `Europe/Paris` | Zone used to read the date of an Opus due date sent as a UTC instant, since Opus stores local midnight as UTC |
 
 Agenda registers as `Agenda` and listens to `task.created`, `task.updated`, `task.deleted`,
-`task.status_changed` and `task.actor_changed`. A task with a `due_date` and an `actor_email`
-matching an Agenda user becomes an all-day event in that user's "Opus tasks" calendar,
-keyed by the task `facile_id` (`events.source = 'opus'`, `events.external_id`). Clearing the
-date, deleting the task or unassigning it removes the event; reassigning moves it. Mirrored
+`task.status_changed` and `task.actor_changed`. A task with a `due_date` becomes an all-day
+event keyed by the task `facile_id` (`events.source = 'opus'`, `events.external_id`, and
+`events.external_url` from the payload's `url`). A task whose `registre_space_id` names a
+space Agenda knows, and that is not `personal`, lands in that space's calendar; any other
+task lands in the default personal calendar of its assignee (`actor_email`, else
+`owner_email`). Clearing the date, deleting the task or leaving it with neither a space nor an
+Agenda assignee removes the event; reassigning or moving it to a space moves it.
+
+Agenda also listens to Sablier's `time_entry.created|updated|deleted` and Echo's
+`call.started|updated|ended`, keyed on the channel, and stores them in `activities` for the
+user whose email matches `user_email`, or each Agenda user in `participant_emails`. A newer
+version per session or call wins (`external_versions`), so replays cannot undo a stop or a
+delete. The pool accepts a subscription to a channel nothing publishes yet. Mirrored
 events are read-only over the HTTP API and CalDAV (403, "this event comes from an Opus task and is read-only: edit or delete the task in Opus"). The pool keeps the acked offset per
 app, so a restart resumes where it stopped, and replays are idempotent.
 

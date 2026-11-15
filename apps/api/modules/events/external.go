@@ -11,18 +11,40 @@ import (
 	"gorm.io/gorm"
 )
 
+// External names an event mirrored from another app: the app's source tag,
+// the object's id there and the link back to it.
+type External struct {
+	Source string
+	ID     string
+	URL    string
+}
+
 // UpsertExternal creates or updates the event mirrored from another app,
-// keyed by (source, externalID). When the mirror already exists in a
-// different calendar it is moved. It reuses the normal create and update
-// paths, so raw ICS and sync tokens behave exactly as for a user edit.
-func (s *Service) UpsertExternal(ctx context.Context, calendarID int64, source, externalID string, req *CreateEventRequest) error {
+// keyed by (source, id). When the mirror already exists in a different
+// calendar it is moved. It reuses the normal create and update paths, so raw
+// ICS and sync tokens behave exactly as for a user edit, then stores the link
+// back to the object.
+func (s *Service) UpsertExternal(ctx context.Context, calendarID int64, ext External, req *CreateEventRequest) error {
 	if err := validateEventFields(req.Title, req.StartAt, req.EndAt); err != nil {
 		return err
 	}
+	if err := s.upsertExternal(ctx, calendarID, ext, req); err != nil {
+		return err
+	}
+	err := s.orm.WithContext(ctx).Model(&schemas.Event{}).
+		Where("source = ? AND external_id = ? AND external_url <> ?", ext.Source, ext.ID, ext.URL).
+		Update("external_url", ext.URL).Error
+	if err != nil {
+		return errors.Internal("failed to store the mirrored event link", err)
+	}
+	return nil
+}
+
+func (s *Service) upsertExternal(ctx context.Context, calendarID int64, ext External, req *CreateEventRequest) error {
 	var evt schemas.Event
-	err := s.orm.WithContext(ctx).Where("source = ? AND external_id = ?", source, externalID).First(&evt).Error
+	err := s.orm.WithContext(ctx).Where("source = ? AND external_id = ?", ext.Source, ext.ID).First(&evt).Error
 	if stderrors.Is(err, gorm.ErrRecordNotFound) {
-		_, err = s.insertEvent(ctx, calendarID, nil, req, source, externalID)
+		_, err = s.insertEvent(ctx, calendarID, nil, req, ext.Source, ext.ID)
 		return err
 	}
 	if err != nil {

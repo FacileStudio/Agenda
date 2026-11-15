@@ -1,5 +1,6 @@
-// Package pool mirrors Opus tasks with a due date into Agenda calendars,
-// fed by the Antenne Pool.
+// Package pool mirrors Opus tasks with a due date into Agenda calendars and
+// records Sablier sessions and Echo calls as activities, fed by the Antenne
+// Pool.
 package pool
 
 import (
@@ -7,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"strconv"
 	"strings"
 	"time"
 
@@ -17,14 +17,10 @@ import (
 	"github.com/FacileStudio/antenne-client/go/catalog"
 
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 const (
 	SourceOpus = "opus"
-
-	calendarName  = "Opus tasks"
-	calendarColor = "#8b5cf6"
 
 	channelTaskCreated = string(catalog.TaskCreated)
 	channelTaskUpdated = string(catalog.TaskUpdated)
@@ -39,7 +35,9 @@ func TaskChannels() []string {
 	}
 }
 
-// Mirror turns Opus task events into read-only all-day events.
+// Mirror turns Opus task events into read-only all-day events. A task of a
+// Registre space lands in that space's calendar; any other task lands in its
+// assignee's default personal calendar.
 type Mirror struct {
 	db        *gorm.DB
 	events    *events.Service
@@ -61,19 +59,19 @@ func (m *Mirror) Apply(ctx context.Context, channel string, raw json.RawMessage)
 	if err != nil {
 		return fmt.Errorf("decode task event: %w", err)
 	}
-	task := evt.task
+	task := evt.payload
 	if evt.app != appOpus || task.FacileID == "" || isLegacyID(task) {
 		m.logger.Debug("pool: task event ignored", slog.String("channel", channel), slog.String("app", evt.app))
 		return nil
 	}
-	stale, err := m.isStale(ctx, task.FacileID, evt.version)
+	stale, err := isStale(ctx, m.db, SourceOpus, task.FacileID, evt.version)
 	if err != nil || stale {
 		return err
 	}
 	if err := m.apply(ctx, channel, task); err != nil {
 		return err
 	}
-	return m.recordVersion(ctx, task.FacileID, evt.version)
+	return recordVersion(ctx, m.db, SourceOpus, task.FacileID, evt.version)
 }
 
 func (m *Mirror) apply(ctx context.Context, channel string, task taskPayload) error {
@@ -91,27 +89,20 @@ func (m *Mirror) apply(ctx context.Context, channel string, task taskPayload) er
 }
 
 func (m *Mirror) mirrorTask(ctx context.Context, task taskPayload, due time.Time) error {
-	email := strings.TrimSpace(task.ActorEmail)
-	if email == "" {
-		email = task.OwnerEmail
-	}
-	userID, found, err := m.findUser(ctx, email)
+	calendarID, err := m.targetCalendar(ctx, task)
 	if err != nil {
 		return err
 	}
-	if !found {
-		m.logger.Info("pool: no Agenda user for task, skipping", slog.String("task", task.FacileID), slog.Bool("assigned", task.ActorEmail != ""))
+	if calendarID == 0 {
+		m.logger.Info("pool: no Agenda calendar for task, skipping", slog.String("task", task.FacileID), slog.Bool("assigned", task.ActorEmail != ""))
 		return m.events.DeleteExternal(ctx, SourceOpus, task.FacileID)
 	}
 	title := task.Title
 	if strings.TrimSpace(title) == "" {
 		title = task.Name
 	}
-	calendarID, err := m.calendars.EnsureCalendar(ctx, userID, "opus-tasks-"+strconv.FormatInt(userID, 10), calendarName, calendarColor)
-	if err != nil {
-		return err
-	}
-	return m.events.UpsertExternal(ctx, calendarID, SourceOpus, task.FacileID, &events.CreateEventRequest{
+	external := events.External{Source: SourceOpus, ID: task.FacileID, URL: linkURL(task.URL)}
+	return m.events.UpsertExternal(ctx, calendarID, external, &events.CreateEventRequest{
 		Title:    title,
 		StartAt:  due,
 		EndAt:    due.Add(allDayEndOffset),
@@ -119,36 +110,48 @@ func (m *Mirror) mirrorTask(ctx context.Context, task taskPayload, due time.Time
 	})
 }
 
-func (m *Mirror) isStale(ctx context.Context, externalID string, version int64) (bool, error) {
-	var stored schemas.ExternalVersion
-	err := m.db.WithContext(ctx).Where("source = ? AND external_id = ?", SourceOpus, externalID).Limit(1).Find(&stored).Error
-	if err != nil {
-		return false, fmt.Errorf("look up event version: %w", err)
+// targetCalendar is the space calendar for a task of a Registre space Agenda
+// knows, otherwise the assignee's default personal calendar, or 0 when the
+// task has neither.
+func (m *Mirror) targetCalendar(ctx context.Context, task taskPayload) (int64, error) {
+	if space := strings.TrimSpace(task.RegistreSpaceID); space != "" && !task.Personal {
+		id, err := m.spaceCalendar(ctx, space)
+		if err != nil || id != 0 {
+			return id, err
+		}
 	}
-	return stored.Version > version, nil
-}
-
-func (m *Mirror) recordVersion(ctx context.Context, externalID string, version int64) error {
-	row := schemas.ExternalVersion{Source: SourceOpus, ExternalID: externalID, Version: version}
-	err := m.db.WithContext(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "source"}, {Name: "external_id"}},
-		DoUpdates: clause.Assignments(map[string]any{"version": gorm.Expr("GREATEST(external_versions.version, EXCLUDED.version)")}),
-	}).Create(&row).Error
-	if err != nil {
-		return fmt.Errorf("record event version: %w", err)
-	}
-	return nil
-}
-
-func (m *Mirror) findUser(ctx context.Context, email string) (int64, bool, error) {
-	email = strings.TrimSpace(email)
+	email := strings.TrimSpace(task.ActorEmail)
 	if email == "" {
-		return 0, false, nil
+		email = task.OwnerEmail
 	}
-	var user schemas.User
-	err := m.db.WithContext(ctx).Select("id").Where("lower(email) = lower(?)", email).Limit(1).Find(&user).Error
+	userID, found, err := findUser(ctx, m.db, email)
+	if err != nil || !found {
+		return 0, err
+	}
+	return m.personalCalendar(ctx, userID)
+}
+
+func (m *Mirror) spaceCalendar(ctx context.Context, registreSpaceID string) (int64, error) {
+	var ids []int64
+	err := m.db.WithContext(ctx).Raw(`SELECT c.id FROM calendars c JOIN spaces s ON s.id = c.space_id
+		WHERE s.registre_space_id = ? ORDER BY c.id LIMIT 1`, registreSpaceID).Scan(&ids).Error
 	if err != nil {
-		return 0, false, fmt.Errorf("look up assignee: %w", err)
+		return 0, fmt.Errorf("look up the space calendar: %w", err)
 	}
-	return user.ID, user.ID != 0, nil
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	return ids[0], nil
+}
+
+func (m *Mirror) personalCalendar(ctx context.Context, userID int64) (int64, error) {
+	db := m.db.WithContext(ctx)
+	id, err := schemas.PersonalDefaultCalendar(db, userID)
+	if err != nil || id != 0 {
+		return id, err
+	}
+	if err := m.calendars.EnsurePersonalCalendar(ctx, userID); err != nil {
+		return 0, fmt.Errorf("create the personal calendar: %w", err)
+	}
+	return schemas.PersonalDefaultCalendar(db, userID)
 }

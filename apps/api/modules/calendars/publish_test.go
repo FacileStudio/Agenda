@@ -30,10 +30,6 @@ func TestCalendarWritesQueueOneRowEach(t *testing.T) {
 	bustest.AssertQueued(t, db, func() error {
 		return svc.EnsurePersonalCalendar(ctx, userID)
 	}, "calendar.created")
-	bustest.AssertQueued(t, db, func() error {
-		_, err := svc.EnsureCalendar(ctx, userID, "opus-tasks", "Opus tasks", "#000000")
-		return err
-	}, "calendar.created")
 	bustest.AssertQueued(t, db, func() (err error) {
 		created, err = svc.CreateCalendar(ctx, userID, &CreateCalendarRequest{Name: "Work"})
 		return err

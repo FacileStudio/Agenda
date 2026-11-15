@@ -114,7 +114,7 @@ func (f *fixture) calendarOf(t *testing.T, id int64) schemas.Calendar {
 	return cal
 }
 
-func TestUpsertCreatesAllDayEventInOpusCalendar(t *testing.T) {
+func TestUpsertCreatesAllDayEventInPersonalCalendar(t *testing.T) {
 	f := newFixture(t)
 	f.apply(t, "task.created", task("t1", "Ship it", "2026-11-04T00:00:00Z", f.alice.Email))
 
@@ -136,7 +136,7 @@ func TestUpsertCreatesAllDayEventInOpusCalendar(t *testing.T) {
 		t.Fatalf("raw ics not regenerated:\n%s", evt.RawICS)
 	}
 	cal := f.calendarOf(t, evt.CalendarID)
-	if cal.Name != "Opus tasks" || cal.OwnerID != f.alice.ID || cal.SyncToken == "" {
+	if !cal.IsPersonal || cal.SpaceID != nil || cal.OwnerID != f.alice.ID || cal.SyncToken == "" {
 		t.Fatalf("unexpected calendar %+v", cal)
 	}
 }
@@ -171,9 +171,9 @@ func TestReplayIsIdempotent(t *testing.T) {
 		t.Fatalf("mirrored events = %d, want 1", n)
 	}
 	var calendarCount int64
-	f.db.Model(&schemas.Calendar{}).Where("name = ?", "Opus tasks").Count(&calendarCount)
+	f.db.Model(&schemas.Calendar{}).Where("owner_id = ?", f.alice.ID).Count(&calendarCount)
 	if calendarCount != 1 {
-		t.Fatalf("Opus tasks calendars = %d, want 1", calendarCount)
+		t.Fatalf("calendars of the assignee = %d, want 1", calendarCount)
 	}
 }
 

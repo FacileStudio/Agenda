@@ -140,6 +140,7 @@ logs a warning and startup continues.
 | `calendar_members` | unique `(calendar_id, user_id)`, `role` | Roles are `reader`, `writer`, `admin` |
 | `events` | `id`, unique `(uid, calendar_id)`, `etag`, `sequence`, `start_at`, `end_at`, `raw_ics` | Also `is_all_day`, `recurrence_rule`, `status`, `conference_url`, `conference_provider` |
 | `event_attendees` | `event_id`, `user_id`, `email`, `response` | `response` is `needs-action`, `accepted`, `declined`, or `tentative` |
+| `activities` | unique `(source, external_id, user_id)`, `start_at`, `end_at` | Sablier sessions and Echo calls of one user; `end_at` is NULL while running. Never events: CalDAV and space calendars do not see them |
 
 The schema is the ordered SQL under `apps/api/migrations/`, applied at boot by `tronc/migrate`
 behind a Postgres advisory lock. `00001_baseline.sql` is the production schema GORM
@@ -150,9 +151,23 @@ not create, or a type its field cannot hold.
 
 After the migrations, `schemas.Reconcile` runs the idempotent data steps the old boot code
 ran, in the same order: the avatar column backfill, one calendar per space
-(`SyncSpaceCalendars`), and `AdoptPorte` (the local identity re-key, the pre-porte session and
+(`SyncSpaceCalendars`), emptying the legacy per-user "Opus tasks" calendars into each owner's
+personal calendar (`moveOpusTaskCalendars`, a no-op once they are gone), and `AdoptPorte` (the local identity re-key, the pre-porte session and
 API token carry-over, the password and OIDC subject adoption, the Registre picture backfill).
 `crypto.MigrateOIDCTokens` follows when `ENCRYPTION_KEY` is set.
+
+### Live updates
+
+Triggers on `events`, `calendars`, `calendar_members`, `space_members` and `activities`
+(migration 00004) call `pg_notify('agenda_changes', …)` with `e:<calendar id>`,
+`c:<calendar id>` or `u:<user id>`, so every writer is covered: the API, CalDAV, MCP, the
+Opus mirror, erasure and raw SQL. A calendars update that only bumps `sync_token` stays
+silent. `internal/live` holds one dedicated pgx connection that LISTENs, reconnecting with a
+doubling backoff and sending a resync after each reconnect, and fans every notice out to the
+open `GET /api/live` streams. Each stream filters with `schemas.LoadCalendarAccess`, cached per
+calendar and refreshed on every `c:` notice, so a user only hears about calendars they can read
+and about their own activities. The stream lifts the server's read and write deadlines, writes
+a heartbeat every 25 seconds, ends after 30 minutes, and closes when shutdown starts.
 
 Two columns exist for CalDAV round-trip fidelity: `events.raw_ics` keeps the original
 iCalendar payload a client sent, and `calendars.sync_token` is bumped on every event
@@ -194,7 +209,8 @@ The vendored go-webdav copy carries local patches. They are documented in
 
 Logs ship to Journal when both `JOURNAL_URL` and `JOURNAL_TOKEN` are set; the Journal SDK
 wraps the `slog` handler. With `ANTENNE_URL` set, `internal/pool` joins the Antenne pool:
-it mirrors Opus tasks into an "Opus tasks" calendar and drains `antenne_outbox`, where
+it mirrors Opus tasks into the space or personal calendar they belong to, records Sablier
+sessions and Echo calls as `activities`, and drains `antenne_outbox`, where
 `internal/bus` queues every calendar and event change in the write's transaction (see
 [configuration.md](configuration.md#antenne-pool)). Identity federation goes through
 Registre over OIDC like the rest of the suite.

@@ -74,6 +74,8 @@ var clientCalls = []struct {
 	{http.MethodPost, directory.DeletionsPath},
 	{http.MethodGet, "/api/settings/"},
 	{http.MethodPut, "/api/settings/"},
+	{http.MethodGet, "/api/live"},
+	{http.MethodGet, "/api/activities"},
 	{http.MethodGet, "/api/ideas"},
 	{http.MethodPost, "/api/ideas/generate"},
 	{http.MethodPost, "/api/ideas/i1/run"},

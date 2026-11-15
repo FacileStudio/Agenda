@@ -179,6 +179,20 @@ data.
 Every event write bumps `calendars.sync_token`, which is what CalDAV clients poll to
 detect changes.
 
+## Live updates and activities
+
+| Method | Path | Auth | Body | Response |
+|---|---|---|---|---|
+| GET | `/api/live` | yes | — | `text/event-stream` of `change` events |
+| GET | `/api/activities?from=&to=` | yes | — | `[{"id","source","title","start_at","end_at","url"}]` |
+
+`/api/live` sends `{"calendar_id":N}` when an event changes in a calendar the caller can
+read, `{"calendar_id":N,"calendar":true}` when that calendar or who can read it changes,
+`{"activity":true}` when the caller's activities change, and `{"resync":true}` when notices
+may have been missed. Frames carry no content: the client refetches. `/api/activities`
+returns only the caller's own Sablier sessions and Echo calls overlapping `[from, to)`
+(RFC 3339, at most 100 days); `end_at` is null while one is running.
+
 ## Settings
 
 | Method | Path | Auth | Body | Response |

@@ -81,6 +81,7 @@ type EventResponse struct {
 	ConferenceProvider string                `json:"conference_provider"`
 	Source             string                `json:"source"`
 	ExternalID         string                `json:"external_id"`
+	ExternalURL        string                `json:"external_url"`
 	CreatedBy          *EventCreator         `json:"created_by"`
 	CreatedAt          time.Time             `json:"created_at"`
 	UpdatedAt          time.Time             `json:"updated_at"`

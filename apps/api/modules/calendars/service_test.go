@@ -143,10 +143,11 @@ func TestDeleteCalendarRemovesItsEvents(t *testing.T) {
 	svc := NewService(db)
 	alice := schemas.User{Email: "alice@example.com", Name: "Alice"}
 	db.Create(&alice)
-	id, err := svc.EnsureCalendar(context.Background(), alice.ID, "opus-tasks-1", "Opus tasks", "#fff")
+	created, err := svc.CreateCalendar(context.Background(), alice.ID, &CreateCalendarRequest{Name: "Work"})
 	if err != nil {
-		t.Fatalf("ensure: %v", err)
+		t.Fatalf("create: %v", err)
 	}
+	id := created.ID
 	evt := schemas.Event{CalendarID: id, UID: "u1", Title: "Task", Source: "opus", ExternalID: "t1"}
 	db.Create(&evt)
 	db.Create(&schemas.EventAttendee{EventID: evt.ID, Email: "x@example.com"})

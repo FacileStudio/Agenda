@@ -4,7 +4,10 @@ import (
 	"log/slog"
 
 	"github.com/FacileStudio/Agenda/apps/api/internal/env"
+	"github.com/FacileStudio/Agenda/apps/api/internal/live"
+	"github.com/FacileStudio/Agenda/apps/api/modules/activities"
 	"github.com/FacileStudio/Agenda/apps/api/modules/ideas"
+	liveroutes "github.com/FacileStudio/Agenda/apps/api/modules/live"
 
 	"github.com/FacileStudio/porte/directory"
 	porteKit "github.com/FacileStudio/porte/kit"
@@ -33,9 +36,12 @@ func invitationsConfig(
 	}
 }
 
-// mountOptional mounts the /api routes that exist only when their service is
-// configured: the user menu's invitations and the Ideas page.
+// mountOptional mounts the live stream and the activities, then the /api
+// routes that exist only when their service is configured: the user menu's
+// invitations and the Ideas page.
 func mountOptional(r chi.Router, m mounts) error {
+	liveroutes.RegisterRoutes(r, m.live, live.CalendarAccess(m.db), m.auth, m.logger)
+	activities.RegisterRoutes(r, m.db, m.auth)
 	if m.invitations != nil {
 		if err := porteKit.MountInvitations(r.With(m.auth.RequireAuth), *m.invitations); err != nil {
 			return err

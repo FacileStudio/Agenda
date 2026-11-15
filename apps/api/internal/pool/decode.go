@@ -2,6 +2,7 @@ package pool
 
 import (
 	"encoding/json"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -14,44 +15,56 @@ import (
 const appOpus = string(envelope.AppOpus)
 
 type taskPayload struct {
-	ID         int64  `json:"id"`
-	FacileID   string `json:"facile_id"`
-	Title      string `json:"title"`
-	Name       string `json:"name"`
-	DueDate    string `json:"due_date"`
-	ActorEmail string `json:"actor_email"`
-	OwnerEmail string `json:"owner_email"`
+	ID              int64  `json:"id"`
+	FacileID        string `json:"facile_id"`
+	Title           string `json:"title"`
+	Name            string `json:"name"`
+	DueDate         string `json:"due_date"`
+	ActorEmail      string `json:"actor_email"`
+	OwnerEmail      string `json:"owner_email"`
+	RegistreSpaceID string `json:"registre_space_id"`
+	Personal        bool   `json:"personal"`
+	URL             string `json:"url"`
 }
 
-type decoded struct {
-	task    taskPayload
-	app     string
-	version int64
+type decoded[T any] struct {
+	payload   T
+	app       string
+	facileID  string
+	version   int64
+	timestamp string
 }
 
-func decodeTask(raw json.RawMessage) (decoded, error) {
-	var env envelope.Event[*taskPayload]
+func decodeEnvelope[T any](raw json.RawMessage) (decoded[T], error) {
+	var env envelope.Event[*T]
 	if err := json.Unmarshal(raw, &env); err != nil {
-		return decoded{}, err
+		return decoded[T]{}, err
 	}
-	out := decoded{app: string(env.App), version: eventVersion(env)}
-	if env.Payload == nil {
-		return out, nil
-	}
-	out.task = *env.Payload
-	if out.task.FacileID == "" {
-		out.task.FacileID = env.FacileID
+	out := decoded[T]{app: string(env.App), facileID: env.FacileID, timestamp: env.Timestamp,
+		version: eventVersion(env.IdempotencyKey, env.Timestamp)}
+	if env.Payload != nil {
+		out.payload = *env.Payload
 	}
 	return out, nil
 }
 
-func eventVersion(env envelope.Event[*taskPayload]) int64 {
-	if i := strings.LastIndex(env.IdempotencyKey, ":"); i >= 0 {
-		if ms, err := strconv.ParseInt(env.IdempotencyKey[i+1:], 10, 64); err == nil && ms > 0 {
+func decodeTask(raw json.RawMessage) (decoded[taskPayload], error) {
+	out, err := decodeEnvelope[taskPayload](raw)
+	if out.payload.FacileID == "" {
+		out.payload.FacileID = out.facileID
+	}
+	return out, err
+}
+
+// eventVersion orders events of one object: the Unix-millisecond suffix of the
+// idempotency key when there is one, else the envelope timestamp.
+func eventVersion(idempotencyKey, timestamp string) int64 {
+	if i := strings.LastIndex(idempotencyKey, ":"); i >= 0 {
+		if ms, err := strconv.ParseInt(idempotencyKey[i+1:], 10, 64); err == nil && ms > 0 {
 			return ms
 		}
 	}
-	if t, err := time.Parse(time.RFC3339, env.Timestamp); err == nil {
+	if t, err := time.Parse(time.RFC3339Nano, timestamp); err == nil {
 		return t.UnixMilli()
 	}
 	return 0
@@ -59,6 +72,16 @@ func eventVersion(env envelope.Event[*taskPayload]) int64 {
 
 func isLegacyID(task taskPayload) bool {
 	return task.ID != 0 && task.FacileID == strconv.FormatInt(task.ID, 10)
+}
+
+// linkURL keeps an http or https link from another app and drops anything
+// else, so a payload cannot plant a javascript: href in the client.
+func linkURL(value string) string {
+	parsed, err := url.Parse(strings.TrimSpace(value))
+	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" {
+		return ""
+	}
+	return parsed.String()
 }
 
 const allDayEndOffset = 12 * time.Hour

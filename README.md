@@ -67,7 +67,7 @@ The client calls `/api` relative to the page; in development Vite proxies it to 
 | `PORT` | HTTP listen port, `4000` by default in this repo |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated browser origins, only needed for a split deploy |
 | `STORAGE_DIR` | Root for uploaded avatars, served back under `/files/` |
-| `ANTENNE_URL`, `ANTENNE_SECRET`, `ANTENNE_INSTANCE_ID` | Optional Antenne Pool. A URL without a secret fails boot. With both set, Opus tasks that have a due date appear as read-only all-day events in an "Opus tasks" calendar for the assignee |
+| `ANTENNE_URL`, `ANTENNE_SECRET`, `ANTENNE_INSTANCE_ID` | Optional Antenne Pool. A URL without a secret fails boot. With both set, Opus tasks that have a due date appear as read-only all-day events in their team's calendar, or the assignee's personal one; Sablier sessions and Echo calls appear beside the week and day views for their own user |
 
 Values live in Casier — `dev` for the local loop, `prod` as the source of truth for what
 Dokploy injects into the container. Full reference:

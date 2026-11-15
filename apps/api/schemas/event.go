@@ -9,7 +9,8 @@ import "time"
 // OccurrenceStart is never stored: list expansion sets it to the original
 // start of the occurrence an entry stands for.
 // Source and ExternalID mark an event mirrored from another app (for example
-// "opus" and a task id); such events are read-only for users.
+// "opus" and a task id); such events are read-only for users. ExternalURL
+// links back to the object in the app that owns it.
 type Event struct {
 	ID                 int64      `gorm:"column:id;primaryKey"`
 	CalendarID         int64      `gorm:"column:calendar_id;index;uniqueIndex:idx_uid_calendar"`
@@ -32,6 +33,7 @@ type Event struct {
 	RawICS             string     `gorm:"column:raw_ics;type:text"`
 	Source             string     `gorm:"column:source;not null;default:'';uniqueIndex:idx_event_source_external,where:source <> ''"`
 	ExternalID         string     `gorm:"column:external_id;not null;default:'';uniqueIndex:idx_event_source_external,where:source <> ''"`
+	ExternalURL        string     `gorm:"column:external_url;not null;default:''"`
 	CreatedByID        *int64     `gorm:"column:created_by_id;index"`
 	CreatedBy          *User      `gorm:"foreignKey:CreatedByID"`
 	CreatedAt          time.Time  `gorm:"column:created_at;autoCreateTime"`

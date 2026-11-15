@@ -16,7 +16,7 @@ import (
 
 var queryModels = []any{
 	&User{}, &AppSetting{}, &Space{}, &SpaceMember{}, &Calendar{}, &CalendarMember{},
-	&Event{}, &ExternalVersion{}, &EventAttendee{}, &ForfaitState{},
+	&Event{}, &ExternalVersion{}, &EventAttendee{}, &ForfaitState{}, &Activity{},
 }
 
 var timeType = reflect.TypeFor[time.Time]()

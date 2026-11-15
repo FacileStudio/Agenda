@@ -18,14 +18,17 @@ import (
 	"github.com/FacileStudio/Agenda/apps/api/internal/database"
 	docs "github.com/FacileStudio/Agenda/apps/api/internal/documentation"
 	"github.com/FacileStudio/Agenda/apps/api/internal/env"
+	"github.com/FacileStudio/Agenda/apps/api/internal/live"
 	"github.com/FacileStudio/Agenda/apps/api/internal/middleware"
 	"github.com/FacileStudio/Agenda/apps/api/internal/pool"
 	"github.com/FacileStudio/Agenda/apps/api/migrations"
+	"github.com/FacileStudio/Agenda/apps/api/modules/activities"
 	"github.com/FacileStudio/Agenda/apps/api/modules/auth"
 	"github.com/FacileStudio/Agenda/apps/api/modules/caldav"
 	"github.com/FacileStudio/Agenda/apps/api/modules/calendars"
 	"github.com/FacileStudio/Agenda/apps/api/modules/events"
 	"github.com/FacileStudio/Agenda/apps/api/modules/ideas"
+	liveroutes "github.com/FacileStudio/Agenda/apps/api/modules/live"
 	"github.com/FacileStudio/Agenda/apps/api/modules/mcp"
 	"github.com/FacileStudio/Agenda/apps/api/modules/settings"
 	"github.com/FacileStudio/Agenda/apps/api/modules/spaces"
@@ -164,10 +167,13 @@ func run() int {
 	}
 
 	if appEnv.Antenne != nil {
-		poolClient := pool.NewClient(*appEnv.Antenne, pool.NewMirror(db, eventService, calendarService, appLogger), sqlDB, appLogger)
+		poolClient := pool.NewClient(*appEnv.Antenne, pool.NewMirror(db, eventService, calendarService, appLogger), pool.NewActivities(db, appLogger), sqlDB, appLogger)
 		poolClient.Start(context.Background())
 		defer poolClient.Stop()
 	}
+
+	liveHub := live.NewHub()
+	go live.Listen(lifetime, appEnv.DatabaseURL, liveHub, appLogger)
 
 	clientDir := spa.DirFromEnv()
 	router := httpx.NewRouter(httpx.Config{
@@ -200,6 +206,8 @@ func run() int {
 		mcp:         mcpService,
 		ideas:       ideasService,
 		outbox:      outbox,
+		live:        liveHub,
+		logger:      appLogger,
 		invitations: invitationsConfig(appEnv, identities, appLogger),
 	}); err != nil {
 		appLogger.Error("failed to mount routes", slog.Any("error", err))
@@ -220,6 +228,7 @@ func run() int {
 		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
+	server.RegisterOnShutdown(liveHub.Close)
 	serverErrCh := make(chan error, 1)
 	go func() {
 		serverErrCh <- server.ListenAndServe()
@@ -266,6 +275,8 @@ type mounts struct {
 	mcp       *mcp.Service
 	ideas     *ideas.Service
 	outbox    *bus.Outbox
+	live      *live.Hub
+	logger    *slog.Logger
 
 	invitations *porteKit.InvitationsConfig
 }
@@ -422,6 +433,8 @@ func referenceConfig() apiref.Config {
 			spaces.Documentation,
 			users.Documentation,
 			settings.Documentation,
+			liveroutes.Documentation,
+			activities.Documentation,
 			mcp.Documentation,
 			ideas.Documentation,
 		}},

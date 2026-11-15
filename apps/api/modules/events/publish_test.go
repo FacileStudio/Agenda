@@ -98,7 +98,7 @@ func TestMirroredAndUnpublishedWritesQueueNothing(t *testing.T) {
 	h, svc, userID := publishing(t)
 	ctx := context.Background()
 	bustest.AssertQueued(t, h.db, func() error {
-		return svc.UpsertExternal(ctx, h.calID, "opus", "task-1", sampleEvent("Opus task"))
+		return svc.UpsertExternal(ctx, h.calID, External{Source: "opus", ID: "task-1"}, sampleEvent("Opus task"))
 	})
 	bustest.AssertQueued(t, h.db, func() error {
 		_, err := NewService(h.db).CreateEvent(ctx, userID, h.calID, sampleEvent("Off"))

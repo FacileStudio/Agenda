@@ -33,13 +33,17 @@ func MigrateWithIssuer(ctx context.Context, db *gorm.DB, issuer string, logger *
 
 // Reconcile runs the idempotent data steps that ran at every boot before the
 // schema moved to migrations, in the same order. It changes rows, never the
-// schema: the avatar columns, one calendar per space, and the credentials
+// schema: the avatar columns, one calendar per space, the legacy Opus tasks
+// calendars emptied into personal ones, and the credentials
 // porte reads. AdoptPorte runs last because it repoints identities at users.
 func Reconcile(db *gorm.DB, issuer string) error {
 	if err := backfillAvatarSources(db); err != nil {
 		return err
 	}
 	if err := SyncSpaceCalendars(db); err != nil {
+		return err
+	}
+	if err := moveOpusTaskCalendars(db); err != nil {
 		return err
 	}
 	return AdoptPorte(db, issuer)

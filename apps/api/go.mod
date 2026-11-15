@@ -4,7 +4,7 @@ go 1.26.11
 
 require (
 	github.com/FacileStudio/Journal/sdk/journal v0.0.0-20260708221941-db985ad2b1ba
-	github.com/FacileStudio/antenne-client/go v1.1.0
+	github.com/FacileStudio/antenne-client/go v1.2.0
 	github.com/FacileStudio/porte v0.20.1
 	github.com/FacileStudio/porte/directory v0.5.0
 	github.com/FacileStudio/porte/mcpauth v0.3.1
@@ -35,7 +35,7 @@ require (
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/pgx/v5 v5.10.0 // indirect
+	github.com/jackc/pgx/v5 v5.10.0
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect

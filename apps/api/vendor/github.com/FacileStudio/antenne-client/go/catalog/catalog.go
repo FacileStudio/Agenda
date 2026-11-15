@@ -78,6 +78,13 @@ const (
 	CalendarEventUpdated Channel = "calendar_event.updated"
 	// CalendarEventDeleted is emitted by Agenda with an envelope.Event[envelope.CalendarEvent].
 	CalendarEventDeleted Channel = "calendar_event.deleted"
+
+	// CallStarted is emitted by Echo with an envelope.Event[envelope.Call] when a call begins.
+	CallStarted Channel = "call.started"
+	// CallUpdated is emitted by Echo with an envelope.Event[envelope.Call] when the participant set changes.
+	CallUpdated Channel = "call.updated"
+	// CallEnded is emitted by Echo with an envelope.Event[envelope.Call] when a call ends.
+	CallEnded Channel = "call.ended"
 )
 
 // All returns every channel in the catalog, in declaration order.
@@ -94,5 +101,6 @@ func All() []Channel {
 		FiletCheckFailed, FiletCheckPassed,
 		CalendarCreated, CalendarUpdated, CalendarDeleted,
 		CalendarEventCreated, CalendarEventUpdated, CalendarEventDeleted,
+		CallStarted, CallUpdated, CallEnded,
 	}
 }

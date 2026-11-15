@@ -14,7 +14,7 @@ import (
 )
 
 // Client keeps the Antenne Pool connection alive, feeds task events to a
-// Mirror and drains Agenda's outbox onto the pool. The pool keeps a durable
+// Mirror and session and call events to Activities, and drains Agenda's outbox onto the pool. The pool keeps a durable
 // per-app ack cursor, so a restart resumes where the last run stopped, and
 // queued changes wait in antenne_outbox while the pool is down.
 type Client struct {
@@ -24,10 +24,25 @@ type Client struct {
 	cancel  context.CancelFunc
 }
 
-// NewClient subscribes the mirror to the Opus task channels and declares the
-// calendar channels Agenda publishes. Call Start to connect.
-func NewClient(cfg antenne.Config, mirror *Mirror, db *sql.DB, logger *slog.Logger) *Client {
-	channels := TaskChannels()
+// applier handles one event from the pool.
+type applier interface {
+	Apply(ctx context.Context, channel string, raw json.RawMessage) error
+}
+
+// NewClient subscribes the mirror to the Opus task channels and activities to
+// the Sablier session and Echo call channels, and declares the calendar
+// channels Agenda publishes. The pool accepts a subscription to a channel no
+// app has published yet, so listening ahead of a producer is safe. Call Start
+// to connect.
+func NewClient(cfg antenne.Config, mirror *Mirror, activities *Activities, db *sql.DB, logger *slog.Logger) *Client {
+	routes := map[string]applier{}
+	for _, channel := range TaskChannels() {
+		routes[channel] = mirror
+	}
+	for _, channel := range ActivityChannels() {
+		routes[channel] = activities
+	}
+	channels := append(TaskChannels(), ActivityChannels()...)
 	cfg.Events.Listen = channels
 	cfg.Events.Emit = emitted()
 	client := antenne.NewClient(&cfg,
@@ -43,7 +58,7 @@ func NewClient(cfg antenne.Config, mirror *Mirror, db *sql.DB, logger *slog.Logg
 		}),
 	)
 	for _, channel := range channels {
-		client.Listen(channel, handler(mirror, channel, logger))
+		client.Listen(channel, handler(routes[channel], channel, logger))
 	}
 	return &Client{client: client, drainer: newDrainer(db, client, logger), logger: logger}
 }
@@ -78,7 +93,7 @@ func emitted() []string {
 
 const applyTimeout = 30 * time.Second
 
-func handler(mirror *Mirror, channel string, logger *slog.Logger) antenne.EventHandler {
+func handler(target applier, channel string, logger *slog.Logger) antenne.EventHandler {
 	return func(payload json.RawMessage, meta antenne.EventMeta) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -87,7 +102,7 @@ func handler(mirror *Mirror, channel string, logger *slog.Logger) antenne.EventH
 		}()
 		ctx, cancel := context.WithTimeout(context.Background(), applyTimeout)
 		defer cancel()
-		if err := mirror.Apply(ctx, channel, payload); err != nil {
+		if err := target.Apply(ctx, channel, payload); err != nil {
 			logger.Error("pool: apply failed", slog.String("channel", channel), slog.Int64("offset", meta.Offset), slog.Any("error", err))
 		}
 	}

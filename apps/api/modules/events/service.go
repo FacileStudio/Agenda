@@ -379,6 +379,7 @@ func responseWith(e *schemas.Event, d eventDetails) EventResponse {
 		ConferenceProvider: e.ConferenceProvider,
 		Source:             e.Source,
 		ExternalID:         e.ExternalID,
+		ExternalURL:        e.ExternalURL,
 		CreatedBy:          creatorOf(e),
 		CreatedAt:          e.CreatedAt,
 		UpdatedAt:          e.UpdatedAt,

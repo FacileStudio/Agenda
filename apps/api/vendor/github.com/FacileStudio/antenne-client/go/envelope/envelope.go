@@ -22,6 +22,7 @@ const (
 	AppNuage    App = "Nuage"
 	AppBulle    App = "Bulle"
 	AppAntenne  App = "Antenne"
+	AppEcho     App = "Echo"
 )
 
 // Action is what happened to an object: created, updated or deleted.
@@ -51,6 +52,7 @@ const (
 	ObjectMonitor       ObjectType = "monitor"
 	ObjectCalendar      ObjectType = "calendar"
 	ObjectCalendarEvent ObjectType = "calendar_event"
+	ObjectCall          ObjectType = "call"
 )
 
 // EventVersion pins the envelope version both implementations export.
@@ -166,4 +168,18 @@ type CalendarEvent struct {
 	EndsAt           string `json:"ends_at"`
 	AllDay           bool   `json:"all_day"`
 	ActorEmail       string `json:"actor_email,omitempty"`
+}
+
+// Call is one Echo call's wire shape. FacileID is the Echo call id as a
+// string. StartedAt and EndedAt are RFC 3339 UTC strings; EndedAt is null while
+// the call is live. ParticipantEmails lists signed-in participants only, in
+// lowercase; guests never appear. URL links to the call page in Echo.
+type Call struct {
+	FacileID          string   `json:"facile_id"`
+	RoomSlug          string   `json:"room_slug"`
+	RoomName          string   `json:"room_name"`
+	StartedAt         string   `json:"started_at"`
+	EndedAt           *string  `json:"ended_at"`
+	ParticipantEmails []string `json:"participant_emails"`
+	URL               string   `json:"url,omitempty"`
 }

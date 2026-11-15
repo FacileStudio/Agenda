@@ -27,8 +27,8 @@ func TestOpusEnvelopeCreatesAllDayEventKeyedByFacileID(t *testing.T) {
 	if got := evts[0].StartAt.Format("2006-01-02"); got != "2026-11-04" {
 		t.Fatalf("start = %s, want 2026-11-04", got)
 	}
-	if cal := f.calendarOf(t, evts[0].CalendarID); cal.Name != calendarName {
-		t.Fatalf("calendar = %q, want %q", cal.Name, calendarName)
+	if cal := f.calendarOf(t, evts[0].CalendarID); !cal.IsPersonal || cal.OwnerID != f.alice.ID {
+		t.Fatalf("calendar = %+v, want Alice's personal calendar", cal)
 	}
 }
 
