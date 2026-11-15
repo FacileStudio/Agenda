@@ -21,6 +21,7 @@
 	import { calendarFilter, visibleCalendars } from '$lib/calendar-filter.svelte';
 	import { MONDAY_FIRST, t } from '$lib/i18n/index.svelte';
 	import { capitalize, formatDate } from '$lib/i18n/format';
+	import { toLocalInput } from '$lib/week-drag';
 
 	type AppContext = {
 		calendars: CalendarItem[];
@@ -65,6 +66,8 @@
 	let modalOpen = $state(false);
 	let selectedEvent = $state<AgendaEvent | null>(null);
 	let modalInitialDate = $state<string | null>(null);
+	let modalInitialStart = $state<string | null>(null);
+	let modalInitialEnd = $state<string | null>(null);
 
 	function getDateRange(): { from: string; to: string } {
 		switch (view) {
@@ -171,8 +174,48 @@
 		}
 	});
 
-	function openCreateModal(date?: CalendarDate, hour?: number) {
+	function openCreateRange(start: Date, end: Date) {
 		selectedEvent = null;
+		modalInitialDate = null;
+		modalInitialStart = toLocalInput(start);
+		modalInitialEnd = toLocalInput(end);
+		modalOpen = true;
+	}
+
+	function openCreateAtHour(date: CalendarDate, hour: number) {
+		const start = date.toDate(tz);
+		start.setHours(hour, 0, 0, 0);
+		const end = new Date(start.getFullYear(), start.getMonth(), start.getDate(), hour + 1);
+		openCreateRange(start, end);
+	}
+
+	async function handleEventChange(event: AgendaEvent, start: Date, end: Date) {
+		const previous = events;
+		events = events.map((e) =>
+			e === event ? { ...e, start_at: start.toISOString(), end_at: end.toISOString() } : e
+		);
+		try {
+			await backend.updateEvent(event.id, event.calendar_id, {
+				title: event.title,
+				description: event.description,
+				location: event.location,
+				start_at: start.toISOString(),
+				end_at: end.toISOString(),
+				is_all_day: event.is_all_day,
+				status: event.status,
+				conference_url: event.conference_url,
+				conference_provider: event.conference_provider
+			});
+			await loadEvents();
+		} catch {
+			events = previous;
+		}
+	}
+
+	function openCreateModal(date?: CalendarDate) {
+		selectedEvent = null;
+		modalInitialStart = null;
+		modalInitialEnd = null;
 		if (date) {
 			modalInitialDate = `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`;
 		} else {
@@ -182,6 +225,8 @@
 	}
 
 	async function openEditModal(ev: AgendaEvent) {
+		modalInitialStart = null;
+		modalInitialEnd = null;
 		selectedEvent = ev.recurrence_rule ? await backend.getEvent(ev.id).catch(() => ev) : ev;
 		modalInitialDate = null;
 		modalOpen = true;
@@ -305,6 +350,7 @@
 				calendars={app.calendars}
 				{currentDate}
 				onDayClick={(date) => openCreateModal(date)}
+				onEventChange={handleEventChange}
 				onMoreClick={(date) => {
 					currentDate = date;
 					setView('day');
@@ -316,7 +362,9 @@
 				{events}
 				calendars={app.calendars}
 				{currentDate}
-				onSlotClick={(date, hour) => openCreateModal(date, hour)}
+				onSlotClick={openCreateAtHour}
+				onRangeCreate={openCreateRange}
+				onEventChange={handleEventChange}
 				onEventClick={openEditModal}
 			/>
 		{:else if view === 'day'}
@@ -324,7 +372,9 @@
 				{events}
 				calendars={app.calendars}
 				{currentDate}
-				onSlotClick={(hour) => openCreateModal(currentDate, hour)}
+				onSlotClick={(hour) => openCreateAtHour(currentDate, hour)}
+				onRangeCreate={openCreateRange}
+				onEventChange={handleEventChange}
 				onEventClick={openEditModal}
 			/>
 		{:else if view === 'agenda'}
@@ -344,6 +394,8 @@
 	calendars={app.calendars}
 	defaultCalendarId={calendarFilter() === 'all' ? null : (calendarFilter() as number)}
 	initialDate={modalInitialDate}
+	initialStart={modalInitialStart}
+	initialEnd={modalInitialEnd}
 	onSave={handleSave}
 	onDelete={handleDelete}
 	onClose={handleClose}

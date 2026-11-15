@@ -2,6 +2,20 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.23.0] - 2026-11-15
+
+### Added
+
+- Week and day views: drag an event to move it, drag its top or bottom edge to resize it, and press and drag on an empty slot to draw a new event. Times snap to 15 minutes, Escape cancels, and a click without movement still opens the event.
+- Week view: dragging an event across columns moves it to another day.
+- Month view: drag an event onto another day to move it, keeping its time.
+- Clicking an empty slot now opens the new event form at that hour.
+
+### Changed
+
+- Recurring events and events on read-only calendars cannot be dragged. Open them to edit.
+- Dragging uses a mouse or pen. Touch keeps scrolling.
+
 ## [0.22.0] - 2026-11-15
 
 ### Added

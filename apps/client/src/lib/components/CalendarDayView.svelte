@@ -7,18 +7,24 @@
 	import { calendarColor, inkOn } from '$lib/calendar-colors';
 	import { t } from '$lib/i18n/index.svelte';
 	import { capitalize, formatDate, formatTime } from '$lib/i18n/format';
+	import { TimeGridDrag } from '$lib/time-grid-drag.svelte';
+	import { atMinutes } from '$lib/week-drag';
 
 	let {
 		events,
 		calendars,
 		currentDate,
 		onSlotClick,
+		onRangeCreate,
+		onEventChange,
 		onEventClick
 	}: {
 		events: AgendaEvent[];
 		calendars: CalendarItem[];
 		currentDate: CalendarDate;
 		onSlotClick: (hour: number) => void;
+		onRangeCreate: (start: Date, end: Date) => void;
+		onEventChange: (event: AgendaEvent, start: Date, end: Date) => void;
 		onEventClick: (event: AgendaEvent) => void;
 	} = $props();
 
@@ -73,12 +79,28 @@
 		return `top: ${top + 1}px; height: ${Math.max(height - 2, 0)}px;`;
 	}
 
+	let grid: HTMLElement | undefined;
+
+	function canEdit(event: AgendaEvent): boolean {
+		if (event.recurrence_rule) return false;
+		return calendars.find((c) => c.id === event.calendar_id)?.role !== 'reader';
+	}
+
+	const drag = new TimeGridDrag({
+		columns: () => [grid],
+		days: () => [currentDate.toDate(tz)],
+		slotHeight: SLOT_HEIGHT_PX,
+		canEdit,
+		onCreate: (start, end) => onRangeCreate(start, end),
+		onChange: (event, start, end) => onEventChange(event, start, end)
+	});
+
 	function formatHour(h: number): string {
 		return h.toString().padStart(2, '0') + ':00';
 	}
 </script>
 
-<div class="flex h-full flex-col overflow-hidden">
+<div class="flex h-full flex-col overflow-hidden {drag.active ? 'select-none' : ''}">
 	<!-- All-day strip -->
 	{#if allDayEvents.length > 0}
 		<div class="flex items-center gap-1 px-4 py-2">
@@ -114,7 +136,13 @@
 
 	<!-- Time grid -->
 	<div class="relative flex-1 overflow-y-auto">
-		<div class="relative" style="height: {24 * SLOT_HEIGHT_PX}px;">
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div
+			bind:this={grid}
+			class="relative"
+			style="height: {24 * SLOT_HEIGHT_PX}px;"
+			onpointerdown={(e) => drag.startCreate(e, 0)}
+		>
 			<!-- Hour rows -->
 			{#each HOURS as hour}
 				<button
@@ -136,12 +164,26 @@
 			<!-- Events -->
 			{#each dayEvents as event (eventKey(event))}
 				{@const fill = getCalendarColor(event.calendar_id)}
+				{@const editable = canEdit(event)}
 				<button
 					type="button"
-					class="absolute right-2 left-14 flex cursor-pointer flex-col items-start overflow-hidden rounded-md px-1.5 py-1 text-left text-xs leading-tight font-medium shadow-sm transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+					onpointerdown={(e) => drag.startEvent(e, event, 'move', 0)}
+					class="absolute right-2 left-14 flex {editable ? 'cursor-grab' : 'cursor-pointer'} {drag.isDragging(event) ? 'opacity-40' : ''} flex-col items-start overflow-hidden rounded-md px-1.5 py-1 text-left text-xs leading-tight font-medium shadow-sm transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
 					style="{getEventStyle(event)} background-color: {fill}; color: {inkOn(fill)};"
 					onclick={() => onEventClick(event)}
 				>
+					{#if editable}
+						<span
+							role="presentation"
+							class="absolute inset-x-0 top-0 z-10 h-1.5 cursor-ns-resize"
+							onpointerdown={(e) => drag.startEvent(e, event, 'resize-top', 0)}
+						></span>
+						<span
+							role="presentation"
+							class="absolute inset-x-0 bottom-0 z-10 h-1.5 cursor-ns-resize"
+							onpointerdown={(e) => drag.startEvent(e, event, 'resize-bottom', 0)}
+						></span>
+					{/if}
 					<span class="flex w-full items-center gap-1.5">
 						<span class="min-w-0 flex-1 truncate font-semibold">{event.title}</span>
 						{#if event.recurrence_rule}<iconify-icon icon="solar:repeat-linear" width="12" height="12" aria-label={t('calendar.recurring')} class="block size-3 shrink-0 opacity-80"></iconify-icon>{/if}
@@ -157,6 +199,17 @@
 					{/if}
 				</button>
 			{/each}
+
+			{#if drag.preview}
+				{@const range = drag.preview.range}
+				{@const ghostFill = drag.gesture?.event ? getCalendarColor(drag.gesture.event.calendar_id) : null}
+				<div
+					class="pointer-events-none absolute right-2 left-14 z-30 overflow-hidden rounded-md px-1.5 py-1 text-xs leading-tight font-semibold shadow-md ring-2 ring-primary"
+					style="top: {(range.start / 60) * SLOT_HEIGHT_PX + 1}px; height: {((range.end - range.start) / 60) * SLOT_HEIGHT_PX - 2}px; background-color: {ghostFill ?? 'var(--color-primary)'}; color: {ghostFill ? inkOn(ghostFill) : 'var(--color-primary-foreground)'};"
+				>
+					{formatTime(atMinutes(currentDate.toDate(tz), range.start))} – {formatTime(atMinutes(currentDate.toDate(tz), range.end))}
+				</div>
+			{/if}
 		</div>
 	</div>
 </div>

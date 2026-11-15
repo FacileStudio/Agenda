@@ -25,6 +25,8 @@
 		calendars,
 		defaultCalendarId = null,
 		initialDate,
+		initialStart = null,
+		initialEnd = null,
 		onSave,
 		onDelete,
 		onClose
@@ -34,6 +36,8 @@
 		calendars: CalendarItem[];
 		defaultCalendarId?: number | null;
 		initialDate: string | null;
+		initialStart?: string | null;
+		initialEnd?: string | null;
 		onSave: (calendarId: number, data: CreateEventRequest) => Promise<void>;
 		onDelete: () => Promise<void>;
 		onClose: () => void;
@@ -67,6 +71,7 @@
 
 	function defaultStart(): string {
 		if (event) return toLocalInput(new Date(event.start_at));
+		if (initialStart) return initialStart;
 		if (initialDate) return `${initialDate}T09:00`;
 		const d = new Date();
 		d.setMinutes(0, 0, 0);
@@ -75,6 +80,7 @@
 
 	function defaultEnd(): string {
 		if (event) return toLocalInput(new Date(event.end_at));
+		if (initialEnd) return initialEnd;
 		if (initialDate) return `${initialDate}T10:00`;
 		const d = new Date();
 		d.setMinutes(0, 0, 0);

@@ -14,6 +14,7 @@
 	import { calendarColor, inkOn } from '$lib/calendar-colors';
 	import { MONDAY_FIRST, t } from '$lib/i18n/index.svelte';
 	import { formatTime, weekdayName } from '$lib/i18n/format';
+	import { MonthDrag } from '$lib/month-drag.svelte';
 
 	let {
 		events,
@@ -21,6 +22,7 @@
 		currentDate,
 		onDayClick,
 		onMoreClick,
+		onEventChange,
 		onEventClick
 	}: {
 		events: AgendaEvent[];
@@ -28,6 +30,7 @@
 		currentDate: CalendarDate;
 		onDayClick: (date: CalendarDate) => void;
 		onMoreClick: (date: CalendarDate) => void;
+		onEventChange: (event: AgendaEvent, start: Date, end: Date) => void;
 		onEventClick: (event: AgendaEvent) => void;
 	} = $props();
 
@@ -49,6 +52,16 @@
 		continuesLeft: boolean;
 		continuesRight: boolean;
 	};
+
+	function canEdit(event: AgendaEvent): boolean {
+		if (event.recurrence_rule) return false;
+		return calendars.find((c) => c.id === event.calendar_id)?.role !== 'reader';
+	}
+
+	const drag = new MonthDrag({
+		canEdit,
+		onChange: (event, start, end) => onEventChange(event, start, end)
+	});
 
 	function getCalendarColor(calendarId: number): string {
 		return calendarColor(calendars, calendarId);
@@ -193,7 +206,7 @@
 	}
 </script>
 
-<div class="flex h-full flex-col">
+<div class="flex h-full flex-col {drag.active ? 'cursor-grabbing select-none' : ''}">
 	<div class="grid grid-cols-7">
 		{#each dayLabels as label}
 			<div class="py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
@@ -215,9 +228,11 @@
 					<div
 						role="button"
 						tabindex="0"
+						data-day={cell.toString()}
 						class="group m-0.5 flex cursor-pointer flex-col rounded-fc-md p-1 text-left transition-colors hover:bg-fc-field focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring
 							{inMonth ? '' : 'opacity-40'}
-							{today_cell ? 'bg-primary/10 ring-2 ring-primary ring-inset' : 'bg-fc-surface'}"
+							{today_cell ? 'bg-primary/10 ring-2 ring-primary ring-inset' : 'bg-fc-surface'}
+							{drag.target === cell.toString() ? 'bg-primary/20! ring-2 ring-primary ring-inset' : ''}"
 						bind:clientHeight={
 							() => cellHeight,
 							(h) => {
@@ -247,7 +262,8 @@
 								{@const fill = getCalendarColor(event.calendar_id)}
 								<button
 									type="button"
-									class="flex w-full cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 sm:px-1.5 text-left text-xs font-medium transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+									onpointerdown={(e) => drag.start(e, event)}
+									class="flex w-full {canEdit(event) ? 'cursor-grab' : 'cursor-pointer'} {drag.isDragging(event) ? 'opacity-40' : ''} items-center gap-1 rounded-md px-1 py-0.5 sm:px-1.5 text-left text-xs font-medium transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
 									style="background-color: {fill}; color: {inkOn(fill)};"
 									onclick={(e) => {
 										e.stopPropagation();
@@ -284,7 +300,8 @@
 						{@const fill = getCalendarColor(seg.event.calendar_id)}
 						<button
 							type="button"
-							class="absolute z-10 flex cursor-pointer items-center truncate px-1.5 text-xs font-medium shadow-sm transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring
+							onpointerdown={(e) => drag.start(e, seg.event)}
+							class="absolute z-10 flex {canEdit(seg.event) ? 'cursor-grab' : 'cursor-pointer'} {drag.isDragging(seg.event) ? 'opacity-40' : ''} items-center truncate px-1.5 text-xs font-medium shadow-sm transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring
 								{seg.continuesLeft ? '' : 'rounded-l-md'}
 								{seg.continuesRight ? '' : 'rounded-r-md'}"
 							style="
