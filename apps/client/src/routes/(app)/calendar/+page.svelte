@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import {
 		CalendarDate,
 		today,
@@ -27,6 +27,10 @@
 	import CalendarDayView from '$lib/components/CalendarDayView.svelte';
 	import CalendarAgendaView from '$lib/components/CalendarAgendaView.svelte';
 	import EventModal from '$lib/components/EventModal.svelte';
+	import MirroredEventModal from '$lib/components/MirroredEventModal.svelte';
+	import { ActivityFeed, overlayShown } from '$lib/activities.svelte';
+	import { onLiveChange } from '$lib/live';
+	import { requestReload, setViewBusy, settleReloads } from '$lib/live-reload';
 	import ContextMenu from '$lib/components/ContextMenu.svelte';
 	import { contextMenu } from '$lib/context-menu.svelte';
 	import { menuIcons } from '$lib/menu-icons';
@@ -141,6 +145,34 @@
 		const _cals = app.calendars;
 		const _filter = calendarFilter();
 		loadEvents();
+	});
+
+	const activities = new ActivityFeed();
+	const loadActivities = () => activities.load(getDateRange(), view === 'week' || view === 'day');
+
+	$effect(() => {
+		const _date = currentDate;
+		const _shown = [overlayShown('sablier'), overlayShown('echo')];
+		loadActivities();
+	});
+
+	let mirroredOpen = $state(false);
+	let pointerHeld = $state(false);
+
+	onMount(() => {
+		const stopBusy = setViewBusy(() => modalOpen || mirroredOpen || deleteOpen || pointerHeld);
+		const stopLive = onLiveChange((change) => {
+			if (change.events && !change.calendars) requestReload(loadEvents);
+			if (change.activities) requestReload(loadActivities);
+		});
+		return () => {
+			stopLive();
+			stopBusy();
+		};
+	});
+
+	$effect(() => {
+		if (!modalOpen && !mirroredOpen && !deleteOpen && !pointerHeld) settleReloads();
 	});
 
 	const periodTitle = $derived(() => {
@@ -293,7 +325,7 @@
 	let deleteTarget = $state<AgendaEvent | null>(null);
 
 	function isWritable(event: AgendaEvent): boolean {
-		return app.calendars.find((c) => c.id === event.calendar_id)?.role !== 'reader';
+		return !event.source && app.calendars.find((c) => c.id === event.calendar_id)?.role !== 'reader';
 	}
 
 	function goToDay(date: Date) {
@@ -397,6 +429,11 @@
 	}
 
 	async function openEditModal(ev: AgendaEvent) {
+		if (ev.source) {
+			selectedEvent = ev;
+			mirroredOpen = true;
+			return;
+		}
 		modalInitialStart = null;
 		modalInitialEnd = null;
 		selectedEvent = ev.recurrence_rule ? await backend.getEvent(ev.id).catch(() => ev) : ev;
@@ -534,6 +571,7 @@
 		{:else if view === 'week'}
 			<CalendarWeekView
 				{events}
+				activities={activities.visible}
 				calendars={app.calendars}
 				{currentDate}
 				onSlotClick={openCreateAtHour}
@@ -546,6 +584,7 @@
 		{:else if view === 'day'}
 			<CalendarDayView
 				{events}
+				activities={activities.visible}
 				calendars={app.calendars}
 				{currentDate}
 				onSlotClick={(hour) => openCreateAtHour(currentDate, hour)}
@@ -567,7 +606,19 @@
 	</div>
 </div>
 
-<svelte:window onkeydown={onKeydown} />
+<svelte:window
+	onkeydown={onKeydown}
+	onpointerdown={() => (pointerHeld = true)}
+	onpointerup={() => (pointerHeld = false)}
+	onpointercancel={() => (pointerHeld = false)}
+/>
+
+<MirroredEventModal
+	bind:open={mirroredOpen}
+	event={selectedEvent}
+	calendars={app.calendars}
+	onClose={() => (selectedEvent = null)}
+/>
 
 <ContextMenu />
 

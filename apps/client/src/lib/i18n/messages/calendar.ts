@@ -22,6 +22,16 @@ export const calendar = {
 		'Filtrar calendarios',
 		'Kalender filtern'
 	],
+	'calendar.overlay.sablier': [
+		'Sablier sessions',
+		'Sessions Sablier',
+		'Sesiones de Sablier',
+		'Sablier-Sitzungen'
+	],
+	'calendar.overlay.echo': ['Echo meetings', 'Réunions Echo', 'Reuniones de Echo', 'Echo-Besprechungen'],
+	'activity.running': ['{time}, ongoing', '{time}, en cours', '{time}, en curso', '{time}, läuft'],
+	'activity.sablier': ['Sablier session', 'Session Sablier', 'Sesión de Sablier', 'Sablier-Sitzung'],
+	'activity.echo': ['Echo meeting', 'Réunion Echo', 'Reunión de Echo', 'Echo-Besprechung'],
 	'calendar.all': ['All calendars', 'Tous les calendriers', 'Todos los calendarios', 'Alle Kalender'],
 	'calendar.space': ['Space {name}', 'Espace {name}', 'Espacio {name}', 'Bereich {name}'],
 	'calendar.moreEvents': ['+{count} more', '+{count} de plus', '+{count} más', '+{count} weitere'],

@@ -1,11 +1,13 @@
 <script lang="ts">
-	import { onMount, setContext } from 'svelte';
+	import { onDestroy, onMount, setContext } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { UserMenu, getI18n, icons, ideasNavItem, toast, type UserMenuInvitations } from '@facile/muse';
 	import { ApiError, backend, type UserProfile, type CalendarItem } from '$lib/backend';
 	import { sortCalendars } from '$lib/calendar-filter.svelte';
 	import IdeasButton from '$lib/components/IdeasButton.svelte';
+	import { onLiveChange, startLive } from '$lib/live';
+	import { requestReload } from '$lib/live-reload';
 	import { ideasSpaceId, ideasStore } from '$lib/ideas.svelte';
 	import { rememberLocale, setSessionLocale, t } from '$lib/i18n/index.svelte';
 	import { theme, type ThemePreference } from '$lib/theme.svelte';
@@ -33,6 +35,22 @@
 		refreshCalendars
 	});
 
+	let stopLive: (() => void) | null = null;
+
+	/** Opens the live stream once signed in; a calendar change reloads the calendar list. */
+	function followLive() {
+		const stream = startLive();
+		const unsubscribe = onLiveChange((change) => {
+			if (change.calendars) requestReload(refreshCalendars);
+		});
+		stopLive = () => {
+			unsubscribe();
+			stream();
+		};
+	}
+
+	onDestroy(() => stopLive?.());
+
 	async function refreshCalendars() {
 		try {
 			calendars = sortCalendars(await backend.listCalendars());
@@ -46,6 +64,7 @@
 			const result = await backend.me();
 			setUser(result.user);
 			loaded = true;
+			followLive();
 			resumeReturn();
 			backend.invitations()
 				.then((b) => (invitations = b.href ? { count: b.count, href: b.href } : null))

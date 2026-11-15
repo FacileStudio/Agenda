@@ -2,6 +2,7 @@
 	import { Icon, Menu, icons } from '@facile/muse';
 	import type { CalendarItem } from '$lib/backend';
 	import { calendarFilter, setCalendarFilter, type CalendarFilter } from '$lib/calendar-filter.svelte';
+	import { overlayShown, toggleOverlay, type ActivitySource } from '$lib/activities.svelte';
 	import { t } from '$lib/i18n/index.svelte';
 
 	let { calendars, class: className = '' }: { calendars: CalendarItem[]; class?: string } = $props();
@@ -13,6 +14,11 @@
 		return id !== ALL && calendars.some((c) => c.id === id) ? id : ALL;
 	});
 	const current = $derived(active === ALL ? null : (calendars.find((c) => c.id === active) ?? null));
+
+	const overlays: { source: ActivitySource; key: 'calendar.overlay.sablier' | 'calendar.overlay.echo'; icon: string }[] = [
+		{ source: 'sablier', key: 'calendar.overlay.sablier', icon: 'solar:stopwatch-linear' },
+		{ source: 'echo', key: 'calendar.overlay.echo', icon: 'solar:videocamera-record-linear' }
+	];
 
 	function choose(value: string) {
 		setCalendarFilter(value === ALL ? ALL : Number(value));
@@ -33,6 +39,12 @@
 			label: cal.name,
 			icon: active === cal.id ? icons.check : cal.space_id ? icons.space : icons.calendar,
 			onselect: () => choose(String(cal.id))
+		})),
+		{ separator: true },
+		...overlays.map((overlay) => ({
+			label: t(overlay.key),
+			icon: overlayShown(overlay.source) ? icons.check : overlay.icon,
+			onselect: () => toggleOverlay(overlay.source)
 		}))
 	]}
 >

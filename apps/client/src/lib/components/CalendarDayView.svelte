@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { type CalendarDate, today, getLocalTimeZone } from '@internationalized/date';
 	import { Badge } from '@facile/muse';
-	import type { AgendaEvent, CalendarItem } from '$lib/backend';
+	import type { Activity, AgendaEvent, CalendarItem } from '$lib/backend';
+	import ActivityStrips from '$lib/components/ActivityStrips.svelte';
 	import { eventKey } from '$lib/recurrence';
 	import EventAvatar from '$lib/components/EventAvatar.svelte';
+	import SourceBadge from '$lib/components/SourceBadge.svelte';
 	import { calendarColor, inkOn } from '$lib/calendar-colors';
 	import { t } from '$lib/i18n/index.svelte';
 	import { capitalize, formatDate, formatTime } from '$lib/i18n/format';
@@ -12,6 +14,7 @@
 
 	let {
 		events,
+		activities = [],
 		calendars,
 		currentDate,
 		onSlotClick,
@@ -22,6 +25,7 @@
 		onEventClick
 	}: {
 		events: AgendaEvent[];
+		activities?: Activity[];
 		calendars: CalendarItem[];
 		currentDate: CalendarDate;
 		onSlotClick: (hour: number) => void;
@@ -86,7 +90,7 @@
 	let grid: HTMLElement | undefined;
 
 	function canEdit(event: AgendaEvent): boolean {
-		if (event.recurrence_rule) return false;
+		if (event.recurrence_rule || event.source) return false;
 		return calendars.find((c) => c.id === event.calendar_id)?.role !== 'reader';
 	}
 
@@ -121,6 +125,7 @@
 					>
 						<EventAvatar creator={event.created_by} class="size-3.5" />
 						<span class="min-w-0 truncate">{event.title}</span>
+						<SourceBadge {event} />
 						{#if event.recurrence_rule}<iconify-icon icon="solar:repeat-linear" width="12" height="12" aria-label={t('calendar.recurring')} class="block size-3 shrink-0 opacity-80"></iconify-icon>{/if}
 					</button>
 				{/each}
@@ -207,6 +212,8 @@
 					{/if}
 				</button>
 			{/each}
+
+			<ActivityStrips {activities} day={currentDate.toDate(tz)} slotHeight={SLOT_HEIGHT_PX} />
 
 			{#if drag.preview}
 				{@const range = drag.preview.range}

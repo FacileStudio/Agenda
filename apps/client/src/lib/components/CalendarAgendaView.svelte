@@ -4,6 +4,7 @@
 	import { calendarColor } from '$lib/calendar-colors';
 	import { describeRule, eventKey } from '$lib/recurrence';
 	import EventAvatar from '$lib/components/EventAvatar.svelte';
+	import SourceBadge from '$lib/components/SourceBadge.svelte';
 	import { t } from '$lib/i18n/index.svelte';
 	import { capitalize, formatDate, formatTime } from '$lib/i18n/format';
 
@@ -89,7 +90,10 @@
 								style="background-color: {getCalendarColor(event.calendar_id)}"
 							></span>
 							<div class="min-w-0 flex-1">
-								<p class="truncate text-sm font-medium text-foreground">{event.title}</p>
+								<p class="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground">
+									<span class="min-w-0 truncate">{event.title}</span>
+									<SourceBadge {event} />
+								</p>
 								<p class="text-xs text-muted-foreground">
 									{#if event.is_all_day}
 										{t('common.allDay')}

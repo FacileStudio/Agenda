@@ -57,17 +57,17 @@ export const landing = {
 		'Opus-Fristen, ganz von selbst'
 	],
 	'landing.card.opus.text': [
-		'A dated Opus task shows up in the calendar. Nothing to copy by hand.',
-		'Une tâche Opus avec une date apparaît dans l’agenda. Rien à recopier.',
-		'Una tarea de Opus con fecha aparece en la agenda. Nada que copiar.',
-		'Eine Opus-Aufgabe mit Datum erscheint im Kalender. Nichts abzuschreiben.'
+		'An Opus task with a due date shows up in the team calendar. Nothing to copy by hand.',
+		'Une tâche Opus avec une échéance apparaît dans l’agenda de l’équipe. Rien à recopier.',
+		'Una tarea de Opus con fecha límite aparece en la agenda del equipo. Nada que copiar.',
+		'Eine Opus-Aufgabe mit Fälligkeit erscheint im Teamkalender. Nichts abzuschreiben.'
 	],
 	'landing.card.team.title': ['One calendar per team', 'Un agenda par équipe', 'Una agenda por equipo', 'Ein Kalender pro Team'],
 	'landing.card.team.text': [
-		'Everyone on the team sees and edits the same meetings.',
-		'Toute l’équipe voit et modifie les mêmes rendez-vous.',
-		'Todo el equipo ve y edita las mismas citas.',
-		'Das ganze Team sieht und bearbeitet dieselben Termine.'
+		'Everyone on the team sees and edits the same meetings, updated live.',
+		'Toute l’équipe voit et modifie les mêmes rendez-vous, mis à jour en direct.',
+		'Todo el equipo ve y edita las mismas citas, actualizadas al momento.',
+		'Das ganze Team sieht und bearbeitet dieselben Termine, live aktualisiert.'
 	],
 	'landing.card.phone.title': ['On your phone', 'Sur votre téléphone', 'En tu móvil', 'Auf Ihrem Telefon'],
 	'landing.card.phone.text': [

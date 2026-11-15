@@ -79,6 +79,10 @@ export type AgendaEvent = {
 	status: string;
 	conference_url: string;
 	conference_provider: string;
+	/** The app an event is mirrored from ("opus"), empty for Agenda's own events. */
+	source: string;
+	external_id: string;
+	external_url: string;
 	created_by: EventCreator | null;
 	created_at: string;
 	updated_at: string;
@@ -96,6 +100,16 @@ export type CreateEventRequest = {
 	conference_url?: string;
 	conference_provider?: string;
 	timezone?: string;
+};
+
+/** A Sablier session or Echo call of the signed-in user; end_at is null while it runs. */
+export type Activity = {
+	id: number;
+	source: 'sablier' | 'echo';
+	title: string;
+	start_at: string;
+	end_at: string | null;
+	url: string;
 };
 
 export type SpaceItem = {
@@ -320,6 +334,9 @@ export const backend = {
 			method: 'POST',
 			body: JSON.stringify(data)
 		});
+	},
+	listActivities(from: string, to: string) {
+		return apiFetch<Activity[]>(`/activities?${new URLSearchParams({ from, to })}`);
 	},
 	getEvent(eventId: number) {
 		return apiFetch<AgendaEvent>(`/events/${eventId}/`);

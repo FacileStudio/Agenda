@@ -2,6 +2,15 @@ import type { Row } from '../row';
 
 /** Strings of the event form and of the recurrence field. */
 export const event = {
+	'event.opusTitle': ['Opus task', 'Tâche Opus', 'Tarea de Opus', 'Opus-Aufgabe'],
+	'event.opusNote': [
+		'This task comes from Opus and is read-only here. Change it in Opus and Agenda follows.',
+		'Cette tâche vient d’Opus et se lit seulement ici. Modifiez-la dans Opus, Agenda suit.',
+		'Esta tarea viene de Opus y aquí es de solo lectura. Cámbiala en Opus y Agenda la sigue.',
+		'Diese Aufgabe kommt aus Opus und ist hier schreibgeschützt. Ändere sie in Opus, Agenda zieht nach.'
+	],
+	'event.openInOpus': ['Open in Opus', 'Ouvrir dans Opus', 'Abrir en Opus', 'In Opus öffnen'],
+	'event.due': ['Due {date}', 'Échéance le {date}', 'Vence el {date}', 'Fällig am {date}'],
 	'event.editTitle': ['Edit event', 'Modifier l’événement', 'Editar evento', 'Termin bearbeiten'],
 	'event.newTitle': ['New event', 'Nouvel événement', 'Nuevo evento', 'Neuer Termin'],
 	'event.title': ['Title', 'Titre', 'Título', 'Titel'],

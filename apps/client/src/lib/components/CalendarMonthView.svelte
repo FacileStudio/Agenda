@@ -11,6 +11,7 @@
 	import type { AgendaEvent, CalendarItem } from '$lib/backend';
 	import { eventKey } from '$lib/recurrence';
 	import EventAvatar from '$lib/components/EventAvatar.svelte';
+	import SourceBadge from '$lib/components/SourceBadge.svelte';
 	import { calendarColor, inkOn } from '$lib/calendar-colors';
 	import { MONDAY_FIRST, t } from '$lib/i18n/index.svelte';
 	import { formatTime, weekdayName } from '$lib/i18n/format';
@@ -58,7 +59,7 @@
 	};
 
 	function canEdit(event: AgendaEvent): boolean {
-		if (event.recurrence_rule) return false;
+		if (event.recurrence_rule || event.source) return false;
 		return calendars.find((c) => c.id === event.calendar_id)?.role !== 'reader';
 	}
 
@@ -326,6 +327,7 @@
 						>
 							<EventAvatar creator={seg.event.created_by} class="mr-1 size-3.5" />
 							<span class="min-w-0 truncate">{seg.event.title}</span>
+							<SourceBadge event={seg.event} class="ml-1 hidden sm:inline-flex" />
 						</button>
 					{/if}
 				{/each}

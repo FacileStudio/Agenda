@@ -5,9 +5,11 @@
 		getLocalTimeZone,
 		startOfWeek
 	} from '@internationalized/date';
-	import type { AgendaEvent, CalendarItem } from '$lib/backend';
+	import type { Activity, AgendaEvent, CalendarItem } from '$lib/backend';
+	import ActivityStrips from '$lib/components/ActivityStrips.svelte';
 	import { eventKey } from '$lib/recurrence';
 	import EventAvatar from '$lib/components/EventAvatar.svelte';
+	import SourceBadge from '$lib/components/SourceBadge.svelte';
 	import { calendarColor, inkOn } from '$lib/calendar-colors';
 	import { MONDAY_FIRST, t } from '$lib/i18n/index.svelte';
 	import { formatTime, weekdayName } from '$lib/i18n/format';
@@ -16,6 +18,7 @@
 
 	let {
 		events,
+		activities = [],
 		calendars,
 		currentDate,
 		onSlotClick,
@@ -26,6 +29,7 @@
 		onEventClick
 	}: {
 		events: AgendaEvent[];
+		activities?: Activity[];
 		calendars: CalendarItem[];
 		currentDate: CalendarDate;
 		onSlotClick: (date: CalendarDate, hour: number) => void;
@@ -176,7 +180,7 @@
 	let columns: (HTMLElement | undefined)[] = [];
 
 	function canEdit(event: AgendaEvent): boolean {
-		if (event.recurrence_rule) return false;
+		if (event.recurrence_rule || event.source) return false;
 		return calendars.find((c) => c.id === event.calendar_id)?.role !== 'reader';
 	}
 
@@ -243,6 +247,7 @@
 						>
 							<EventAvatar creator={seg.event.created_by} class="mr-1 size-3.5" />
 							<span class="min-w-0 truncate">{seg.event.title}</span>
+							<SourceBadge event={seg.event} class="ml-1 hidden sm:inline-flex" />
 						</button>
 					{/each}
 				</div>
@@ -289,7 +294,7 @@
 							type="button"
 							onpointerdown={(e) => drag.startEvent(e, event, 'move', di)}
 							oncontextmenu={(e) => onEventMenu(e, event)}
-							class="absolute right-0.5 left-0.5 flex {editable ? 'cursor-grab' : 'cursor-pointer'} {drag.isDragging(event) ? 'opacity-40' : ''} flex-col items-start overflow-hidden rounded-md px-1.5 py-1 text-left text-xs leading-tight font-medium shadow-sm transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+							class="absolute right-2 left-0.5 flex {editable ? 'cursor-grab' : 'cursor-pointer'} {drag.isDragging(event) ? 'opacity-40' : ''} flex-col items-start overflow-hidden rounded-md px-1.5 py-1 text-left text-xs leading-tight font-medium shadow-sm transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
 							style="{getEventStyle(event)} background-color: {fill}; color: {inkOn(fill)};"
 							onclick={() => onEventClick(event)}
 						>
@@ -316,11 +321,13 @@
 						</button>
 					{/each}
 
+					<ActivityStrips {activities} day={day.toDate(tz)} slotHeight={SLOT_HEIGHT} />
+
 					{#if drag.preview && drag.preview.column === di}
 						{@const range = drag.preview.range}
 						{@const ghostFill = drag.gesture?.event ? getCalendarColor(drag.gesture.event.calendar_id) : null}
 						<div
-							class="pointer-events-none absolute right-0.5 left-0.5 z-30 overflow-hidden rounded-md px-1.5 py-1 text-xs leading-tight font-semibold shadow-md ring-2 ring-primary"
+							class="pointer-events-none absolute right-2 left-0.5 z-30 overflow-hidden rounded-md px-1.5 py-1 text-xs leading-tight font-semibold shadow-md ring-2 ring-primary"
 							style="top: {(range.start / 60) * SLOT_HEIGHT + 1}px; height: {((range.end - range.start) / 60) * SLOT_HEIGHT - 2}px; background-color: {ghostFill ?? 'var(--color-primary)'}; color: {ghostFill ? inkOn(ghostFill) : 'var(--color-primary-foreground)'};"
 						>
 							{formatTime(atMinutes(day.toDate(tz), range.start))} – {formatTime(atMinutes(day.toDate(tz), range.end))}
