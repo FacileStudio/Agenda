@@ -2,6 +2,23 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.25.0] - 2026-11-16
+
+### Added
+
+- The calendar updates live. A change made by another person, another tab, a CalDAV client, an MCP agent, the Opus mirror or straight in the database shows up within a second, without a reload. A drag or an open dialog is never interrupted; the view catches up when it closes.
+- `GET /api/live`, a Server-Sent Events stream of change notices, filtered to the calendars the caller can read.
+- Sablier time sessions and Echo calls appear as thin strips beside the week and day columns, for their own user only. A running session grows until now. Hover shows the title and times, a click opens it. Toggle each source in the calendar filter; the choice is kept per browser.
+- `GET /api/activities?from=&to=` lists the caller's own sessions and calls.
+- Opus tasks carry an Opus badge and open a read-only sheet with an "Open in Opus" link.
+
+### Changed
+
+- An Opus task with a due date now lands in its team's calendar when it belongs to a Registre space, and in the assignee's personal calendar otherwise. The per-user "Opus tasks" calendars are emptied into each owner's personal calendar and removed at the first boot.
+- Opus tasks can no longer be dragged or duplicated in the web client.
+- The landing says Opus tasks reach the team calendar and that meetings update live.
+- antenne-client v1.2.0.
+
 ## [0.24.0] - 2026-11-15
 
 ### Added
