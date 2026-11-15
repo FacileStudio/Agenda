@@ -35,7 +35,29 @@
 	const tz = getLocalTimeZone();
 
 	let currentDate = $state<CalendarDate>(today(tz));
-	let view = $state<ViewType>('month');
+	const VIEW_KEY = 'agenda.view';
+	const VIEWS: ViewType[] = ['month', 'week', 'day', 'agenda'];
+
+	function loadView(): ViewType {
+		try {
+			const saved = localStorage.getItem(VIEW_KEY);
+			if (saved && (VIEWS as string[]).includes(saved)) return saved as ViewType;
+		} catch {
+			return 'week';
+		}
+		return 'week';
+	}
+
+	function setView(next: ViewType) {
+		view = next;
+		try {
+			localStorage.setItem(VIEW_KEY, next);
+		} catch {
+			return;
+		}
+	}
+
+	let view = $state<ViewType>(loadView());
 	let events = $state<AgendaEvent[]>([]);
 	let loading = $state(false);
 
@@ -211,7 +233,7 @@
 						<Tooltip text={label} describe={false} class="contents">
 							<button
 								type="button"
-								onclick={() => (view = item.id)}
+								onclick={() => setView(item.id as ViewType)}
 								aria-pressed={active}
 								aria-label={label}
 								class="flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-fc-pill px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring {active
@@ -283,6 +305,10 @@
 				calendars={app.calendars}
 				{currentDate}
 				onDayClick={(date) => openCreateModal(date)}
+				onMoreClick={(date) => {
+					currentDate = date;
+					setView('day');
+				}}
 				onEventClick={openEditModal}
 			/>
 		{:else if view === 'week'}

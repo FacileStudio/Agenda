@@ -160,7 +160,7 @@
 		const duration = Math.max(endMinutes - startMinutes, 30);
 		const top = (startMinutes / 60) * SLOT_HEIGHT;
 		const height = (duration / 60) * SLOT_HEIGHT;
-		return `top: ${top}px; height: ${height}px;`;
+		return `top: ${top + 1}px; height: ${Math.max(height - 2, 0)}px;`;
 	}
 
 	function formatHour(h: number): string {

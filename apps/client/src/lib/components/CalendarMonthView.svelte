@@ -20,12 +20,14 @@
 		calendars,
 		currentDate,
 		onDayClick,
+		onMoreClick,
 		onEventClick
 	}: {
 		events: AgendaEvent[];
 		calendars: CalendarItem[];
 		currentDate: CalendarDate;
 		onDayClick: (date: CalendarDate) => void;
+		onMoreClick: (date: CalendarDate) => void;
 		onEventClick: (event: AgendaEvent) => void;
 	} = $props();
 
@@ -35,6 +37,9 @@
 	const MAX_VISIBLE_LANES = 3;
 	const DAY_HEADER_OFFSET = 32;
 	const CELL_INSET = 6;
+	const EVENT_ROW_HEIGHT = 22;
+	const CELL_BOTTOM_PAD = 6;
+	let cellHeight = $state(0);
 
 	type SpanningSegment = {
 		event: AgendaEvent;
@@ -140,12 +145,19 @@
 		return Math.min(Math.max(...segments.map((s) => s.lane)) + 1, MAX_VISIBLE_LANES);
 	}
 
-	function hiddenCountForDay(cell: CalendarDate, segments: SpanningSegment[], dayEvts: AgendaEvent[]): number {
+	function visibleSingleCount(total: number, lanes: number): number {
+		if (cellHeight === 0) return Math.min(total, 3);
+		const free = cellHeight - DAY_HEADER_OFFSET - lanes * LANE_HEIGHT - CELL_BOTTOM_PAD;
+		const fits = Math.max(0, Math.floor(free / EVENT_ROW_HEIGHT));
+		if (total <= fits) return total;
+		return Math.max(0, fits - 1);
+	}
+
+	function hiddenCountForDay(cell: CalendarDate, segments: SpanningSegment[], total: number, visible: number): number {
 		const hiddenSpanning = segments.filter(
 			(s) => s.lane >= MAX_VISIBLE_LANES && eventOverlapsDay(s.event, cell)
 		).length;
-		const hiddenSingle = Math.max(0, dayEvts.length - 3);
-		return hiddenSpanning + hiddenSingle;
+		return hiddenSpanning + (total - visible);
 	}
 
 	const todayDate = $derived(today(tz));
@@ -197,13 +209,21 @@
 					{@const dayEvts = singleDayEvents(cell)}
 					{@const inMonth = isCurrentMonth(cell)}
 					{@const today_cell = isToday(cell)}
-					{@const hidden = hiddenCountForDay(cell, segments, dayEvts)}
+					{@const visible = visibleSingleCount(dayEvts.length, lanes)}
+					{@const hidden = hiddenCountForDay(cell, segments, dayEvts.length, visible)}
 					<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 					<div
 						role="button"
 						tabindex="0"
-						class="group m-0.5 flex cursor-pointer flex-col rounded-fc-md bg-fc-surface p-1 text-left transition-colors hover:bg-fc-field focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring
-							{inMonth ? '' : 'opacity-40'}"
+						class="group m-0.5 flex cursor-pointer flex-col rounded-fc-md p-1 text-left transition-colors hover:bg-fc-field focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring
+							{inMonth ? '' : 'opacity-40'}
+							{today_cell ? 'bg-primary/10 ring-2 ring-primary ring-inset' : 'bg-fc-surface'}"
+						bind:clientHeight={
+							() => cellHeight,
+							(h) => {
+								if (wi === 0 && ci === 0) cellHeight = h;
+							}
+						}
 						onclick={() => onDayClick(cell)}
 						onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') onDayClick(cell); }}
 					>
@@ -222,8 +242,8 @@
 							<div style="height: {lanes * LANE_HEIGHT}px;"></div>
 						{/if}
 
-						<div class="flex flex-col gap-0.5 overflow-hidden">
-							{#each dayEvts.slice(0, 3) as event (eventKey(event))}
+						<div class="flex min-h-0 flex-col gap-0.5 overflow-hidden">
+							{#each dayEvts.slice(0, visible) as event (eventKey(event))}
 								{@const fill = getCalendarColor(event.calendar_id)}
 								<button
 									type="button"
@@ -242,9 +262,16 @@
 								</button>
 							{/each}
 							{#if hidden > 0}
-								<span class="px-1 text-xs text-muted-foreground">
+								<button
+									type="button"
+									class="w-full cursor-pointer rounded-md px-1 py-0.5 text-left text-xs font-medium text-muted-foreground transition-colors hover:bg-fc-field hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+									onclick={(e) => {
+										e.stopPropagation();
+										onMoreClick(cell);
+									}}
+								>
 									{t('calendar.moreEvents', { count: hidden })}
-								</span>
+								</button>
 							{/if}
 						</div>
 					</div>

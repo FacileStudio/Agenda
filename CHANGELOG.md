@@ -2,6 +2,18 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.22.0] - 2026-11-15
+
+### Added
+
+- The calendar opens on the week view and remembers the last view you used.
+- Month view: today's cell has a tinted background and a ring.
+
+### Fixed
+
+- Month view: each day shows as many events as fit, and "+N more" is a button that opens that day.
+- Week and day views: events that touch keep rounded corners on all four sides.
+
 ## [0.21.2] - 2026-11-14
 
 ### Fixed
