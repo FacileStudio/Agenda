@@ -14,7 +14,10 @@ const TOOL_KEYS: Record<string, AppKey> = {
 	agenda_read_event: 'ideas.tool.agenda_read_event',
 	agenda_list_events: 'ideas.tool.agenda_list_events',
 	agenda_list_calendars: 'ideas.tool.agenda_list_calendars',
-	agenda_find_free_slots: 'ideas.tool.agenda_find_free_slots'
+	agenda_find_free_slots: 'ideas.tool.agenda_find_free_slots',
+	agenda_propose_plan: 'ideas.tool.agenda_propose_plan',
+	agenda_list_plans: 'ideas.tool.agenda_list_plans',
+	opus_search_tasks: 'ideas.tool.opus_search_tasks'
 };
 
 /** A readable name for a Bulle tool: Agenda's own are translated, others lose their prefix and underscores. */

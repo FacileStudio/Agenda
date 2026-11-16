@@ -43,7 +43,7 @@ type Batch struct {
 type RunStart struct {
 	RunID     string `json:"run_id"`
 	SessionID string `json:"session_id"`
-	IdeaID    string `json:"idea_id"`
+	IdeaID    string `json:"idea_id,omitempty"`
 }
 
 // Output is one call of a run that changed the user's data. URL is empty
@@ -100,4 +100,32 @@ func runState(status string, pending int) string {
 		return StateFailed
 	}
 	return StateRunning
+}
+
+// PageContext is the app page a run starts from, such as Agenda's calendar
+// view. App must be the app that starts the run; Bulle checks the rest and
+// answers 400 for a page without an id or an https URL.
+type PageContext struct {
+	App   string `json:"app"`
+	ID    string `json:"id"`
+	Title string `json:"title"`
+	URL   string `json:"url"`
+}
+
+// StartRunRequest starts a run for the signed-in user. Prompt is what the
+// user typed or the app's fixed template, never text from a third party:
+// Bulle treats it as the owner's own message. Bulle caps it at 2000
+// characters and Title at 120.
+type StartRunRequest struct {
+	SpaceID string       `json:"space_id,omitempty"`
+	Title   string       `json:"title,omitempty"`
+	Prompt  string       `json:"prompt"`
+	Page    *PageContext `json:"page,omitempty"`
+}
+
+// Profile is the user's assistant as an app's Bulle button shows it. Both
+// fields are empty until the user sets them.
+type Profile struct {
+	Name      string `json:"name"`
+	AvatarURL string `json:"avatar_url"`
 }

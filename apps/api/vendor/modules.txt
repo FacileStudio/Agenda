@@ -27,7 +27,7 @@ github.com/FacileStudio/porte/forfait
 # github.com/FacileStudio/porte/mcpauth v0.3.1
 ## explicit; go 1.26.11
 github.com/FacileStudio/porte/mcpauth
-# github.com/FacileStudio/tronc v0.23.1
+# github.com/FacileStudio/tronc v0.27.0
 ## explicit; go 1.26.11
 github.com/FacileStudio/tronc/apiref
 github.com/FacileStudio/tronc/bulle

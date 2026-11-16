@@ -2,10 +2,10 @@
 	import { onDestroy, onMount, setContext } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { UserMenu, getI18n, icons, ideasNavItem, toast, type UserMenuInvitations } from '@facile/muse';
+	import { UserMenu, toast, type UserMenuInvitations } from '@facile/muse';
 	import { ApiError, backend, type UserProfile, type CalendarItem } from '$lib/backend';
 	import { sortCalendars } from '$lib/calendar-filter.svelte';
-	import IdeasButton from '$lib/components/IdeasButton.svelte';
+	import HeaderLinks from '$lib/components/HeaderLinks.svelte';
 	import { onLiveChange, startLive } from '$lib/live';
 	import { requestReload } from '$lib/live-reload';
 	import { ideasSpaceId, ideasStore } from '$lib/ideas.svelte';
@@ -13,8 +13,6 @@
 	import { theme, type ThemePreference } from '$lib/theme.svelte';
 
 	let { children } = $props();
-
-	const i18n = getI18n();
 
 	let user = $state<UserProfile | null>(null);
 	let loaded = $state(false);
@@ -113,21 +111,8 @@
 		await goto('/login');
 	}
 
-	const ideasEntry = $derived(ideasNavItem({ href: '/ideas', i18n }));
-
 	const userMenu = $derived({
-		items: [
-			{
-				label: ideasEntry.label,
-				icon: ideasEntry.icon,
-				href: ideasEntry.href
-			},
-			{ label: t('menu.calendar'), icon: icons.calendar, href: '/calendar' },
-			{ label: t('menu.spaces'), icon: icons.space, href: '/spaces' },
-			{ label: t('menu.members'), icon: icons.usersGroup, href: '/settings/members' }
-		],
 		settingsHref: '/settings',
-		subscription: { href: 'https://sso.facile.studio/spaces' },
 		helpHref: 'https://github.com/FacileStudio/Agenda/tree/main/docs',
 		invitations,
 		onSignOut: signOut,
@@ -148,7 +133,7 @@
 		{#if !page.url.pathname.startsWith('/calendar')}
 			<div class="flex shrink-0 items-center px-3 pt-3 sm:px-5">
 				<UserMenu user={navUser} trigger="avatar" {...userMenu} />
-				<IdeasButton class="ml-2" />
+				<HeaderLinks class="ml-2" />
 			</div>
 		{/if}
 		<main class="min-h-0 flex-1 overflow-auto overscroll-contain">

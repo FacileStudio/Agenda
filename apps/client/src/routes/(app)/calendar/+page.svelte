@@ -21,7 +21,7 @@
 		type MenuEntry,
 		type UserMenuOptions
 	} from '@facile/muse';
-	import { backend, type CalendarItem, type AgendaEvent, type CreateEventRequest } from '$lib/backend';
+	import { backend, type CalendarItem, type AgendaEvent, type CreateEventRequest, type PlanBlock } from '$lib/backend';
 	import CalendarMonthView from '$lib/components/CalendarMonthView.svelte';
 	import CalendarWeekView from '$lib/components/CalendarWeekView.svelte';
 	import CalendarDayView from '$lib/components/CalendarDayView.svelte';
@@ -35,7 +35,12 @@
 	import { contextMenu } from '$lib/context-menu.svelte';
 	import { menuIcons } from '$lib/menu-icons';
 	import CalendarFilter from '$lib/components/CalendarFilter.svelte';
-	import IdeasButton from '$lib/components/IdeasButton.svelte';
+	import HeaderLinks from '$lib/components/HeaderLinks.svelte';
+	import BulleTrigger from '$lib/components/BulleTrigger.svelte';
+	import BullePlanner from '$lib/components/BullePlanner.svelte';
+	import PlanBar from '$lib/components/PlanBar.svelte';
+	import { bulleStore } from '$lib/bulle.svelte';
+	import { ideasSpaceId } from '$lib/ideas.svelte';
 	import { calendarFilter, visibleCalendars } from '$lib/calendar-filter.svelte';
 	import { MONDAY_FIRST, t } from '$lib/i18n/index.svelte';
 	import { capitalize, formatDate } from '$lib/i18n/format';
@@ -77,6 +82,25 @@
 	}
 
 	let view = $state<ViewType>(loadView());
+	let labelled = $state(false);
+	let sidePanel = $state(false);
+
+	onMount(() => {
+		const label = matchMedia('(min-width: 640px)');
+		const side = matchMedia('(min-width: 1024px)');
+		const sync = () => {
+			labelled = label.matches;
+			sidePanel = side.matches;
+		};
+		sync();
+		label.addEventListener('change', sync);
+		side.addEventListener('change', sync);
+		void bulleStore.load(ideasSpaceId(app.calendars));
+		return () => {
+			label.removeEventListener('change', sync);
+			side.removeEventListener('change', sync);
+		};
+	});
 	let events = $state<AgendaEvent[]>([]);
 	let loading = $state(false);
 
@@ -204,6 +228,11 @@
 			case 'day': currentDate = currentDate.add({ days: direction }); break;
 			case 'agenda': currentDate = currentDate.add({ months: direction }); break;
 		}
+	}
+
+	function openGhost(block: PlanBlock) {
+		bulleStore.select(block.id);
+		bulleStore.panelOpen = true;
 	}
 
 	function goToday() { currentDate = today(tz); }
@@ -475,7 +504,8 @@
 	<header class="flex shrink-0 flex-col gap-2 px-3 pt-3 pb-2 sm:px-5">
 		<div class="flex flex-wrap items-center gap-2 sm:gap-3">
 			<UserMenu user={app.navUser} trigger="avatar" {...app.userMenu} />
-			<IdeasButton />
+			<HeaderLinks calendar={false} />
+			<BulleTrigger wide={labelled} />
 
 			<CalendarFilter calendars={app.calendars} />
 
@@ -551,8 +581,11 @@
 		</div>
 	</header>
 
+	<PlanBar onApplied={loadEvents} />
+
+	<div class="flex min-h-0 flex-1 overflow-hidden">
 	<!-- View area -->
-	<div class="min-h-0 flex-1 overflow-hidden">
+	<div class="min-h-0 min-w-0 flex-1 overflow-hidden">
 		{#if view === 'month'}
 			<CalendarMonthView
 				{events}
@@ -572,6 +605,10 @@
 			<CalendarWeekView
 				{events}
 				activities={activities.visible}
+				plan={bulleStore.plan}
+				dropped={bulleStore.dropped}
+				selected={bulleStore.selected}
+				onGhost={openGhost}
 				calendars={app.calendars}
 				{currentDate}
 				onSlotClick={openCreateAtHour}
@@ -585,6 +622,10 @@
 			<CalendarDayView
 				{events}
 				activities={activities.visible}
+				plan={bulleStore.plan}
+				dropped={bulleStore.dropped}
+				selected={bulleStore.selected}
+				onGhost={openGhost}
 				calendars={app.calendars}
 				{currentDate}
 				onSlotClick={(hour) => openCreateAtHour(currentDate, hour)}
@@ -603,6 +644,17 @@
 				onEventMenu={showEventMenu}
 			/>
 		{/if}
+	</div>
+
+	<BullePlanner
+		{view}
+		visibleDate={currentDate.toDate(tz)}
+		weekStart={startOfWeek(currentDate, MONDAY_FIRST).toDate(tz)}
+		weekEnd={endOfWeek(currentDate, MONDAY_FIRST).toDate(tz)}
+		periodLabel={capitalize(periodTitle())}
+		{sidePanel}
+		onApplied={loadEvents}
+	/>
 	</div>
 </div>
 

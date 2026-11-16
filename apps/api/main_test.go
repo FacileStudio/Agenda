@@ -67,6 +67,10 @@ var clientCalls = []struct {
 	{http.MethodPut, "/api/events/3/occurrences/2026-11-05"},
 	{http.MethodDelete, "/api/events/3/occurrences/2026-11-05"},
 	{http.MethodPost, "/api/events/3/occurrences/2026-11-05/restore"},
+	{http.MethodGet, "/api/plans/"},
+	{http.MethodGet, "/api/plans/4"},
+	{http.MethodPost, "/api/plans/4/apply"},
+	{http.MethodPost, "/api/plans/4/dismiss"},
 	{http.MethodGet, "/api/spaces/"},
 	{http.MethodGet, "/api/spaces/1/"},
 	{http.MethodGet, "/api/spaces/1/members"},
@@ -82,6 +86,10 @@ var clientCalls = []struct {
 	{http.MethodPost, "/api/ideas/i1/dismiss"},
 	{http.MethodGet, "/api/ideas/runs/r1"},
 	{http.MethodPost, "/api/ideas/runs/r1/approvals/c1"},
+	{http.MethodGet, "/api/bulle/profile"},
+	{http.MethodPost, "/api/bulle/runs"},
+	{http.MethodGet, "/api/bulle/runs/r1"},
+	{http.MethodPost, "/api/bulle/runs/r1/approvals/c1"},
 	{http.MethodGet, "/api/health"},
 	{http.MethodGet, "/api/ready"},
 	{http.MethodGet, "/health"},
@@ -305,7 +313,7 @@ func testMCP(t *testing.T) *mcp.Service {
 	refuse := func(context.Context, string, *http.Request) (*sdkauth.TokenInfo, error) {
 		return nil, sdkauth.ErrInvalidToken
 	}
-	service, err := mcp.NewService(nil, nil, mcp.Config{
+	service, err := mcp.NewService(nil, nil, nil, mcp.Config{
 		Resource: "https://agenda.example/mcp", Issuer: "https://sso.example", StateKey: []byte("k"),
 		Verifier: refuse, Pending: mcptest.NewPending(),
 	})

@@ -5,6 +5,7 @@ import (
 
 	"github.com/FacileStudio/Agenda/apps/api/modules/calendars"
 	"github.com/FacileStudio/Agenda/apps/api/modules/events"
+	"github.com/FacileStudio/Agenda/apps/api/modules/plans"
 	"github.com/FacileStudio/porte/mcpauth"
 	mcpkit "github.com/FacileStudio/tronc/mcp"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -20,6 +21,8 @@ const (
 	toolCreateEvent   = "agenda_create_event"
 	toolUpdateEvent   = "agenda_update_event"
 	toolDeleteEvent   = "agenda_delete_event"
+	toolProposePlan   = "agenda_propose_plan"
+	toolListPlans     = "agenda_list_plans"
 )
 
 // Hints appended to a not_found error, naming the tool that lists valid ids.
@@ -35,6 +38,7 @@ var errNoCaller = errors.New("this request carries no valid access token. Reconn
 type toolset struct {
 	calendars *calendars.Service
 	events    *events.Service
+	plans     *plans.Service
 	confirm   *mcpkit.Confirmations
 }
 

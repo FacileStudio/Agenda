@@ -84,8 +84,8 @@ func baselineUp(t *testing.T) string {
 // version through every migration in order.
 func TestUpBuildsAnEmptyDatabase(t *testing.T) {
 	db := openSchema(t, "agenda_migrations_fresh", runUp)
-	if got := appliedVersions(t, db); !slices.Equal(got, []int64{1, 2, 3, 4}) {
-		t.Fatalf("applied versions %v, want [1 2 3 4]", got)
+	if got := appliedVersions(t, db); !slices.Equal(got, []int64{1, 2, 3, 4, 5}) {
+		t.Fatalf("applied versions %v, want [1 2 3 4 5]", got)
 	}
 	if got := columnDefault(t, db, "users", "created_at"); got != "now()" {
 		t.Fatalf("users.created_at default %q, want now()", got)
@@ -135,8 +135,8 @@ func assertStampsLegacy(t *testing.T, prefix, ledger string) {
 	if err := runUp(db); err != nil {
 		t.Fatalf("up on a legacy database: %v", err)
 	}
-	if got := appliedVersions(t, db); !slices.Equal(got, []int64{1, 2, 3, 4}) {
-		t.Fatalf("applied versions %v, want the stamped baseline then 2, 3 and 4", got)
+	if got := appliedVersions(t, db); !slices.Equal(got, []int64{1, 2, 3, 4, 5}) {
+		t.Fatalf("applied versions %v, want the stamped baseline then 2 to 5", got)
 	}
 	if got := columnDefault(t, db, "users", "created_at"); got != "now()" {
 		t.Fatalf("users.created_at default %q, want now()", got)

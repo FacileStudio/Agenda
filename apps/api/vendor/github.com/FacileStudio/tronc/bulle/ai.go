@@ -3,18 +3,15 @@ package bulle
 import (
 	"context"
 	"encoding/json"
-	stderrors "errors"
 	"net/http"
 	"strings"
 )
 
 // ActingForHeader names, on a DecideAI call, the Bulle user the service
 // acts for.
+//
+// Deprecated: call DecideAI with the user's exchanged token and no ActingFor.
 const ActingForHeader = "X-Bulle-Acting-For"
-
-// ErrNoActingFor is returned before any call when a DecideRequest names no
-// user.
-var ErrNoActingFor = stderrors.New("bulle: DecideAI needs the email of the user it acts for")
 
 // CompleteRequest is one completion for the signed-in user. Input is
 // untrusted data the prompt works on, which Bulle fences off from the
@@ -58,9 +55,11 @@ type Question struct {
 	Options      []string `json:"options,omitempty"`
 }
 
-// DecideRequest asks Questions about State for the Bulle user whose email
-// is ActingFor.
+// DecideRequest asks Questions about State for the user the client's
+// TokenSource speaks for.
 type DecideRequest struct {
+	// Deprecated: leave ActingFor empty and call with the user's exchanged
+	// token. Set, it names the user a service-key call acts for.
 	ActingFor string              `json:"-"`
 	State     any                 `json:"state"`
 	Questions map[string]Question `json:"questions"`
@@ -88,19 +87,48 @@ type Decision struct {
 	Usage   Usage             `json:"usage"`
 }
 
-// DecideAI asks Bulle's POST /api/ai/decide. Unlike the other calls it runs
-// as the app's service: the TokenSource returns the service key Bulle knows
-// the app by, and ActingFor names the user, whose plan Bulle checks.
+// DecideAI asks Bulle's POST /api/ai/decide as the user the TokenSource
+// speaks for, with an exchanged token. A user without AI access gets
+// *PlanRequired; a 429 is a *StatusError. A request that sets the deprecated
+// ActingFor runs as the app's service instead, with the service key Bulle
+// knows the app by as the TokenSource.
 func (c *Client) DecideAI(ctx context.Context, req DecideRequest) (Decision, error) {
-	actingFor := strings.TrimSpace(req.ActingFor)
-	if actingFor == "" {
-		return Decision{}, ErrNoActingFor
+	call := Request{Method: http.MethodPost, Segments: []string{"ai", "decide"}, Body: req}
+	if actingFor := strings.TrimSpace(req.ActingFor); actingFor != "" {
+		call.Header = http.Header{ActingForHeader: {actingFor}}
 	}
 	var out Decision
-	call := Request{
-		Method: http.MethodPost, Segments: []string{"ai", "decide"}, Body: req,
-		Header: http.Header{ActingForHeader: {actingFor}},
-	}
 	err := c.Call(ctx, call, &out)
+	return out, err
+}
+
+// SummarySource is one document Summarize cites.
+type SummarySource struct {
+	Title   string `json:"title"`
+	URL     string `json:"url"`
+	Snippet string `json:"snippet"`
+}
+
+// SummarizeRequest asks for an answer to Query drawn from Sources. Bulle
+// takes 1 to 10 sources and a query of up to 500 bytes.
+type SummarizeRequest struct {
+	Query   string          `json:"query"`
+	Sources []SummarySource `json:"sources"`
+}
+
+// Summary is Bulle's answer, the indexes of the Sources it cites and the
+// model that wrote it.
+type Summary struct {
+	Summary   string `json:"summary"`
+	Citations []int  `json:"citations"`
+	Model     string `json:"model"`
+}
+
+// Summarize asks Bulle's POST /api/ai/summarize, as the user the TokenSource
+// speaks for. A user without AI access gets *PlanRequired; a 429 is a
+// *StatusError.
+func (c *Client) Summarize(ctx context.Context, req SummarizeRequest) (Summary, error) {
+	var out Summary
+	err := c.Call(ctx, Request{Method: http.MethodPost, Segments: []string{"ai", "summarize"}, Body: req}, &out)
 	return out, err
 }

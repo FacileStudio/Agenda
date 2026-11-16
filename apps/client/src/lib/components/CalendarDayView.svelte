@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { type CalendarDate, today, getLocalTimeZone } from '@internationalized/date';
 	import { Badge } from '@facile/muse';
-	import type { Activity, AgendaEvent, CalendarItem } from '$lib/backend';
+	import type { Activity, AgendaEvent, CalendarItem, Plan, PlanBlock } from '$lib/backend';
 	import { dayStrips, eventGutter, startOfDay } from '$lib/activity-lanes';
 	import ActivityStrips from '$lib/components/ActivityStrips.svelte';
+	import PlanGhosts from '$lib/components/PlanGhosts.svelte';
+	import { blocksOnDay } from '$lib/bulle';
 	import { eventKey } from '$lib/recurrence';
 	import EventAvatar from '$lib/components/EventAvatar.svelte';
 	import SourceBadge from '$lib/components/SourceBadge.svelte';
@@ -16,6 +18,10 @@
 	let {
 		events,
 		activities = [],
+		plan = null,
+		dropped = [],
+		selected = null,
+		onGhost = () => {},
 		calendars,
 		currentDate,
 		onSlotClick,
@@ -27,6 +33,10 @@
 	}: {
 		events: AgendaEvent[];
 		activities?: Activity[];
+		plan?: Plan | null;
+		dropped?: number[];
+		selected?: number | null;
+		onGhost?: (block: PlanBlock) => void;
 		calendars: CalendarItem[];
 		currentDate: CalendarDate;
 		onSlotClick: (hour: number) => void;
@@ -215,6 +225,8 @@
 					{/if}
 				</button>
 			{/each}
+
+			<PlanGhosts blocks={blocksOnDay(plan, currentDate.toDate(tz))} {dropped} {selected} {calendars} slotHeight={SLOT_HEIGHT_PX} onSelect={onGhost} />
 
 			<ActivityStrips {activities} day={currentDate.toDate(tz)} slotHeight={SLOT_HEIGHT_PX} />
 

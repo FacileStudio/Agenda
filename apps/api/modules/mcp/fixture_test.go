@@ -11,6 +11,7 @@ import (
 
 	"github.com/FacileStudio/Agenda/apps/api/modules/calendars"
 	"github.com/FacileStudio/Agenda/apps/api/modules/events"
+	"github.com/FacileStudio/Agenda/apps/api/modules/plans"
 	"github.com/FacileStudio/Agenda/apps/api/schemas"
 	"github.com/FacileStudio/porte"
 	"github.com/FacileStudio/porte/mcpauth"
@@ -136,7 +137,7 @@ func (f *fixture) build(t *testing.T) *Service {
 		t.Fatal(err)
 	}
 	f.events = events.NewService(f.db).WithOutbox(bus.New(true))
-	service, err := NewService(calendars.NewService(f.db), f.events, Config{
+	service, err := NewService(calendars.NewService(f.db), f.events, plans.NewService(f.db, f.events), Config{
 		Resource: f.resource, Issuer: f.issuer.URL, Version: "test", StateKey: []byte("state-key"), Verifier: verifier,
 		Pending: mcpkit.PostgresPending{DB: sqlDB}, PerMinute: f.perMinute,
 	})

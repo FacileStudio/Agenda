@@ -199,7 +199,40 @@ export type IdeaRunResponse = {
 	outputs: { call_id: string; tool: string; url: string; preview: string }[] | null;
 	pending_approvals: { call_id: string; tool: string; args: unknown }[] | null;
 	continue_url: string;
+	started_at?: string;
 };
+
+export type BulleProfile = { name: string; avatar_url: string };
+
+/** What Bulle needs to know of the page a run starts from. */
+export type BullePage = { app: 'agenda'; id: string; title: string; url: string };
+
+export type PlanBlock = {
+	id: number;
+	task_ref: string;
+	task_url: string;
+	title: string;
+	start_at: string;
+	end_at: string;
+	calendar_id: number;
+	reason: string;
+	event_id: number | null;
+};
+
+export type Plan = {
+	id: number;
+	space_id: number | null;
+	title: string;
+	timezone: string;
+	state: 'proposed' | 'applied' | 'dismissed';
+	expired: boolean;
+	warnings: string[];
+	blocks: PlanBlock[];
+	created_at: string;
+	expires_at: string;
+};
+
+export type ApplyPlanResponse = { plan: Plan; events: AgendaEvent[] };
 
 export const REGISTRE_SPACES_URL = 'https://sso.facile.studio/spaces';
 
@@ -280,6 +313,38 @@ export const backend = {
 			method: 'POST',
 			body: JSON.stringify({ approve })
 		});
+	},
+
+	bulleProfile() {
+		return apiFetch<BulleProfile>('/bulle/profile', {}, { quiet: true });
+	},
+	startBulleRun(prompt: string, title: string, page: BullePage | undefined, spaceId: number | null) {
+		return apiFetch<{ run_id: string; session_id: string }>(`/bulle/runs${spaceQuery(spaceId)}`, {
+			method: 'POST',
+			body: JSON.stringify({ prompt, title, page })
+		});
+	},
+	bulleRun(runId: string) {
+		return apiFetch<IdeaRunResponse>(`/bulle/runs/${encodeURIComponent(runId)}`);
+	},
+	decideBulleRun(runId: string, callId: string, approve: boolean) {
+		return apiFetch<object>(`/bulle/runs/${encodeURIComponent(runId)}/approvals/${encodeURIComponent(callId)}`, {
+			method: 'POST',
+			body: JSON.stringify({ approve })
+		});
+	},
+
+	listPlans(state: Plan['state'], limit = 5) {
+		return apiFetch<Plan[]>(`/plans/?${new URLSearchParams({ state, limit: String(limit) })}`);
+	},
+	applyPlan(id: number, blockIds: number[], force: boolean) {
+		return apiFetch<ApplyPlanResponse>(`/plans/${id}/apply`, {
+			method: 'POST',
+			body: JSON.stringify({ block_ids: blockIds, force })
+		});
+	},
+	dismissPlan(id: number) {
+		return apiFetch<Plan>(`/plans/${id}/dismiss`, { method: 'POST' });
 	},
 
 	listCalendars(spaceId?: number) {

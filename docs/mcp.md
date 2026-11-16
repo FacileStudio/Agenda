@@ -21,9 +21,18 @@ write tool, so the client can ask for more.
 | `agenda_list_events` | Events between `from` and `to`, recurring ones per occurrence; `query` searches title, description and location | read-only, open world |
 | `agenda_read_event` | One event in full: description, attendees, reminders, recurrence | read-only, open world |
 | `agenda_find_free_slots` | Free windows of at least `duration_minutes` inside working hours, around every calendar's events | read-only |
+| `agenda_list_plans` | Plan drafts proposed for the person, with their blocks and whether they applied or dismissed them; `state` filters | read-only, open world |
+| `agenda_propose_plan` | Save a draft schedule of 1 to 60 blocks (task link, title, start, end, calendar, reason) inside the next 4 weeks. Changes no calendar: the person applies it in Agenda | write |
 | `agenda_create_event` | Add an event, to the personal calendar unless `calendar_id` is set | write |
 | `agenda_update_event` | Change only the fields given; a new start keeps the length. A new schedule on a recurring event drops occurrences edited one by one | destructive |
 | `agenda_delete_event` | Delete an event for good; always confirmed by the person | destructive |
+
+A plan is a draft. `agenda_propose_plan` validates every block (a calendar the person can write
+to, no overlap with an event or another block, 5 minutes to 12 hours, titles under 200
+characters, reasons under 500) and stores titles, reasons and warnings as plain text, since a
+model that read untrusted content wrote them. A proposed plan expires after 7 days. The person
+applies all, some or none of it from `/api/plans`; applying creates the events in one transaction
+and writes the task link and the reason in each event's description.
 
 Times are RFC 3339 or dates (all-day events and range bounds). Pass the person's IANA
 `timezone`; the default is UTC. `agenda_list_events` pages with `cursor` and `next_cursor` and

@@ -5,12 +5,14 @@
 		getLocalTimeZone,
 		startOfWeek
 	} from '@internationalized/date';
-	import type { Activity, AgendaEvent, CalendarItem } from '$lib/backend';
+	import type { Activity, AgendaEvent, CalendarItem, Plan, PlanBlock } from '$lib/backend';
 	import { dayStrips, eventGutter, startOfDay } from '$lib/activity-lanes';
 	import ActivityStrips from '$lib/components/ActivityStrips.svelte';
 	import { eventKey } from '$lib/recurrence';
 	import EventAvatar from '$lib/components/EventAvatar.svelte';
 	import SourceBadge from '$lib/components/SourceBadge.svelte';
+	import PlanGhosts from '$lib/components/PlanGhosts.svelte';
+	import { blocksOnDay } from '$lib/bulle';
 	import { calendarColor, inkOn } from '$lib/calendar-colors';
 	import { MONDAY_FIRST, t } from '$lib/i18n/index.svelte';
 	import { formatTime, weekdayName } from '$lib/i18n/format';
@@ -20,6 +22,10 @@
 	let {
 		events,
 		activities = [],
+		plan = null,
+		dropped = [],
+		selected = null,
+		onGhost = () => {},
 		calendars,
 		currentDate,
 		onSlotClick,
@@ -31,6 +37,10 @@
 	}: {
 		events: AgendaEvent[];
 		activities?: Activity[];
+		plan?: Plan | null;
+		dropped?: number[];
+		selected?: number | null;
+		onGhost?: (block: PlanBlock) => void;
 		calendars: CalendarItem[];
 		currentDate: CalendarDate;
 		onSlotClick: (date: CalendarDate, hour: number) => void;
@@ -322,6 +332,8 @@
 							</span>
 						</button>
 					{/each}
+
+					<PlanGhosts blocks={blocksOnDay(plan, day.toDate(tz))} {dropped} {selected} {calendars} slotHeight={SLOT_HEIGHT} onSelect={onGhost} />
 
 					<ActivityStrips {activities} day={day.toDate(tz)} slotHeight={SLOT_HEIGHT} />
 

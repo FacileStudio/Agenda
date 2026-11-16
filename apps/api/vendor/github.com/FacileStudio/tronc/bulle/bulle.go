@@ -1,5 +1,6 @@
 // Package bulle is the client a suite app uses to reach Bulle: the per-app
-// Ideas API and Complete as the signed-in user, and DecideAI as the app's
+// Ideas API, StartRun and Profile for the app's Bulle button, and Complete
+// as the signed-in user, and DecideAI as the app's
 // service. The token comes from a TokenSource: porte/exchange's Source for
 // the user (audience bulle, scopes bulle.read and bulle.write), or the
 // app's service key for DecideAI. This package does not import porte.
