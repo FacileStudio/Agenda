@@ -2,6 +2,17 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.26.1] - 2026-11-16
+
+### Changed
+
+- The calendar header drops the Spaces and Ideas buttons, and the Bulle button shows the blob alone.
+
+### Fixed
+
+- The planner side panel has its own fill and padding.
+- When Bulle refuses a run (for example a used-up monthly AI allowance), the panel says why instead of failing silently.
+
 ## [0.26.0] - 2026-11-16
 
 ### Added
