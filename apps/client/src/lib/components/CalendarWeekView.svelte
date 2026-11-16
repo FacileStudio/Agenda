@@ -6,6 +6,7 @@
 		startOfWeek
 	} from '@internationalized/date';
 	import type { Activity, AgendaEvent, CalendarItem } from '$lib/backend';
+	import { dayStrips, eventGutter, startOfDay } from '$lib/activity-lanes';
 	import ActivityStrips from '$lib/components/ActivityStrips.svelte';
 	import { eventKey } from '$lib/recurrence';
 	import EventAvatar from '$lib/components/EventAvatar.svelte';
@@ -269,6 +270,7 @@
 			</div>
 
 			{#each weekDays() as day, di (day.toString())}
+				{@const strips = dayStrips(activities, startOfDay(day.toDate(tz)), Date.now())}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div
 					bind:this={columns[di]}
@@ -294,8 +296,8 @@
 							type="button"
 							onpointerdown={(e) => drag.startEvent(e, event, 'move', di)}
 							oncontextmenu={(e) => onEventMenu(e, event)}
-							class="absolute right-2 left-0.5 flex {editable ? 'cursor-grab' : 'cursor-pointer'} {drag.isDragging(event) ? 'opacity-40' : ''} flex-col items-start overflow-hidden rounded-md px-1.5 py-1 text-left text-xs leading-tight font-medium shadow-sm transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
-							style="{getEventStyle(event)} background-color: {fill}; color: {inkOn(fill)};"
+							class="absolute left-0.5 flex {editable ? 'cursor-grab' : 'cursor-pointer'} {drag.isDragging(event) ? 'opacity-40' : ''} flex-col items-start overflow-hidden rounded-md px-1.5 py-1 text-left text-xs leading-tight font-medium shadow-sm transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+							style="{getEventStyle(event)} right: {eventGutter(strips, event.start_at, event.end_at)}px; background-color: {fill}; color: {inkOn(fill)};"
 							onclick={() => onEventClick(event)}
 						>
 							{#if editable}

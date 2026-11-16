@@ -2,6 +2,7 @@
 	import { type CalendarDate, today, getLocalTimeZone } from '@internationalized/date';
 	import { Badge } from '@facile/muse';
 	import type { Activity, AgendaEvent, CalendarItem } from '$lib/backend';
+	import { dayStrips, eventGutter, startOfDay } from '$lib/activity-lanes';
 	import ActivityStrips from '$lib/components/ActivityStrips.svelte';
 	import { eventKey } from '$lib/recurrence';
 	import EventAvatar from '$lib/components/EventAvatar.svelte';
@@ -75,6 +76,8 @@
 
 	const dayEvents = $derived(events.filter((e) => !e.is_all_day && !isMultiDay(e) && isSameDay(e.start_at, currentDate)));
 	const allDayEvents = $derived(events.filter((e) => (e.is_all_day || isMultiDay(e)) && eventOverlapsDay(e, currentDate)));
+
+	const strips = $derived(dayStrips(activities, startOfDay(currentDate.toDate(tz)), Date.now()));
 
 	function getEventStyle(event: AgendaEvent): string {
 		const start = new Date(event.start_at);
@@ -181,8 +184,8 @@
 					type="button"
 					onpointerdown={(e) => drag.startEvent(e, event, 'move', 0)}
 					oncontextmenu={(e) => onEventMenu(e, event)}
-					class="absolute right-2 left-14 flex {editable ? 'cursor-grab' : 'cursor-pointer'} {drag.isDragging(event) ? 'opacity-40' : ''} flex-col items-start overflow-hidden rounded-md px-1.5 py-1 text-left text-xs leading-tight font-medium shadow-sm transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
-					style="{getEventStyle(event)} background-color: {fill}; color: {inkOn(fill)};"
+					class="absolute left-14 flex {editable ? 'cursor-grab' : 'cursor-pointer'} {drag.isDragging(event) ? 'opacity-40' : ''} flex-col items-start overflow-hidden rounded-md px-1.5 py-1 text-left text-xs leading-tight font-medium shadow-sm transition-[filter] hover:brightness-90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+					style="{getEventStyle(event)} right: {eventGutter(strips, event.start_at, event.end_at)}px; background-color: {fill}; color: {inkOn(fill)};"
 					onclick={() => onEventClick(event)}
 				>
 					{#if editable}
