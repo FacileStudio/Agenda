@@ -35,7 +35,6 @@
 	import { contextMenu } from '$lib/context-menu.svelte';
 	import { menuIcons } from '$lib/menu-icons';
 	import CalendarFilter from '$lib/components/CalendarFilter.svelte';
-	import HeaderLinks from '$lib/components/HeaderLinks.svelte';
 	import BulleTrigger from '$lib/components/BulleTrigger.svelte';
 	import BullePlanner from '$lib/components/BullePlanner.svelte';
 	import PlanBar from '$lib/components/PlanBar.svelte';
@@ -82,22 +81,17 @@
 	}
 
 	let view = $state<ViewType>(loadView());
-	let labelled = $state(false);
 	let sidePanel = $state(false);
 
 	onMount(() => {
-		const label = matchMedia('(min-width: 640px)');
 		const side = matchMedia('(min-width: 1024px)');
 		const sync = () => {
-			labelled = label.matches;
 			sidePanel = side.matches;
 		};
 		sync();
-		label.addEventListener('change', sync);
 		side.addEventListener('change', sync);
 		void bulleStore.load(ideasSpaceId(app.calendars));
 		return () => {
-			label.removeEventListener('change', sync);
 			side.removeEventListener('change', sync);
 		};
 	});
@@ -504,8 +498,7 @@
 	<header class="flex shrink-0 flex-col gap-2 px-3 pt-3 pb-2 sm:px-5">
 		<div class="flex flex-wrap items-center gap-2 sm:gap-3">
 			<UserMenu user={app.navUser} trigger="avatar" {...app.userMenu} />
-			<HeaderLinks calendar={false} />
-			<BulleTrigger wide={labelled} />
+			<BulleTrigger />
 
 			<CalendarFilter calendars={app.calendars} />
 

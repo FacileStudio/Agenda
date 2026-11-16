@@ -33,7 +33,7 @@
 	const upgradeHref = $derived(upsell ? (safeHref(store.upgradeUrl || ideasStore.upgradeUrl || '') ?? REGISTRE_SPACES_URL) : undefined);
 	const runView = $derived(store.run ? runOf(store.run, t) : null);
 	const approval = $derived<ApprovalRequest | undefined>(runView?.approval);
-	const error = $derived(store.error ? t(store.error) : null);
+	const error = $derived(store.error ? [t(store.error), store.errorDetail].filter(Boolean).join(' ') : null);
 	const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 	function start(kind: PlanKind) {
@@ -69,7 +69,7 @@
 		{upgradeHref}
 		upsellText={t('bulle.upsell', { name: store.name })}
 		actions={sidePanel ? closeButton : undefined}
-		class="bg-transparent p-0 sm:p-1"
+		class={sidePanel ? '' : 'bg-transparent p-0'}
 	>
 		<div class="flex flex-col gap-4">
 			<p class="m-0 text-fc-sm text-fc-fg-muted">{t('bulle.intro', { name: store.name })}</p>
@@ -124,7 +124,7 @@
 {#if store.available}
 	{#if sidePanel}
 		{#if store.panelOpen}
-			<aside class="w-[26rem] shrink-0 overflow-y-auto pr-3 pb-3" aria-label={t('bulle.title', { name: store.name })}>
+			<aside class="w-[26rem] shrink-0 overflow-y-auto pr-5 pb-5" aria-label={t('bulle.title', { name: store.name })}>
 				{@render body()}
 			</aside>
 		{/if}
