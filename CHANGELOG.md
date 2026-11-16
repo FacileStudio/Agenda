@@ -2,7 +2,13 @@
 
 All notable changes to Agenda are documented here.
 
-## [0.26.1] - 2026-11-16
+## [0.27.0] - 2026-11-16
+
+### Removed
+
+- The Ideas and Spaces pages. Bulle's ideas live in the Bulle panel, and spaces are managed in Registre: the Members settings link there.
+
+ - 2026-11-16
 
 ### Changed
 

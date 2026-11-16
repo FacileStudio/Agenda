@@ -6,7 +6,7 @@
 	 */
 	import { getContext } from 'svelte';
 	import { Badge, Button, SettingsRow, SettingsSection, Table, Tooltip, icons, toast } from '@facile/muse';
-	import type { CalendarItem, UserProfile } from '$lib/backend';
+	import { REGISTRE_SPACES_URL, type CalendarItem, type UserProfile } from '$lib/backend';
 	import CreateCalendarModal from '$lib/components/CreateCalendarModal.svelte';
 	import ManageCalendarModal from '$lib/components/ManageCalendarModal.svelte';
 	import { t } from '$lib/i18n/index.svelte';
@@ -105,7 +105,7 @@
 											variant="ghost"
 											size="sm"
 											icon={icons.space}
-											href="/spaces/{calendar.space_id}"
+											href={REGISTRE_SPACES_URL}
 											aria-label={t('members.spaceMembers')}
 										>
 											<span class="hidden sm:inline">{t('common.members')}</span>
@@ -139,14 +139,14 @@
 		description={t('members.spacesText')}
 	>
 		{#snippet actions()}
-			<Button variant="secondary" href="/spaces" icon={icons.space}>{t('members.allSpaces')}</Button>
+			<Button variant="secondary" href={REGISTRE_SPACES_URL} icon={icons.space}>{t('members.allSpaces')}</Button>
 		{/snippet}
 
 		<SettingsRow
 			label={t('members.spaceRow')}
 			description={t('members.spaceRowText')}
 		>
-			<Button variant="secondary" href="/spaces" icon={icons.usersGroup}>{t('members.seeSpaces')}</Button>
+			<Button variant="secondary" href={REGISTRE_SPACES_URL} icon={icons.usersGroup}>{t('members.seeSpaces')}</Button>
 		</SettingsRow>
 	</SettingsSection>
 </div>
