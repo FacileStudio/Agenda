@@ -29,13 +29,16 @@ type Config struct {
 	Plans      Plans
 }
 
-// RegisterRoutes serves /ideas behind authentication on router.
+// RegisterRoutes serves /ideas and /bulle behind authentication on router.
 func RegisterRoutes(router chi.Router, service *Service, authService kit.Authenticator) error {
 	var mountErr error
 	router.Group(func(group chi.Router) {
 		group.Use(authService.RequireAuth)
 		group.Use(service.resolve)
 		mountErr = bulle.MountIdeas(group, service.options())
+		if mountErr == nil {
+			mountErr = bulle.MountBulle(group, service.options())
+		}
 	})
 	return mountErr
 }

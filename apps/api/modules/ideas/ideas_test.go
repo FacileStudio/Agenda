@@ -253,3 +253,35 @@ func TestEntitlementsSurviveARestart(t *testing.T) {
 		t.Fatalf("a user with no entitlement = %v, %v, want false after a restart", allowed, err)
 	}
 }
+
+func TestBulleRoutesAreBehindAuthAndTheRunNeedsAI(t *testing.T) {
+	db := openDB(t)
+	free, _, _ := seedSpace(t, db)
+	gate := plans.New(db, testIssuer, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err := gate.Apply(context.Background(), directory.Snapshot{Version: 1, EntitlementsRevision: 1}); err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t, db, gate)
+	for _, c := range []struct{ method, path string }{
+		{http.MethodGet, "/api/bulle/profile"},
+		{http.MethodPost, "/api/bulle/runs"},
+		{http.MethodGet, "/api/bulle/runs/r1"},
+		{http.MethodPost, "/api/bulle/runs/r1/approvals/c1"},
+	} {
+		if code := h.do(c.method, c.path, "").Code; code != http.StatusUnauthorized {
+			t.Errorf("%s %s without a session = %d, want 401", c.method, c.path, code)
+		}
+	}
+	user := strconv.FormatInt(free, 10)
+	if code := h.do(http.MethodGet, "/api/bulle/profile", user).Code; code != http.StatusOK {
+		t.Errorf("a free plan still reads the assistant profile, got %d", code)
+	}
+	before := h.calls.Load()
+	run := httptest.NewRequest(http.MethodPost, "/api/bulle/runs", strings.NewReader(`{"prompt":"Plan my week"}`))
+	run.Header.Set("X-Test-User", user)
+	rec := httptest.NewRecorder()
+	h.router.ServeHTTP(rec, run)
+	if rec.Code != http.StatusPaymentRequired || h.calls.Load() != before {
+		t.Errorf("a free plan's run = %d with %d Bulle calls, want 402 and none", rec.Code, h.calls.Load()-before)
+	}
+}

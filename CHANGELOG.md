@@ -6,7 +6,13 @@ All notable changes to Agenda are documented here.
 
 ### Added
 
+- The Bulle button in the calendar header carries your assistant's name. It opens a panel with Plan my week, Plan today and a free-text ask, shows Bulle's approval cards, and the plan it saves appears in the week and day views as pale blocks. Accept all, drop single blocks, or dismiss; a block that now overlaps an event is named and can be forced.
+- Calendar and Spaces links in the page header, since the avatar menu no longer lists them.
 - Plan drafts: `agenda_propose_plan` and `agenda_list_plans` MCP tools, and `/api/plans` routes to list, read, apply (all blocks or a subset, in one transaction) and dismiss. Proposing never changes a calendar.
+
+### Changed
+
+- muse v0.30.0 and tronc v0.27.0. The subscription link moved from the avatar menu to Settings, Preferences.
 
 ## [0.25.2] - 2026-11-16
 

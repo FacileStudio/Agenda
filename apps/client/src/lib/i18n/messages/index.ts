@@ -1,4 +1,5 @@
 import type { Catalogs, Message } from '@facile/muse';
+import { bulle } from './bulle';
 import { calendar } from './calendar';
 import { event } from './event';
 import { ideas } from './ideas';
@@ -15,6 +16,7 @@ import type { Row } from '../row';
 const rows = {
 	...shell,
 	...landing,
+	...bulle,
 	...calendar,
 	...event,
 	...ideas,
