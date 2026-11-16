@@ -246,8 +246,8 @@
 							onclick={() => onEventClick(seg.event)}
 						>
 							<EventAvatar creator={seg.event.created_by} class="mr-1 size-3.5" />
-							<span class="min-w-0 truncate">{seg.event.title}</span>
-							<SourceBadge event={seg.event} class="ml-1 hidden sm:inline-flex" />
+							<span class="mr-1 min-w-0 truncate">{seg.event.title}</span>
+							<SourceBadge event={seg.event} class="hidden sm:inline-flex" />
 						</button>
 					{/each}
 				</div>
