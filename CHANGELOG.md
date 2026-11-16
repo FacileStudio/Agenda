@@ -2,6 +2,12 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.25.1] - 2026-11-16
+
+### Security
+
+- The Vision tracker is served from Agenda's own origin as `/vision-tracker.js`, a pinned copy that only sends image beacons. `app.html` no longer loads a script from `vision.facile.studio`, and the CSP `script-src` no longer names it.
+
 ## [0.25.0] - 2026-11-16
 
 ### Added
