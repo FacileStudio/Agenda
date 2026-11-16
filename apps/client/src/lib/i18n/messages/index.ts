@@ -10,7 +10,6 @@ import { settings } from './settings';
 import { settingsAdmin } from './settings-admin';
 import { settingsApi } from './settings-api';
 import { shell } from './shell';
-import { spaces } from './spaces';
 import type { Row } from '../row';
 
 const rows = {
@@ -21,7 +20,6 @@ const rows = {
 	...event,
 	...ideas,
 	...recurrence,
-	...spaces,
 	...settings,
 	...settingsApi,
 	...settingsAdmin,
