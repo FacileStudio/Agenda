@@ -263,8 +263,13 @@ func TestSecurityConfigAllowsTheClientsInlineScripts(t *testing.T) {
 	config := securityConfig(dir, slog.New(slog.NewTextHandler(io.Discard, nil)))
 
 	scripts := config.CSPSources["script-src"]
-	if len(scripts) != 2 || scripts[0] != analyticsOrigin || !strings.HasPrefix(scripts[1], "'sha256-") {
-		t.Errorf("script-src = %v, want the Vision origin and the page's inline script hash", scripts)
+	if len(scripts) != 1 || !strings.HasPrefix(scripts[0], "'sha256-") {
+		t.Errorf("script-src = %v, want only the page's inline script hash", scripts)
+	}
+	for _, source := range scripts {
+		if strings.Contains(source, "vision.facile.studio") {
+			t.Errorf("script-src names the Vision origin %s", source)
+		}
 	}
 	if !slices.Contains(config.CSPSources["connect-src"], "https://api-ardoise.facile.studio") {
 		t.Errorf("connect-src = %v, want the Ardoise catalog origin", config.CSPSources["connect-src"])
