@@ -456,15 +456,13 @@ func redirectUnderAPI(w http.ResponseWriter, r *http.Request) {
 // Ardoise's public plan catalog and the icon API behind iconify-icon.
 var externalConnect = []string{"https://api-ardoise.facile.studio", "https://api.iconify.design"}
 
-const analyticsOrigin = "https://vision.facile.studio"
-
 // securityConfig extends tronc's default security headers with what the built
 // client needs: the inline scripts adapter-static writes into its pages, which
-// script-src 'self' would otherwise block, the Vision analytics script app.html
-// loads, and the external origins above. A client directory that cannot be
-// hashed is logged and leaves the default script policy, which only reports.
+// script-src 'self' would otherwise block, and the external origins above. A
+// client directory that cannot be hashed is logged and leaves the default
+// script policy, which only reports.
 func securityConfig(clientDir string, appLogger *slog.Logger) troncmiddleware.SecurityConfig {
-	sources := map[string][]string{"connect-src": externalConnect, "script-src": {analyticsOrigin}}
+	sources := map[string][]string{"connect-src": externalConnect}
 	if spa.Available(clientDir) {
 		hashes, err := spa.InlineScriptHashes(clientDir)
 		if err != nil {
