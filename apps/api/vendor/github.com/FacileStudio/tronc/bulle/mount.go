@@ -94,3 +94,34 @@ func (h *ideas) requireAI(w http.ResponseWriter, r *http.Request) bool {
 	writeError(w, plan)
 	return false
 }
+
+// MountBulle serves the app's Bulle button under /bulle on router, the same
+// router MountIdeas takes, so an app can start its own runs and show the
+// user's assistant:
+//
+//	GET  /bulle/profile                      {"name","avatar_url"}, free, no AI access needed
+//	POST /bulle/runs                         {"title"?,"prompt","page"?}, starts a run (402 without AI access)
+//	GET  /bulle/runs/{run}                   a run's state, outputs and approvals
+//	POST /bulle/runs/{run}/approvals/{call}  {"approve": bool}; approving needs AI access
+//
+// The app is always Options.App and the space Options.Space: the browser
+// names neither. The prompt must be what the user typed or a fixed template
+// of the app, never text from a third party. Mount it behind the app's
+// authentication, like MountIdeas.
+func MountBulle(router chi.Router, opts Options) error {
+	if !appName.MatchString(opts.App) {
+		return stderrors.New("bulle: App must be the app's name in Bulle, such as agenda")
+	}
+	client, err := New(Config{URL: opts.URL, TokenSource: opts.TokenSource, Forget: opts.Forget, HTTPClient: opts.HTTPClient})
+	if err != nil {
+		return err
+	}
+	h := &ideas{client: client, opts: opts}
+	router.Route("/bulle", func(r chi.Router) {
+		r.Get("/profile", h.profile)
+		r.Post("/runs", h.startRun)
+		r.Get("/runs/{run}", h.status)
+		r.Post("/runs/{run}/approvals/{call}", h.decide)
+	})
+	return nil
+}

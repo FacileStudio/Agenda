@@ -24,12 +24,12 @@ type PlanLimit interface {
 // Failure turns a service error into one a model can act on. A tronc error
 // for a bad argument or a missing precondition keeps its message. A missing
 // record keeps its message plus hint, which should name the tool that lists
-// valid ids. A plan refusal, a tronc payment_required or a PlanLimit, keeps
-// its message and names the upgrade page, so the model can tell the user
-// where to go. An unavailable dependency keeps its message, which says what
-// is down. Anything else becomes ErrUnavailable, so internal detail stays
-// out of the result. A nil err stays nil. Tools return the value as their
-// error, and the SDK sends it as an isError result.
+// valid ids. A tronc payment_required keeps its message and a PlanLimit says
+// nothing was done and names the feature; both name the upgrade page, so the
+// model can tell the user where to go. An unavailable dependency keeps its
+// message, which says what is down. Anything else becomes ErrUnavailable, so
+// internal detail stays out of the result. A nil err stays nil. Tools return
+// the value as their error, and the SDK sends it as an isError result.
 func Failure(err error, hint string) error {
 	if err == nil {
 		return nil
@@ -54,11 +54,31 @@ func Failure(err error, hint string) error {
 	}
 }
 
-// planLimit is the refusal of a PlanLimit, with its upgrade page when it is
-// safe to show.
+// featureLabels names the suite's forfait keys the way a person reads them.
+var featureLabels = map[string]string{
+	"ai.access":             "AI",
+	"courrier.mailboxes":    "mailboxes",
+	"echo.max_call_minutes": "call length",
+	"echo.max_participants": "participants",
+	"echo.recording":        "recording",
+	"nuage.storage_gb":      "storage",
+	"sonar.searches_daily":  "daily searches",
+}
+
+// planLimit is the refusal of a PlanLimit: it says nothing was done, names
+// the feature readably and adds the upgrade page when it is safe to show.
 func planLimit(limit PlanLimit) error {
 	feature, link := limit.PlanLimit()
-	return fmt.Errorf("%s", upgrade("the plan limit for "+feature+" is reached", safeLink(link)))
+	return fmt.Errorf("%s", upgrade("nothing was done: the plan limit for "+featureLabel(feature)+" is reached", safeLink(link)))
+}
+
+// featureLabel is the readable name of a forfait key, or the key itself when
+// the table does not know it.
+func featureLabel(key string) string {
+	if label, ok := featureLabels[key]; ok {
+		return label
+	}
+	return key
 }
 
 // safeLink is link when a client may show it, and empty otherwise.
