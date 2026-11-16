@@ -25,6 +25,7 @@ class BulleStore {
 	starting = $state(false);
 	approvalBusy = $state(false);
 	error = $state<AppKey | null>(null);
+	errorDetail = $state('');
 	plan = $state<Plan | null>(null);
 	dropped = $state<number[]>([]);
 	selected = $state<number | null>(null);
@@ -69,6 +70,7 @@ class BulleStore {
 		if (this.live) return;
 		this.starting = true;
 		this.error = null;
+		this.errorDetail = '';
 		this.phase = 'running';
 		this.run = { runId: null, view: null, error: null };
 		this.startedAt = new Date(Date.now() - CLOCK_SLACK_MS);
@@ -120,6 +122,7 @@ class BulleStore {
 		if (!plan || this.applying || ids.length === 0) return;
 		this.applying = true;
 		this.error = null;
+		this.errorDetail = '';
 		try {
 			const result = await backend.applyPlan(plan.id, ids, force);
 			toast.success(t('bulle.plan.applied', { count: result.events.length }));
@@ -172,6 +175,11 @@ class BulleStore {
 	}
 
 	private refuse(error: unknown): boolean {
+		if (error instanceof ApiError && error.status === 429) {
+			this.error = 'bulle.error.limit';
+			this.errorDetail = error.message;
+			return true;
+		}
 		if (!(error instanceof ApiError) || error.status !== 402) return false;
 		this.upgradeUrl = error.upgradeUrl ?? '';
 		return true;

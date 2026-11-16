@@ -39,6 +39,13 @@ export const bulle = {
 		'Die Planung ist fehlgeschlagen.'
 	],
 	'bulle.run.continue': ['Continue in Bulle', 'Continuer dans Bulle', 'Continuar en Bulle', 'In Bulle fortfahren'],
+	'bulle.button': ['Plan with AI', "Planifier avec l'IA", 'Planificar con IA', 'Mit KI planen'],
+	'bulle.error.limit': [
+		'Bulle refused for now.',
+		'Bulle refuse pour le moment.',
+		'Bulle se niega por ahora.',
+		'Bulle lehnt vorerst ab.'
+	],
 	'bulle.error.start': [
 		'Could not start the run. Try again.',
 		'Impossible de lancer la planification. Réessayez.',
