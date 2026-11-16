@@ -2,6 +2,17 @@
 
 All notable changes to Agenda are documented here.
 
+## [0.25.2] - 2026-11-16
+
+### Fixed
+
+- The Opus tag sits at the right edge of an event in the week, month and agenda views, not after its title.
+- A timed event leaves room at its right only for the Sablier and Echo strips that run during it. An event with no strip uses the full column.
+
+### Changed
+
+- Sablier and Echo strips are wider and easier to hover, a day with one source uses one lane, and the tooltip gives the source, the title, the time range and the duration.
+
 ## [0.25.1] - 2026-11-16
 
 ### Security
