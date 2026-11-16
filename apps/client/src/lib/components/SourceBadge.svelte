@@ -6,5 +6,5 @@
 </script>
 
 {#if event.source === 'opus'}
-	<Badge class="shrink-0 px-1.5 py-0 text-[0.625rem] {className}">Opus</Badge>
+	<Badge class="ml-auto shrink-0 px-1.5 py-0 text-[0.625rem] {className}">Opus</Badge>
 {/if}
