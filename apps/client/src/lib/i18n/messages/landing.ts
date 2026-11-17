@@ -157,7 +157,7 @@ export const landing = {
 		'Instala la CLI y ejecuta agenda login.',
 		'Installiere die CLI und führe agenda login aus.'
 	],
-	'landing.download.facile': ['Facile installer', 'Installeur Facile', 'Instalador de Facile', 'Facile-Installer'],
+	'landing.download.kit': ['kit', 'kit', 'kit', 'kit'],
 	'landing.download.script': ['Install script', 'Script d’installation', 'Script de instalación', 'Installationsskript'],
 	'landing.ctaTitle': ['Ready to plan the week?', 'Prêt à planifier la semaine ?', '¿Listo para planificar la semana?', 'Bereit, die Woche zu planen?'],
 	'landing.ctaText': [
