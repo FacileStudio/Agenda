@@ -11,6 +11,7 @@
   var base = "https://vision.facile.studio/api/e";
   var endpoint = base + "/p";
   var heartbeatEndpoint = base + "/h";
+  var flags = (navigator.webdriver === true ? 1 : 0) | (window.outerWidth === 0 && window.outerHeight === 0 ? 2 : 0);
 
   function visitorId() {
     var key = "_vs_id";
@@ -75,6 +76,7 @@
       language: navigator.language || "",
       screen_width: window.innerWidth,
       visitor_id: visitorId(),
+      b: flags,
       utm_source: utm.utm_source,
       utm_medium: utm.utm_medium,
       utm_campaign: utm.utm_campaign,
@@ -85,12 +87,14 @@
     img.src = endpoint + "?data=" + encodeURIComponent(JSON.stringify(data));
   }
 
-  function heartbeat() {
+  function heartbeat(interacted) {
     if (excluded()) return;
     var data = {
       hostname: location.hostname,
-      visitor_id: visitorId()
+      visitor_id: visitorId(),
+      b: flags
     };
+    if (interacted) data.interacted = true;
     var img = new Image();
     img.src = heartbeatEndpoint + "?data=" + encodeURIComponent(JSON.stringify(data));
   }
@@ -100,7 +104,7 @@
   function startHeartbeat() {
     if (hbTimer) return;
     heartbeat();
-    hbTimer = setInterval(heartbeat, 30000);
+    hbTimer = setInterval(function () { heartbeat(); }, 30000);
   }
 
   function stopHeartbeat() {
@@ -145,6 +149,7 @@
         hostname: location.hostname,
         path: cleanPath(location.pathname),
         visitor_id: visitorId(),
+        b: flags,
         event_name: name,
         event_props: props || {}
       };
@@ -155,6 +160,20 @@
 
   send();
   startHeartbeat();
+
+  var gestures = ["pointerdown", "keydown", "touchstart", "wheel"];
+  var gestureOpts = { capture: true, passive: true };
+
+  function engaged() {
+    for (var i = 0; i < gestures.length; i++) {
+      window.removeEventListener(gestures[i], engaged, gestureOpts);
+    }
+    heartbeat(true);
+  }
+
+  for (var g = 0; g < gestures.length; g++) {
+    window.addEventListener(gestures[g], engaged, gestureOpts);
+  }
 
   if (document.readyState === 'complete') {
     setTimeout(sendPerformance, 100);
