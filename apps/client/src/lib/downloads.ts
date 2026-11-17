@@ -12,7 +12,7 @@ export const CHECKSUMS_HREF = `${CLI_REPO}/releases/latest/download/checksums.tx
 /** The install commands of the agenda CLI, labelled in the current locale. */
 export function cliCommands(): CliCommand[] {
 	return [
-		{ label: t('landing.download.facile'), command: 'facile install agenda' },
+		{ label: t('landing.download.kit'), command: 'kit add agenda' },
 		{ label: t('landing.download.script'), command: `curl -fsSL https://raw.githubusercontent.com/FacileStudio/agenda-cli/main/install.sh | bash` }
 	];
 }
